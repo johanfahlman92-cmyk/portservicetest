@@ -3,9 +3,7 @@ import { CheckCircle, ChevronRight, Printer, CheckSquare, History, ArrowLeft,
          Search, CalendarPlus, X, Check, Wrench, AlertCircle, AlertTriangle,
          Minus, Pencil, Plus, ClipboardList } from 'lucide-react'
 import logo from '../image-1779305303942.png'
-import { protokollPunkter } from '../data/store.js'
-
-const PORTTYPER = Object.keys(protokollPunkter)
+import { protokollPunkter as defaultMallar } from '../data/store.js'
 
 // ── Nya statusalternativ (5 st) ────────────────────────────────────────────
 const STATUSES = [
@@ -75,15 +73,17 @@ function SignaturPad({ onChange }) {
 }
 
 // ── Protokollformulär (används för nytt OCH redigering) ───────────────────
-function ProtokollForm({ objekt: obj, entry = null, tekniker = [], onSpara, onAvbryt }) {
+function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, onSpara, onAvbryt }) {
   const isEdit = !!entry
-  const initPortTyp = entry?.portTyp || obj?.typ || 'Vikport'
-  const punkter     = protokollPunkter[initPortTyp] || protokollPunkter['Vikport']
+  const initPortTyp = entry?.portTyp || obj?.typ || Object.keys(mallar)[0] || 'Vikport'
+  const punkter     = mallar[initPortTyp] || Object.values(mallar)[0] || []
 
   const initStatuses = {}
   if (entry?.statuses) {
     Object.entries(entry.statuses).forEach(([k, v]) => { initStatuses[k] = normKod(v) })
   }
+
+  const PORTTYPER = Object.keys(mallar)
 
   const [portTyp,       setPortTyp]       = useState(initPortTyp)
   const [statuses,      setStatuses]      = useState(initStatuses)
@@ -95,7 +95,7 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], onSpara, onAv
   const [sparar,        setSparar]        = useState(false)
   const [expandNotis,   setExpandNotis]   = useState({})
 
-  const aktuellaPunkter = protokollPunkter[portTyp] || protokollPunkter['Vikport']
+  const aktuellaPunkter = mallar[portTyp] || []
 
   const setStatus   = (i, kod) => setStatuses(p => ({ ...p, [i]: p[i] === kod ? '' : kod }))
   const setNotering = (i, v)   => setNoteringar(p => ({ ...p, [i]: v }))
@@ -254,7 +254,8 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], onSpara, onAv
   )
 }
 
-export default function Protokoll({ objekt = [], tekniker = [], onUppdateraObjekt, onLaggTillBokning, onLoggAktivitet }) {
+export default function Protokoll({ objekt = [], tekniker = [], protokollMallar, onUppdateraObjekt, onLaggTillBokning, onLoggAktivitet }) {
+  const protokollPunkter = protokollMallar || defaultMallar
   const [vy,            setVy]            = useState('lista')    // lista | alla | form | detalj
   const [valdObjekt,    setValdObjekt]    = useState(null)
   const [valdEntry,     setValdEntry]     = useState(null)       // valt protokoll i historik
@@ -406,6 +407,7 @@ export default function Protokoll({ objekt = [], tekniker = [], onUppdateraObjek
             objekt={valdObjekt}
             entry={valdEntry}
             tekniker={tekniker}
+            mallar={protokollPunkter}
             onSpara={sparaProtokoll}
             onAvbryt={() => setRedigerar(false)}
           />
@@ -550,7 +552,7 @@ export default function Protokoll({ objekt = [], tekniker = [], onUppdateraObjek
           </div>
           <img src={logo} alt="" style={{ height: 36, marginLeft: 'auto' }} />
         </div>
-        <ProtokollForm objekt={valdObjekt} tekniker={tekniker} onSpara={sparaProtokoll} />
+        <ProtokollForm objekt={valdObjekt} tekniker={tekniker} mallar={protokollPunkter} onSpara={sparaProtokoll} />
       </div>
     )
   }
