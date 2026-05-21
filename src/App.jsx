@@ -554,7 +554,7 @@ export default function App() {
         {/* Topbar (mobil) */}
         {erMobil && (
           <div style={{
-            height: 52, flexShrink: 0, background: '#1a1917',
+            height: 52, flexShrink: 0, background: '#1C3461',
             display: 'flex', alignItems: 'center',
             padding: '0 16px', gap: 12,
           }}>
