@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip } from 'lucide-react'
+import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
+import NyttArende from './NyttArende.jsx'
 
 const statusLabel = { ny: 'Ny', pagAr: 'Pågår', atgardad: 'Åtgärdad' }
 const statusCls   = { ny: 'badge-red', pagAr: 'badge-amber', atgardad: 'badge-green' }
@@ -112,10 +113,11 @@ function ArendeDetalj({ a, tekniker, onUppdatera, onBack }) {
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], onUppdatera }) {
-  const [valt, setValt] = useState(null)
-  const [filter, setFilter] = useState('oppna')
-  const [sokText, setSokText] = useState('')
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onLaggTill, onLoggAktivitet }) {
+  const [valt,     setValt]     = useState(null)
+  const [filter,   setFilter]   = useState('oppna')
+  const [sokText,  setSokText]  = useState('')
+  const [visaForm, setVisaForm] = useState(false)
 
   const filtArenden = arenden.filter(a => {
     const statusOk = filter === 'alla' ? true : filter === 'oppna' ? a.status !== 'atgardad' : a.status === filter
@@ -133,10 +135,39 @@ export default function Arenden({ arenden = [], tekniker = [], onUppdatera }) {
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Ärenden</h1>
-        <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Öppna och pågående serviceärenden</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Ärenden</h1>
+          <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Öppna och pågående serviceärenden</p>
+        </div>
+        <button
+          onClick={() => setVisaForm(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            background: visaForm ? 'var(--c-surface)' : 'var(--c-teal)',
+            color: visaForm ? 'var(--c-text2)' : '#fff',
+            border: visaForm ? '1px solid var(--c-border)' : 'none',
+            cursor: 'pointer',
+          }}
+        >
+          {visaForm ? <><X size={14} /> Stäng</> : <><Plus size={14} /> Nytt ärende</>}
+        </button>
       </div>
+
+      {/* Inline-formulär */}
+      {visaForm && (
+        <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: '20px', marginBottom: 20 }}>
+          <NyttArende
+            kunder={kunder}
+            objekt={objekt}
+            setArenden={(a) => {
+              onLaggTill?.(a)
+              setVisaForm(false)
+            }}
+          />
+        </div>
+      )}
 
       <div style={{ position: 'relative', marginBottom: 10 }}>
         <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
