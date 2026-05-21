@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X } from 'lucide-react'
+import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import NyttArende from './NyttArende.jsx'
 
@@ -8,15 +8,97 @@ const statusCls   = { ny: 'badge-red', pagAr: 'badge-amber', atgardad: 'badge-gr
 const prioLabel   = { normal: 'Normal', hog: 'Hög', akut: 'Akut' }
 const prioCls     = { normal: 'badge-gray', hog: 'badge-amber', akut: 'badge-red' }
 
-function ArendeDetalj({ a, tekniker, onUppdatera, onBack }) {
-  const [visaTilldela, setVisaTilldela] = useState(false)
-  const [valdTekniker, setValdTekniker] = useState(a.tekniker || '')
-  const [sparar, setSparar] = useState(false)
-  const [dokument, setDokument] = useState(a.dokument || [])
+const FÄLT = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }
+
+function skrivUtArende(a) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Felanmälan #${a.nr}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;margin:0;padding:32px 40px;color:#1a1917;font-size:13px}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #1a1917}
+    .company{font-size:20px;font-weight:800;letter-spacing:-0.5px}
+    .company-sub{font-size:11px;color:#666;margin-top:2px}
+    .nr{font-size:22px;font-weight:700;text-align:right}
+    .nr-sub{font-size:11px;color:#666;text-align:right}
+    h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:20px 0 8px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #ddd;border-radius:8px;overflow:hidden}
+    .cell{padding:9px 13px;border-bottom:1px solid #ddd}
+    .cell:nth-child(odd){border-right:1px solid #ddd}
+    .cell:last-child,.cell:nth-last-child(2){border-bottom:none}
+    .lbl{font-size:10px;color:#888;margin-bottom:2px}
+    .val{font-weight:600}
+    .desc{border:1px solid #ddd;border-radius:8px;padding:12px;color:#444;line-height:1.7;min-height:60px}
+    .sigs{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px}
+    .sig{border-top:1px solid #333;padding-top:8px;font-size:11px;color:#666}
+    .work{border:1px solid #ddd;border-radius:8px;padding:12px;min-height:100px}
+    @media print{body{padding:16px 20px}}
+  </style></head><body>
+  <div class="top">
+    <div><div class="company">NMV Portservice</div><div class="company-sub">Felanmälan</div></div>
+    <div><div class="nr">#${a.nr}</div><div class="nr-sub">${a.datum || ''}</div></div>
+  </div>
+  <h3>Kund &amp; Port</h3>
+  <div class="grid">
+    <div class="cell"><div class="lbl">Kund</div><div class="val">${a.kund || '–'}</div></div>
+    <div class="cell"><div class="lbl">Port</div><div class="val">${a.namn || '–'}</div></div>
+    <div class="cell"><div class="lbl">Kontaktperson</div><div class="val">${a.kontakt || '–'}</div></div>
+    <div class="cell"><div class="lbl">Planerat besök</div><div class="val">${a.besok || '–'}</div></div>
+  </div>
+  <h3>Felinformation</h3>
+  <div class="grid">
+    <div class="cell"><div class="lbl">Feltyp</div><div class="val">${a.feltyp || '–'}</div></div>
+    <div class="cell"><div class="lbl">Prioritet</div><div class="val">${prioLabel[a.prioritet] || a.prioritet || '–'}</div></div>
+    <div class="cell"><div class="lbl">Tilldelad tekniker</div><div class="val">${a.tekniker || 'Ej tilldelad'}</div></div>
+    <div class="cell"><div class="lbl">Status</div><div class="val">${statusLabel[a.status] || a.status || '–'}</div></div>
+  </div>
+  ${a.beskrivning ? `<h3>Kundens beskrivning</h3><div class="desc">"${a.beskrivning}"</div>` : ''}
+  <h3>Utfört arbete (fylls i av tekniker)</h3>
+  <div class="work"></div>
+  <h3>Material &amp; reservdelar</h3>
+  <div class="work" style="min-height:60px"></div>
+  <div class="sigs">
+    <div class="sig">Teknikerns underskrift &amp; datum</div>
+    <div class="sig">Kundens underskrift &amp; datum</div>
+  </div>
+  </body></html>`
+  const w = window.open('', '_blank')
+  w.document.write(html)
+  w.document.close()
+  setTimeout(() => w.print(), 300)
+}
+
+function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt, onBack }) {
+  const [visaTilldela,  setVisaTilldela]  = useState(false)
+  const [valdTekniker,  setValdTekniker]  = useState(a.tekniker || '')
+  const [sparar,        setSparar]        = useState(false)
+  const [dokument,      setDokument]      = useState(a.dokument || [])
+  const [redigerar,     setRedigerar]     = useState(false)
+  const [editForm,      setEditForm]      = useState({})
+  const [visaProtokoll, setVisaProtokoll] = useState(false)
+  const [protokollSparad, setProtokollSparad] = useState(false)
+  const [protokollForm, setProtokollForm] = useState({
+    utfort: '', material: '', nastaService: '', status: 'ok', tekniker: a.tekniker || '',
+  })
+
+  const updEdit  = (k, v) => setEditForm(f => ({ ...f, [k]: v }))
+  const updProt  = (k, v) => setProtokollForm(f => ({ ...f, [k]: v }))
 
   const sparaDokument = async (nyaDok) => {
     setDokument(nyaDok)
     await onUppdatera(a.id, { dokument: nyaDok })
+  }
+
+  const startRedigera = () => {
+    setEditForm({ datum: a.datum || '', besok: a.besok || '', feltyp: a.feltyp || '', prioritet: a.prioritet || 'normal', beskrivning: a.beskrivning || '', kontakt: a.kontakt || '' })
+    setRedigerar(true)
+  }
+
+  const sparaRedigering = async () => {
+    setSparar(true)
+    await onUppdatera(a.id, editForm)
+    setSparar(false)
+    setRedigerar(false)
   }
 
   const tilldela = async () => {
@@ -34,9 +116,48 @@ function ArendeDetalj({ a, tekniker, onUppdatera, onBack }) {
     onBack()
   }
 
+  const sparaProtokoll = async () => {
+    setSparar(true)
+    const port = objekt.find(o => o.namn === a.namn || o.id === a.objektId)
+    if (port && onUppdateraObjekt) {
+      await onUppdateraObjekt(port.id, {
+        senaste: new Date().toISOString().slice(0, 10),
+        nasta:   protokollForm.nastaService || port.nasta,
+        status:  protokollForm.status,
+      })
+    }
+    await onUppdatera(a.id, {
+      status:    'atgardad',
+      protokoll: protokollForm.utfort,
+      material:  protokollForm.material,
+      tekniker:  protokollForm.tekniker || a.tekniker,
+    })
+    setSparar(false)
+    setProtokollSparad(true)
+    setTimeout(() => onBack(), 1800)
+  }
+
+  // Merge local edits for display
+  const vis = redigerar ? { ...a, ...editForm } : a
+
   return (
     <div>
-      <button className="btn" onClick={onBack} style={{ marginBottom: 16 }}>← Tillbaka</button>
+      {/* Topprad */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <button className="btn" onClick={onBack}>← Tillbaka</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => skrivUtArende(a)} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Printer size={13} /> Skriv ut
+          </button>
+          {a.status !== 'atgardad' && !redigerar && (
+            <button onClick={startRedigera} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Pencil size={13} /> Redigera
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Huvudkort */}
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
@@ -45,22 +166,69 @@ function ArendeDetalj({ a, tekniker, onUppdatera, onBack }) {
           </div>
           <span className={`badge ${statusCls[a.status]}`}>{statusLabel[a.status]}</span>
         </div>
-        {[
-          ['Feltyp', a.feltyp],
-          ['Prioritet', prioLabel[a.prioritet] || a.prioritet],
-          ['Öppnad', a.datum],
-          ['Kontakt', a.kontakt],
-          ['Tekniker', a.tekniker || 'Ej tilldelad'],
-          ['Planerat besök', a.besok || '–'],
-        ].map(([l, v]) => (
-          <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
-            <span style={{ color: 'var(--c-text2)' }}>{l}</span>
-            <span style={{ fontWeight: 500 }}>{v}</span>
+
+        {redigerar ? (
+          /* ── Redigeringsläge ── */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Öppnad</div>
+                <input type="date" value={editForm.datum} onChange={e => updEdit('datum', e.target.value)} style={FÄLT} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Planerat besök</div>
+                <input type="date" value={editForm.besok} onChange={e => updEdit('besok', e.target.value)} style={FÄLT} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Feltyp</div>
+                <select value={editForm.feltyp} onChange={e => updEdit('feltyp', e.target.value)} style={FÄLT}>
+                  {['Porten öppnar/stänger inte','Porten fastnar','Ovanliga ljud','Fjärrkontroll fungerar inte','Synlig skada','Annat'].map(f => <option key={f}>{f}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Prioritet</div>
+                <select value={editForm.prioritet} onChange={e => updEdit('prioritet', e.target.value)} style={FÄLT}>
+                  <option value="normal">Normal</option>
+                  <option value="hog">Hög</option>
+                  <option value="akut">Akut</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Kontaktperson</div>
+              <input value={editForm.kontakt} onChange={e => updEdit('kontakt', e.target.value)} style={FÄLT} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Beskrivning</div>
+              <textarea value={editForm.beskrivning} onChange={e => updEdit('beskrivning', e.target.value)} rows={3} style={{ ...FÄLT, resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={sparaRedigering} disabled={sparar}>{sparar ? 'Sparar…' : 'Spara ändringar'}</button>
+              <button className="btn" onClick={() => setRedigerar(false)}>Avbryt</button>
+            </div>
           </div>
-        ))}
+        ) : (
+          /* ── Visningsläge ── */
+          [
+            ['Feltyp', vis.feltyp],
+            ['Prioritet', prioLabel[vis.prioritet] || vis.prioritet],
+            ['Öppnad', vis.datum],
+            ['Kontakt', vis.kontakt],
+            ['Tekniker', vis.tekniker || 'Ej tilldelad'],
+            ['Planerat besök', vis.besok || '–'],
+          ].map(([l, v]) => (
+            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
+              <span style={{ color: 'var(--c-text2)' }}>{l}</span>
+              <span style={{ fontWeight: 500 }}>{v}</span>
+            </div>
+          ))
+        )}
       </div>
 
-      {a.beskrivning && (
+      {/* Beskrivning */}
+      {!redigerar && a.beskrivning && (
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="section-title">Kundens beskrivning</div>
           <div style={{ background: 'var(--c-bg)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.7 }}>
@@ -69,23 +237,87 @@ function ArendeDetalj({ a, tekniker, onUppdatera, onBack }) {
         </div>
       )}
 
+      {/* Tilldela tekniker */}
       {visaTilldela && (
         <div className="card" style={{ marginBottom: 12 }}>
           <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 10 }}>Tilldela tekniker</div>
-          <select
-            value={valdTekniker}
-            onChange={e => setValdTekniker(e.target.value)}
-            style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border2)', borderRadius: 6, background: 'var(--c-bg)', marginBottom: 10 }}
-          >
+          <select value={valdTekniker} onChange={e => setValdTekniker(e.target.value)}
+            style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', marginBottom: 10 }}>
             <option value="">– Välj tekniker –</option>
             {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary" onClick={tilldela} disabled={sparar || !valdTekniker}>
-              {sparar ? 'Sparar…' : 'Spara'}
-            </button>
+            <button className="btn btn-primary" onClick={tilldela} disabled={sparar || !valdTekniker}>{sparar ? 'Sparar…' : 'Spara'}</button>
             <button className="btn" onClick={() => setVisaTilldela(false)}>Avbryt</button>
           </div>
+        </div>
+      )}
+
+      {/* Serviceprotokoll */}
+      {a.status !== 'atgardad' && !redigerar && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <button
+            onClick={() => setVisaProtokoll(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>
+              <FileText size={14} color="var(--c-blue)" /> Skapa serviceprotokoll
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>{visaProtokoll ? '▲' : '▼'}</span>
+          </button>
+
+          {visaProtokoll && (
+            protokollSparad ? (
+              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--c-teal)', fontSize: 13 }}>
+                <CheckCircle size={15} /> Protokoll sparat — ärendet stängs…
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--c-border)', paddingTop: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Tekniker</div>
+                    <select value={protokollForm.tekniker} onChange={e => updProt('tekniker', e.target.value)} style={FÄLT}>
+                      <option value="">Välj tekniker…</option>
+                      {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Nästa service</div>
+                    <input type="date" value={protokollForm.nastaService} onChange={e => updProt('nastaService', e.target.value)} style={FÄLT} />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Utfört arbete *</div>
+                  <textarea value={protokollForm.utfort} onChange={e => updProt('utfort', e.target.value)}
+                    placeholder="Beskriv vad som gjordes…" rows={3} style={{ ...FÄLT, resize: 'vertical' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Material / reservdelar</div>
+                  <input value={protokollForm.material} onChange={e => updProt('material', e.target.value)} placeholder="t.ex. Fjäder, styrbox…" style={FÄLT} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>Portstatus efter åtgärd</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[['ok','OK'],['varning','Varning'],['försenad','Kräver uppföljning']].map(([v, l]) => (
+                      <button key={v} onClick={() => updProt('status', v)} style={{
+                        padding: '5px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer',
+                        border: `1px solid ${protokollForm.status === v ? 'var(--c-teal)' : 'var(--c-border)'}`,
+                        background: protokollForm.status === v ? 'var(--c-teal)22' : 'transparent',
+                        color: protokollForm.status === v ? 'var(--c-teal)' : 'var(--c-text2)',
+                        fontWeight: protokollForm.status === v ? 600 : 400,
+                      }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={sparaProtokoll} disabled={sparar || !protokollForm.utfort}
+                  style={{ padding: '9px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: protokollForm.utfort ? 'pointer' : 'not-allowed', opacity: protokollForm.utfort ? 1 : 0.5 }}
+                >
+                  {sparar ? 'Sparar…' : 'Spara protokoll & stäng ärende'}
+                </button>
+              </div>
+            )
+          )}
         </div>
       )}
 
@@ -97,8 +329,9 @@ function ArendeDetalj({ a, tekniker, onUppdatera, onBack }) {
         <DokumentZon dokument={dokument} onChange={sparaDokument} />
       </div>
 
-      {a.status !== 'atgardad' && (
-        <div style={{ display: 'flex', gap: 8 }}>
+      {/* Knappar */}
+      {a.status !== 'atgardad' && !redigerar && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {!visaTilldela && (
             <button className="btn btn-primary" onClick={() => setVisaTilldela(true)}>
               <UserPlus size={14} /> {a.tekniker ? 'Byt tekniker' : 'Tilldela tekniker'}
@@ -113,7 +346,7 @@ function ArendeDetalj({ a, tekniker, onUppdatera, onBack }) {
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onLaggTill, onLoggAktivitet }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onLoggAktivitet }) {
   const [valt,     setValt]     = useState(null)
   const [filter,   setFilter]   = useState('oppna')
   const [sokText,  setSokText]  = useState('')
@@ -130,7 +363,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
 
   if (valt) {
     const uppdaterat = arenden.find(a => a.id === valt.id) || valt
-    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} onUppdatera={onUppdatera} onBack={() => setValt(null)} />
+    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} objekt={objekt} onUppdatera={onUppdatera} onUppdateraObjekt={onUppdateraObjekt} onBack={() => setValt(null)} />
   }
 
   return (
