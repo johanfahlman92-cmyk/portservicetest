@@ -251,32 +251,36 @@ export default function App() {
   useEffect(() => {
     if (!user) return
     async function ladda() {
-      const [k, o, f, a, t, b, al, cfg, montCfg] = await Promise.all([
-        supabase.from('kunder').select('*').order('created_at'),
-        supabase.from('objekt').select('*').order('created_at'),
-        supabase.from('fastigheter').select('*').order('created_at'),
-        supabase.from('arenden').select('*').order('created_at'),
-        supabase.from('tekniker').select('namn').order('namn'),
-        supabase.from('bokningar').select('*').order('created_at'),
-        supabase.from('aktivitetslogg').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('app_config').select('data').eq('id', 'protokoll_mallar').maybeSingle(),
-        supabase.from('app_config').select('data').eq('id', 'montage_mallar').maybeSingle(),
-      ])
-      if (k.data) setKunder(k.data)
-      if (o.data) setObjekt(o.data.map(dbToObjekt))
-      if (f.data) setFastigheter(f.data)
-      if (a.data) setArenden(a.data)
-      if (t.data) setTekniker(t.data.map(x => x.namn))
-      if (al.data)  setAktivitetslogg(al.data)
-      if (cfg.data)     setProtokollMallar(cfg.data.data)
-      if (montCfg.data) setMontagemallar(montCfg.data.data)
-      if (b.data) {
-        const grouped = {}
-        for (const row of b.data) {
-          if (!grouped[row.datum]) grouped[row.datum] = []
-          grouped[row.datum].push({ supabaseId: row.id, tid: row.tid, typ: row.typ, namn: row.namn, kund: row.kund, tek: row.tek, arendeId: row.arende_id })
+      try {
+        const [k, o, f, a, t, b, al, cfg, montCfg] = await Promise.all([
+          supabase.from('kunder').select('*').order('created_at'),
+          supabase.from('objekt').select('*').order('created_at'),
+          supabase.from('fastigheter').select('*').order('created_at'),
+          supabase.from('arenden').select('*').order('created_at'),
+          supabase.from('tekniker').select('namn').order('namn'),
+          supabase.from('bokningar').select('*').order('created_at'),
+          supabase.from('aktivitetslogg').select('*').order('created_at', { ascending: false }).limit(100),
+          supabase.from('app_config').select('data').eq('id', 'protokoll_mallar').maybeSingle(),
+          supabase.from('app_config').select('data').eq('id', 'montage_mallar').maybeSingle(),
+        ])
+        if (k.data) setKunder(k.data)
+        if (o.data) setObjekt(o.data.map(dbToObjekt))
+        if (f.data) setFastigheter(f.data)
+        if (a.data) setArenden(a.data)
+        if (t.data) setTekniker(t.data.map(x => x.namn))
+        if (al.data)  setAktivitetslogg(al.data)
+        if (cfg.data)     setProtokollMallar(cfg.data.data)
+        if (montCfg.data) setMontagemallar(montCfg.data.data)
+        if (b.data) {
+          const grouped = {}
+          for (const row of b.data) {
+            if (!grouped[row.datum]) grouped[row.datum] = []
+            grouped[row.datum].push({ supabaseId: row.id, tid: row.tid, typ: row.typ, namn: row.namn, kund: row.kund, tek: row.tek, arendeId: row.arende_id })
+          }
+          setBokningar(grouped)
         }
-        setBokningar(grouped)
+      } catch (err) {
+        console.error('Fel vid dataladdning:', err)
       }
     }
     ladda()
@@ -301,7 +305,8 @@ export default function App() {
       const { data, error } = await supabase.from('kunder').insert(ny).select().single()
       if (error) throw error
       if (data) setKunder(prev => [...prev, data])
-    } catch (err) { toast('Kunde inte spara kund: ' + err.message, 'error') }
+      return true
+    } catch (err) { toast('Kunde inte spara kund: ' + err.message, 'error'); return false }
   }
 
   const snabbLaggTillKund = async (namn) => {

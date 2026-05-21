@@ -21,13 +21,16 @@ function KundForm({ initialVarden = null, onSpara, onAvbryt }) {
     adress:  initialVarden?.adress  || '',
     ort:     initialVarden?.ort     || '',
   })
-  const [fel, setFel] = useState(false)
+  const [fel,    setFel]    = useState(false)
+  const [sparar, setSparar] = useState(false)
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.namn.trim()) { setFel(true); return }
-    onSpara({ ...form, namn: form.namn.trim(), kontakt: form.kontakt.trim() })
+    setSparar(true)
+    await onSpara({ ...form, namn: form.namn.trim(), kontakt: form.kontakt.trim() })
+    setSparar(false)
   }
 
   return (
@@ -103,10 +106,14 @@ function KundForm({ initialVarden = null, onSpara, onAvbryt }) {
       )}
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-primary" onClick={submit}>
-          {redigering ? <><Check size={14} /> Spara ändringar</> : <><Plus size={14} /> Spara kund</>}
+        <button className="btn btn-primary" onClick={submit} disabled={sparar}
+          style={{ opacity: sparar ? 0.7 : 1 }}>
+          {sparar
+            ? 'Sparar…'
+            : redigering ? <><Check size={14} /> Spara ändringar</> : <><Plus size={14} /> Spara kund</>
+          }
         </button>
-        <button className="btn" onClick={onAvbryt}>Avbryt</button>
+        <button className="btn" onClick={onAvbryt} disabled={sparar}>Avbryt</button>
       </div>
     </div>
   )
@@ -272,9 +279,9 @@ export default function Kunder({ kunder = [], fastigheter = [], objekt = [], are
     k.ort?.toLowerCase().includes(sok.toLowerCase())
   )
 
-  const laggTillKund = (formData) => {
-    onLaggTill({ ...formData })
-    setVisaForm(false)
+  const laggTillKund = async (formData) => {
+    const ok = await onLaggTill({ ...formData })
+    if (ok !== false) setVisaForm(false)
   }
 
   const sparaRedigering = (formData) => {
