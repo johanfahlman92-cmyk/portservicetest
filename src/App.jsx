@@ -17,7 +17,7 @@ import Statistik from './views/Statistik.jsx'
 import Installningar from './views/Installningar.jsx'
 import KundPortal from './views/KundPortal.jsx'
 import { Menu, Search } from 'lucide-react'
-import { protokollPunkter as defaultProtokollMallar } from './data/store.js'
+import { protokollPunkter as defaultProtokollMallar, monteringPunkter as defaultMontagemallar } from './data/store.js'
 
 // ── Datakonvertering ──────────────────────────────────────────────────────────
 function dbToObjekt(row) {
@@ -190,6 +190,7 @@ export default function App() {
   const [bokningar,     setBokningar]     = useState({})
   const [aktivitetslogg,  setAktivitetslogg]  = useState([])
   const [protokollMallar, setProtokollMallar] = useState(defaultProtokollMallar)
+  const [montagemallar,   setMontagemallar]   = useState(defaultMontagemallar)
 
   // Toast-system
   const [toasts, setToasts] = useState([])
@@ -250,7 +251,7 @@ export default function App() {
   useEffect(() => {
     if (!user) return
     async function ladda() {
-      const [k, o, f, a, t, b, al, cfg] = await Promise.all([
+      const [k, o, f, a, t, b, al, cfg, montCfg] = await Promise.all([
         supabase.from('kunder').select('*').order('created_at'),
         supabase.from('objekt').select('*').order('created_at'),
         supabase.from('fastigheter').select('*').order('created_at'),
@@ -259,6 +260,7 @@ export default function App() {
         supabase.from('bokningar').select('*').order('created_at'),
         supabase.from('aktivitetslogg').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('app_config').select('data').eq('id', 'protokoll_mallar').maybeSingle(),
+        supabase.from('app_config').select('data').eq('id', 'montage_mallar').maybeSingle(),
       ])
       if (k.data) setKunder(k.data)
       if (o.data) setObjekt(o.data.map(dbToObjekt))
@@ -266,7 +268,8 @@ export default function App() {
       if (a.data) setArenden(a.data)
       if (t.data) setTekniker(t.data.map(x => x.namn))
       if (al.data)  setAktivitetslogg(al.data)
-      if (cfg.data) setProtokollMallar(cfg.data.data)
+      if (cfg.data)     setProtokollMallar(cfg.data.data)
+      if (montCfg.data) setMontagemallar(montCfg.data.data)
       if (b.data) {
         const grouped = {}
         for (const row of b.data) {
@@ -467,6 +470,11 @@ export default function App() {
     await supabase.from('app_config').upsert({ id: 'protokoll_mallar', data: mallar, uppdaterad: new Date().toISOString() })
   }
 
+  const sparaMontagemallar = async (mallar) => {
+    setMontagemallar(mallar)
+    await supabase.from('app_config').upsert({ id: 'montage_mallar', data: mallar, uppdaterad: new Date().toISOString() })
+  }
+
   const navigera = (p) => {
     setPage(p)
     if (erMobil) setSidomenyÖppen(false)
@@ -509,9 +517,9 @@ export default function App() {
     kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} />,
     kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objekt} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
     'nytt-arende': () => { navigera('arenden'); return null },
-    montering:   () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} />,
+    montering:   () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
-    installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} /> : null,
+    installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} /> : null,
   }
 
   return (

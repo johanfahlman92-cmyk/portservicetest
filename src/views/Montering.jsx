@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { CheckCircle, Printer, ChevronRight, Upload, FileText, X as XIcon, Search, AlertTriangle } from 'lucide-react'
+import { CheckCircle, Printer, ChevronRight, Upload, FileText, X as XIcon, AlertTriangle,
+         ChevronLeft, Edit2, Save, List, PlusCircle, Check } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 import KundVäljare from '../components/KundVäljare.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -44,8 +45,6 @@ function SignaturPad({ onChange }) {
 }
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
-const PORTTYPER = ['Vikport', 'Takskjutport', 'Lastbrygga', 'Grind']
-
 const FAROR = [
   { id: 'klamrisk',  label: 'Klämrisk',         beskrivning: 'Rörliga delar som kan klämma (portblad, skenor, fjädrar)' },
   { id: 'slagrisk',  label: 'Slagrisk',          beskrivning: 'Nedfallande eller rörliga delar som kan slå mot person' },
@@ -130,6 +129,9 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
       <td>${r.åtgärd||'–'}</td><td>${r.ansvarig||'–'}</td></tr>`
   }).join('')
   const egenRows = punkter.map((p, i) => {
+    if (p.startsWith('## ')) {
+      return `<tr style="background:#f3f2ef"><td colspan="3" style="font-weight:700;font-size:11px;color:#1D9E75;padding:7px 8px;letter-spacing:0.06em">${p.slice(3).toUpperCase()}</td></tr>`
+    }
     const st  = egenkontroll[i] || '–'
     const not = egenNoteringar[i] || ''
     const cls = st === 'OK' ? 'ok' : st === 'EJ' ? 'ej' : 'na'
@@ -279,32 +281,100 @@ function DokumentZon({ dokument = [], onChange }) {
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], onUppdateraObjekt, onLaggTillObjekt, onNyKund }) {
-  const [aktFlik,          setAktFlik]          = useState('info')
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund }) {
+  const effektivaMallar = montagemallar || EGENKONTROLL
+  const PORTTYPER = Object.keys(effektivaMallar)
 
+  // ── Vyläge ──
+  const [vy,            setVy]            = useState('ny')   // 'ny' | 'lista' | 'detalj'
+  const [valdProtokoll, setValdProtokoll] = useState(null)   // sparat protokoll + metadata
+  const [redigerar,     setRedigerar]     = useState(false)
+
+  // ── Redigerings-state (detaljvy) ──
+  const [editDatum,          setEditDatum]          = useState('')
+  const [editTekniker,       setEditTekniker]       = useState('')
+  const [editRisker,         setEditRisker]         = useState({})
+  const [editEgenkontroll,   setEditEgenkontroll]   = useState({})
+  const [editEgenNoteringar, setEditEgenNoteringar] = useState({})
+  const [sparaDetalj,        setSparaDetalj]        = useState(false)
+  const [sparatDetalj,       setSparatDetalj]       = useState(false)
+
+  // ── Ny-protokoll-state ──
+  const [aktFlik,          setAktFlik]          = useState('info')
   const [portNamn,         setPortNamn]         = useState('')
   const [teknikerNamn,     setTeknikerNamn]     = useState('')
   const [datum,            setDatum]            = useState(new Date().toISOString().slice(0, 10))
-  const [portTyp,          setPortTyp]          = useState(PORTTYPER[0])
+  const [portTyp,          setPortTyp]          = useState(PORTTYPER[0] || 'Vikport')
   const [adress,           setAdress]           = useState('')
   const [kund,             setKund]             = useState('')
   const [serviceIntervall, setServiceIntervall] = useState('12')
-
   const [risker,           setRisker]           = useState(tomsRisk)
   const [egenkontroll,     setEgenkontroll]     = useState({})
   const [egenNoteringar,   setEgenNoteringar]   = useState({})
-
   const [visaSignatur,     setVisaSignatur]     = useState(false)
   const [signaturbild,     setSignaturbild]     = useState(null)
   const [dokument,         setDokument]         = useState([])
+  const [sparad,           setSparad]           = useState(false)
+  const [sparar,           setSparar]           = useState(false)
 
-  const [sparad,  setSparad]  = useState(false)
-  const [sparar,  setSparar]  = useState(false)
+  const punkter = effektivaMallar[portTyp] || []
+  const okCount = punkter.filter((p, i) => !p.startsWith('## ') && egenkontroll[i] === 'OK').length
+  const ejCount = punkter.filter((p, i) => !p.startsWith('## ') && egenkontroll[i] === 'EJ').length
+  const naCount = punkter.filter((p, i) => !p.startsWith('## ') && egenkontroll[i] === 'NA').length
 
-  const punkter    = EGENKONTROLL[portTyp] || []
-  const okCount    = punkter.filter((_, i) => egenkontroll[i] === 'OK').length
-  const ejCount    = punkter.filter((_, i) => egenkontroll[i] === 'EJ').length
-  const naCount    = punkter.filter((_, i) => egenkontroll[i] === 'NA').length
+  // ── Alla sparade montageprotokoll ──
+  const alleaMontage = objekt
+    .filter(o => !o.arkiverad)
+    .flatMap(o => (o.historik || [])
+      .map((h, idx) => ({ ...h, objektId: o.id, objektNamn: o.namn, historikIdx: idx }))
+      .filter(h => h.typ === 'montering')
+    )
+    .sort((a, b) => new Date(b.datum) - new Date(a.datum))
+
+  // ── Öppna ett sparat protokoll ──
+  const öppnaProtokoll = (protokoll) => {
+    setValdProtokoll(protokoll)
+    setEditDatum(protokoll.datum || '')
+    setEditTekniker(protokoll.tekniker || '')
+    setEditRisker(JSON.parse(JSON.stringify(protokoll.risker || {})))
+    setEditEgenkontroll({ ...(protokoll.egenkontroll || {}) })
+    setEditEgenNoteringar({ ...(protokoll.egenNoteringar || {}) })
+    setRedigerar(false)
+    setSparatDetalj(false)
+    setVy('detalj')
+  }
+
+  // ── Spara redigeringar på ett sparat protokoll ──
+  const sparaDetaljEdit = async () => {
+    if (!valdProtokoll || !onUppdateraObjekt) return
+    setSparaDetalj(true)
+    const obj = objekt.find(o => o.id === valdProtokoll.objektId)
+    if (!obj) { setSparaDetalj(false); return }
+    const nyHistorik = [...(obj.historik || [])]
+    const mallar = effektivaMallar[valdProtokoll.portTyp] || []
+    const okC = mallar.filter((p, i) => !p.startsWith('## ') && editEgenkontroll[i] === 'OK').length
+    const ejC = mallar.filter((p, i) => !p.startsWith('## ') && editEgenkontroll[i] === 'EJ').length
+    const naC = mallar.filter((p, i) => !p.startsWith('## ') && editEgenkontroll[i] === 'NA').length
+    const uppdaterad = {
+      ...nyHistorik[valdProtokoll.historikIdx],
+      datum: editDatum,
+      tekniker: editTekniker,
+      risker: editRisker,
+      egenkontroll: editEgenkontroll,
+      egenNoteringar: editEgenNoteringar,
+      ok: okC, ej: ejC, na: naC,
+    }
+    nyHistorik[valdProtokoll.historikIdx] = uppdaterad
+    await onUppdateraObjekt(valdProtokoll.objektId, { historik: nyHistorik })
+    setValdProtokoll({ ...valdProtokoll, ...uppdaterad })
+    setSparaDetalj(false)
+    setRedigerar(false)
+    setSparatDetalj(true)
+    setTimeout(() => setSparatDetalj(false), 2500)
+  }
+
+  const setEditRisk = (id, fält, val) => setEditRisker(prev => ({ ...prev, [id]: { ...prev[id], [fält]: val } }))
+  const setEditEgen = (idx, val) => setEditEgenkontroll(prev => ({ ...prev, [idx]: val }))
 
   const kanSpara = portNamn.trim().length > 0
 
@@ -380,6 +450,236 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], onU
     border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)' }
   const lbl = { fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5, fontWeight: 500 }
 
+  // ── Stil-helpers ──
+  const inp2 = { width: '100%', padding: '8px 11px', fontSize: 13, boxSizing: 'border-box', border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-surface)', color: 'var(--c-text)' }
+
+  // ── Lista-vy ──
+  if (vy === 'lista') return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0, flex: 1 }}>Montageprotokoll</h1>
+        <button onClick={() => setVy('ny')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <PlusCircle size={14} /> Nytt protokoll
+        </button>
+      </div>
+
+      {alleaMontage.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--c-text3)' }}>
+          Inga sparade montageprotokoll ännu.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {alleaMontage.map((p, i) => {
+            const totalt = (effektivaMallar[p.portTyp] || []).filter(x => !x.startsWith('## ')).length
+            const avklarat = (p.ok || 0) + (p.ej || 0) + (p.na || 0)
+            return (
+              <div key={i} onClick={() => öppnaProtokoll(p)} style={{ cursor: 'pointer' }}>
+                <div className="card" style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 14, transition: 'background 0.12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--c-surface)'}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text)' }}>{p.objektNamn}</div>
+                    <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>
+                      {p.portTyp} · {p.kund || p.adress || '–'} · {p.datum}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    {p.ok > 0  && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#12302b', color: '#6ee7b7', fontWeight: 600 }}>✓ {p.ok}</span>}
+                    {p.ej > 0  && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#3d1818', color: '#fca5a5', fontWeight: 600 }}>✗ {p.ej}</span>}
+                    {p.na > 0  && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#2a2925', color: '#8a8880', fontWeight: 600 }}>N/A {p.na}</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text3)', flexShrink: 0 }}>{p.tekniker || '–'}</div>
+                  <ChevronRight size={14} color="var(--c-text3)" />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+
+  // ── Detalj-vy ──
+  if (vy === 'detalj' && valdProtokoll) {
+    const detaljMallar = effektivaMallar[valdProtokoll.portTyp] || []
+    const aktRisker = redigerar ? editRisker : (valdProtokoll.risker || {})
+    const aktEgen   = redigerar ? editEgenkontroll : (valdProtokoll.egenkontroll || {})
+    const aktNot    = redigerar ? editEgenNoteringar : (valdProtokoll.egenNoteringar || {})
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={() => setVy('lista')} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px' }}>
+            <ChevronLeft size={14} /> Tillbaka
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{valdProtokoll.objektNamn}</h1>
+            <div style={{ fontSize: 12, color: 'var(--c-text2)' }}>{valdProtokoll.portTyp} · Monteringsprotokoll</div>
+          </div>
+          {sparatDetalj && (
+            <span style={{ fontSize: 12, color: 'var(--c-teal)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Check size={13} /> Sparat
+            </span>
+          )}
+          {redigerar ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setRedigerar(false)} className="btn" style={{ padding: '7px 12px' }}>Avbryt</button>
+              <button onClick={sparaDetaljEdit} disabled={sparaDetalj} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Save size={13} /> {sparaDetalj ? 'Sparar…' : 'Spara ändringar'}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setRedigerar(true)} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Edit2 size={13} /> Redigera
+            </button>
+          )}
+        </div>
+
+        {/* Grundinfo */}
+        <div className="card">
+          {redigerar ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 4 }}>Datum</label>
+                <input type="date" value={editDatum} onChange={e => setEditDatum(e.target.value)} style={inp2} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 4 }}>Tekniker</label>
+                <select value={editTekniker} onChange={e => setEditTekniker(e.target.value)} style={inp2}>
+                  <option value="">– Välj –</option>
+                  {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
+                  <option value="Annan">Annan</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 20px' }}>
+              {[['Kund', valdProtokoll.kund], ['Adress', valdProtokoll.adress], ['Porttyp', valdProtokoll.portTyp],
+                ['Datum', valdProtokoll.datum], ['Tekniker', valdProtokoll.tekniker],
+                ['Serviceintervall', valdProtokoll.serviceIntervall ? `var ${valdProtokoll.serviceIntervall}:e mån` : '–'],
+              ].map(([lbl, val]) => (
+                <div key={lbl}>
+                  <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 600, textTransform: 'uppercase' }}>{lbl}</div>
+                  <div style={{ fontSize: 13, color: 'var(--c-text)', marginTop: 2 }}>{val || '–'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Riskbedömning */}
+        <div className="card">
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Riskbedömning – EN13241</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {FAROR.map(f => {
+              const r = aktRisker[f.id] || { nivå: 'Låg', åtgärd: '', ansvarig: '' }
+              return (
+                <div key={f.id} style={{ background: 'var(--c-bg)', borderRadius: 7, padding: '10px 12px', border: '1px solid var(--c-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: redigerar ? 10 : 4 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{f.label}</div>
+                      {!redigerar && <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{f.beskrivning}</div>}
+                    </div>
+                    {redigerar ? (
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        {RISKNIVÅER.map(niv => {
+                          const aktiv = r.nivå === niv
+                          const bg = aktiv ? (niv === 'Hög' ? '#b83333' : niv === 'Medel' ? '#b87000' : niv === 'Eliminerad' ? '#888' : 'var(--c-teal)') : 'var(--c-surface)'
+                          return (
+                            <button key={niv} onClick={() => setEditRisk(f.id, 'nivå', niv)} style={{ padding: '3px 8px', fontSize: 11, borderRadius: 5, cursor: 'pointer', border: `1.5px solid ${aktiv ? bg : 'var(--c-border)'}`, background: bg, color: aktiv ? '#fff' : 'var(--c-text2)', fontWeight: aktiv ? 600 : 400 }}>{niv}</button>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5,
+                        background: r.nivå === 'Hög' ? '#3d1818' : r.nivå === 'Medel' ? '#2d1e00' : r.nivå === 'Eliminerad' ? '#2a2925' : '#12302b',
+                        color: r.nivå === 'Hög' ? '#fca5a5' : r.nivå === 'Medel' ? '#fcd34d' : r.nivå === 'Eliminerad' ? '#8a8880' : '#6ee7b7',
+                      }}>{r.nivå}</span>
+                    )}
+                  </div>
+                  {redigerar ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
+                      <input value={r.åtgärd || ''} onChange={e => setEditRisk(f.id, 'åtgärd', e.target.value)} placeholder="Åtgärd…" style={{ ...inp2, fontSize: 12, padding: '6px 9px' }} />
+                      <input value={r.ansvarig || ''} onChange={e => setEditRisk(f.id, 'ansvarig', e.target.value)} placeholder="Ansvarig" style={{ ...inp2, fontSize: 12, padding: '6px 9px' }} />
+                    </div>
+                  ) : (r.åtgärd || r.ansvarig) ? (
+                    <div style={{ fontSize: 12, color: 'var(--c-text2)' }}>
+                      {r.åtgärd && <span>{r.åtgärd}</span>}
+                      {r.ansvarig && <span style={{ color: 'var(--c-text3)', marginLeft: 8 }}>· {r.ansvarig}</span>}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Egenkontroll */}
+        <div className="card">
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>
+            Egenkontroll – {valdProtokoll.portTyp}
+            {!redigerar && (
+              <span style={{ marginLeft: 12, fontSize: 11, fontWeight: 400, color: 'var(--c-text3)' }}>
+                {valdProtokoll.ok || 0} OK · {valdProtokoll.ej || 0} Ej OK · {valdProtokoll.na || 0} N/A
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {detaljMallar.map((p, i) => {
+              if (p.startsWith('## ')) {
+                return (
+                  <div key={i} style={{ margin: '10px 0 4px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-blue)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-blue)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{p.slice(3)}</span>
+                  </div>
+                )
+              }
+              const st = aktEgen[i]
+              const not = aktNot[i] || ''
+              return (
+                <div key={i} style={{ background: 'var(--c-bg)', borderRadius: 7, padding: '8px 12px', border: `1px solid ${redigerar && st === 'OK' ? 'var(--c-teal)' : redigerar && st === 'EJ' ? 'var(--c-red)' : 'var(--c-border)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12 }}>{p}</span>
+                    {redigerar ? (
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        {[['OK', 'var(--c-teal)', 'var(--c-teal-bg)', 'var(--c-teal-text)', '✓ OK'],
+                          ['EJ', 'var(--c-red)',  'var(--c-red-bg)',  'var(--c-red-text)',  '✗ Ej'],
+                          ['NA', '#888', '#e8e7e4', '#555', 'N/A']].map(([val, brd, bg, col, etk]) => (
+                          <button key={val} onClick={() => setEditEgen(i, val)} style={{ padding: '3px 8px', fontSize: 11, borderRadius: 5, cursor: 'pointer', border: `1.5px solid ${st === val ? brd : 'var(--c-border)'}`, background: st === val ? bg : 'transparent', color: st === val ? col : 'var(--c-text2)', fontWeight: st === val ? 600 : 400 }}>{etk}</button>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11, fontWeight: 600, flexShrink: 0,
+                        color: st === 'OK' ? 'var(--c-teal)' : st === 'EJ' ? 'var(--c-red)' : st === 'NA' ? 'var(--c-text3)' : 'var(--c-text3)',
+                      }}>{st === 'OK' ? '✓ OK' : st === 'EJ' ? '✗ Ej OK' : st === 'NA' ? 'N/A' : '–'}</span>
+                    )}
+                  </div>
+                  {redigerar && st === 'EJ' && (
+                    <input type="text" placeholder="Notering om avvikelse…" value={aktNot[i] || ''}
+                      onChange={e => setEditEgenNoteringar(prev => ({ ...prev, [i]: e.target.value }))}
+                      style={{ ...inp2, fontSize: 12, marginTop: 8 }} />
+                  )}
+                  {!redigerar && not && (
+                    <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 4, fontStyle: 'italic' }}>{not}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Signatur */}
+        {valdProtokoll.signatur && (
+          <div className="card">
+            <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 8 }}>Tekniker signatur</div>
+            <img src={valdProtokoll.signatur} alt="Signatur" style={{ maxWidth: 280, border: '1px solid var(--c-border)', borderRadius: 6 }} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ── Klar-vy ──
   if (sparad) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -410,9 +710,14 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], onU
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Montering</h1>
-        <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Monteringsprotokoll, riskbedömning EN13241 och egenkontroll</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Montering</h1>
+          <p style={{ color: 'var(--c-text2)', fontSize: 13, margin: 0 }}>Monteringsprotokoll, riskbedömning EN13241 och egenkontroll</p>
+        </div>
+        <button onClick={() => setVy('lista')} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+          <List size={14} /> Sparade ({alleaMontage.length})
+        </button>
       </div>
 
       {/* ── Ny port ── */}
@@ -471,7 +776,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], onU
             <div>
               <label style={lbl}>Porttyp</label>
               <select value={portTyp} onChange={e => setPortTyp(e.target.value)} style={inp}>
-                {PORTTYPER.map(t => <option key={t}>{t}</option>)}
+                {PORTTYPER.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
@@ -602,6 +907,13 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], onU
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {punkter.map((p, i) => {
+              if (p.startsWith('## ')) {
+                return (
+                  <div key={i} style={{ margin: '8px 0 2px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-blue)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-blue)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{p.slice(3)}</span>
+                  </div>
+                )
+              }
               const st = egenkontroll[i]
               return (
                 <div key={i} style={{

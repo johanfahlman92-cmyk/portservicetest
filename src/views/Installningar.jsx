@@ -17,8 +17,8 @@ const BTN_SEC = { padding: '8px 14px', background: 'transparent', color: 'var(--
 
 const SECTION = { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c-text3)', marginBottom: 10 }
 
-// ── Protokollmall-editor ──────────────────────────────────────────────────────
-function ProtokollMallar({ mallar = {}, onSpara }) {
+// ── Mall-editor (generisk – används för både service- och monteringsmallar) ────
+function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', beskrivning = 'Checklistor per porttyp' }) {
   const [lokala,     setLokala]     = useState(() => JSON.parse(JSON.stringify(mallar)))
   const [oppnaTyp,   setOppnaTyp]   = useState(null)
   const [nyTypNamn,  setNyTypNamn]  = useState('')
@@ -50,8 +50,18 @@ function ProtokollMallar({ mallar = {}, onSpara }) {
     markAndrad()
   }
 
+  const laggTillRubrik = (typ) => {
+    setLokala(m => ({ ...m, [typ]: [...(m[typ] || []), '## Ny rubrik'] }))
+    markAndrad()
+  }
+
   const uppdateraPunkt = (typ, idx, val) => {
-    setLokala(m => { const pts = [...m[typ]]; pts[idx] = val; return { ...m, [typ]: pts } })
+    setLokala(m => {
+      const pts = [...m[typ]]
+      const isHdr = (pts[idx] || '').startsWith('## ')
+      pts[idx] = isHdr ? '## ' + val : val
+      return { ...m, [typ]: pts }
+    })
     markAndrad()
   }
 
@@ -88,18 +98,13 @@ function ProtokollMallar({ mallar = {}, onSpara }) {
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ClipboardList size={15} color="var(--c-blue)" /> Protokollmallar
+            <ClipboardList size={15} color="var(--c-blue)" /> {titel}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
-            Checklistor per porttyp som används vid serviceprotokoll
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>{beskrivning}</div>
         </div>
         {andringar && (
-          <button
-            onClick={spara}
-            disabled={sparar}
-            style={{ padding: '8px 18px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
+          <button onClick={spara} disabled={sparar}
+            style={{ padding: '8px 18px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             {sparar ? 'Sparar…' : sparat ? <><Check size={13} /> Sparat!</> : 'Spara ändringar'}
           </button>
         )}
@@ -111,62 +116,88 @@ function ProtokollMallar({ mallar = {}, onSpara }) {
       </div>
 
       {/* Typer */}
-      {typer.map((typ) => (
-        <div key={typ} style={{ borderBottom: '1px solid var(--c-border)' }}>
-          {/* Typ-rad */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 10 }}>
-            <button
-              onClick={() => setOppnaTyp(oppnaTyp === typ ? null : typ)}
-              style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
-            >
-              {oppnaTyp === typ ? <ChevronUp size={15} color="var(--c-text3)" /> : <ChevronDown size={15} color="var(--c-text3)" />}
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>{typ}</span>
-              <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>{(lokala[typ] || []).length} punkter</span>
-            </button>
-            {bekraftaBortTyp === typ ? (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: 'var(--c-text2)' }}>Ta bort hela mallen?</span>
-                <button onClick={() => taBortTyp(typ)} style={{ padding: '4px 10px', background: 'var(--c-red)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ja</button>
-                <button onClick={() => setBekraftaBortTyp(null)} style={{ padding: '4px 10px', background: 'transparent', color: 'var(--c-text2)', border: '1px solid var(--c-border)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Nej</button>
-              </div>
-            ) : (
-              <button onClick={() => setBekraftaBortTyp(typ)} style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: 4 }}>
-                <Trash2 size={14} />
+      {typer.map((typ) => {
+        const punkterAntal = (lokala[typ] || []).filter(p => !p.startsWith('## ')).length
+        const rubrikerAntal = (lokala[typ] || []).filter(p => p.startsWith('## ')).length
+        return (
+          <div key={typ} style={{ borderBottom: '1px solid var(--c-border)' }}>
+            {/* Typ-rad */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 10 }}>
+              <button
+                onClick={() => setOppnaTyp(oppnaTyp === typ ? null : typ)}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+              >
+                {oppnaTyp === typ ? <ChevronUp size={15} color="var(--c-text3)" /> : <ChevronDown size={15} color="var(--c-text3)" />}
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>{typ}</span>
+                <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>
+                  {punkterAntal} punkt{punkterAntal !== 1 ? 'er' : ''}
+                  {rubrikerAntal > 0 && ` · ${rubrikerAntal} rubrik${rubrikerAntal !== 1 ? 'er' : ''}`}
+                </span>
               </button>
-            )}
-          </div>
+              {bekraftaBortTyp === typ ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'var(--c-text2)' }}>Ta bort hela mallen?</span>
+                  <button onClick={() => taBortTyp(typ)} style={{ padding: '4px 10px', background: 'var(--c-red)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ja</button>
+                  <button onClick={() => setBekraftaBortTyp(null)} style={{ padding: '4px 10px', background: 'transparent', color: 'var(--c-text2)', border: '1px solid var(--c-border)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Nej</button>
+                </div>
+              ) : (
+                <button onClick={() => setBekraftaBortTyp(typ)} style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: 4 }}>
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
 
-          {/* Punkter */}
-          {oppnaTyp === typ && (
-            <div style={{ padding: '0 20px 14px', background: '#1a1917' }}>
-              {(lokala[typ] || []).map((punkt, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--c-text3)', minWidth: 24, textAlign: 'right' }}>{idx + 1}.</span>
-                  <input
-                    value={punkt}
-                    onChange={e => uppdateraPunkt(typ, idx, e.target.value)}
-                    style={{ flex: 1, padding: '6px 10px', fontSize: 12, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none' }}
-                  />
-                  <button onClick={() => flyttaPunkt(typ, idx, -1)} disabled={idx === 0}
-                    style={{ background: 'none', border: 'none', color: idx === 0 ? 'var(--c-border)' : 'var(--c-text3)', cursor: idx === 0 ? 'default' : 'pointer', padding: '2px 4px', fontSize: 13 }}>↑</button>
-                  <button onClick={() => flyttaPunkt(typ, idx, 1)} disabled={idx === (lokala[typ] || []).length - 1}
-                    style={{ background: 'none', border: 'none', color: idx === (lokala[typ] || []).length - 1 ? 'var(--c-border)' : 'var(--c-text3)', cursor: idx === (lokala[typ] || []).length - 1 ? 'default' : 'pointer', padding: '2px 4px', fontSize: 13 }}>↓</button>
-                  <button onClick={() => taBortPunkt(typ, idx)}
-                    style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: '2px 4px' }}>
-                    <Trash2 size={13} />
+            {/* Punkter & rubriker */}
+            {oppnaTyp === typ && (
+              <div style={{ padding: '0 20px 14px', background: '#1a1917' }}>
+                {(lokala[typ] || []).map((punkt, idx) => {
+                  const isHdr = punkt.startsWith('## ')
+                  const visText = isHdr ? punkt.slice(3) : punkt
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      {isHdr
+                        ? <span style={{ fontSize: 10, color: 'var(--c-blue)', minWidth: 24, textAlign: 'right', fontWeight: 700 }}>§</span>
+                        : <span style={{ fontSize: 11, color: 'var(--c-text3)', minWidth: 24, textAlign: 'right' }}>{idx + 1}.</span>
+                      }
+                      <input
+                        value={visText}
+                        onChange={e => uppdateraPunkt(typ, idx, e.target.value)}
+                        style={{
+                          flex: 1, padding: '6px 10px', fontSize: 12,
+                          border: `1px solid ${isHdr ? 'var(--c-blue)' : 'var(--c-border)'}`,
+                          borderRadius: 6,
+                          background: isHdr ? '#1e2a3a' : 'var(--c-surface)',
+                          color: isHdr ? 'var(--c-blue)' : 'var(--c-text)',
+                          fontWeight: isHdr ? 700 : 400,
+                          outline: 'none',
+                        }}
+                      />
+                      <button onClick={() => flyttaPunkt(typ, idx, -1)} disabled={idx === 0}
+                        style={{ background: 'none', border: 'none', color: idx === 0 ? 'var(--c-border)' : 'var(--c-text3)', cursor: idx === 0 ? 'default' : 'pointer', padding: '2px 4px', fontSize: 13 }}>↑</button>
+                      <button onClick={() => flyttaPunkt(typ, idx, 1)} disabled={idx === (lokala[typ] || []).length - 1}
+                        style={{ background: 'none', border: 'none', color: idx === (lokala[typ] || []).length - 1 ? 'var(--c-border)' : 'var(--c-text3)', cursor: idx === (lokala[typ] || []).length - 1 ? 'default' : 'pointer', padding: '2px 4px', fontSize: 13 }}>↓</button>
+                      <button onClick={() => taBortPunkt(typ, idx)}
+                        style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: '2px 4px' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )
+                })}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button onClick={() => laggTillPunkt(typ)}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px dashed var(--c-border)', borderRadius: 6, color: 'var(--c-text3)', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
+                    <Plus size={13} /> Lägg till punkt
+                  </button>
+                  <button onClick={() => laggTillRubrik(typ)}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px dashed var(--c-blue)', borderRadius: 6, color: 'var(--c-blue)', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
+                    <Plus size={13} /> Lägg till rubrik
                   </button>
                 </div>
-              ))}
-              <button
-                onClick={() => laggTillPunkt(typ)}
-                style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px dashed var(--c-border)', borderRadius: 6, color: 'var(--c-text3)', fontSize: 12, padding: '6px 12px', cursor: 'pointer', width: '100%' }}
-              >
-                <Plus size={13} /> Lägg till punkt
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
 
       {/* Ny porttyp */}
       <div style={{ padding: '14px 20px', display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -177,11 +208,8 @@ function ProtokollMallar({ mallar = {}, onSpara }) {
           placeholder="Ny porttyp, t.ex. Rullgrind…"
           style={{ flex: 1, padding: '7px 12px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-bg)', color: 'var(--c-text)', outline: 'none' }}
         />
-        <button
-          onClick={laggTillTyp}
-          disabled={!nyTypNamn.trim()}
-          style={{ padding: '7px 16px', background: nyTypNamn.trim() ? 'var(--c-teal)' : 'var(--c-border)', color: nyTypNamn.trim() ? '#fff' : 'var(--c-text3)', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: nyTypNamn.trim() ? 'pointer' : 'default' }}
-        >
+        <button onClick={laggTillTyp} disabled={!nyTypNamn.trim()}
+          style={{ padding: '7px 16px', background: nyTypNamn.trim() ? 'var(--c-teal)' : 'var(--c-border)', color: nyTypNamn.trim() ? '#fff' : 'var(--c-text3)', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: nyTypNamn.trim() ? 'pointer' : 'default' }}>
           <Plus size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Skapa mall
         </button>
       </div>
@@ -189,7 +217,7 @@ function ProtokollMallar({ mallar = {}, onSpara }) {
   )
 }
 
-export default function Installningar({ kunder, protokollMallar = {}, onSparaProtokollMallar }) {
+export default function Installningar({ kunder, protokollMallar = {}, onSparaProtokollMallar, montagemallar = {}, onSparaMontagemallar }) {
   const [inbjudningar, setInbjudningar]   = useState([])
   const [laddas,       setLaddas]         = useState(true)
   const [visaForm,     setVisaForm]       = useState(false)
@@ -491,7 +519,20 @@ export default function Installningar({ kunder, protokollMallar = {}, onSparaPro
       </div>
 
       {/* Protokollmallar */}
-      <ProtokollMallar mallar={protokollMallar} onSpara={onSparaProtokollMallar} />
+      <ProtokollMallar
+        mallar={protokollMallar}
+        onSpara={onSparaProtokollMallar}
+        titel="Protokollmallar – Service"
+        beskrivning="Checklistor per porttyp som används vid serviceprotokoll"
+      />
+
+      {/* Monteringsmallar */}
+      <ProtokollMallar
+        mallar={montagemallar}
+        onSpara={onSparaMontagemallar}
+        titel="Monteringsmallar – Egenkontroll"
+        beskrivning="Egenkontroll-checklistor per porttyp som används vid monteringsprotokoll"
+      />
 
     </div>
   )

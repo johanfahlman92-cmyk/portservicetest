@@ -102,18 +102,20 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
 
   const godkannAlla = () => {
     const alla = {}
-    aktuellaPunkter.forEach((_, i) => { alla[i] = 'OK' })
+    aktuellaPunkter.forEach((p, i) => { if (!p.startsWith('## ')) alla[i] = 'OK' })
     setStatuses(alla)
   }
 
   const counts = { OK: 0, AF: 0, NOT: 0, KA: 0, EJ: 0, tom: 0 }
-  aktuellaPunkter.forEach((_, i) => {
+  aktuellaPunkter.forEach((p, i) => {
+    if (p.startsWith('## ')) return  // rubriker räknas inte
     const s = statuses[i]
     if (STATUS_MAP[s]) counts[s]++
     else counts.tom++
   })
-  const done = aktuellaPunkter.length - counts.tom
-  const pct  = Math.round((done / aktuellaPunkter.length) * 100)
+  const totalPunkter = aktuellaPunkter.filter(p => !p.startsWith('## ')).length
+  const done = totalPunkter - counts.tom
+  const pct  = totalPunkter > 0 ? Math.round((done / totalPunkter) * 100) : 0
 
   const spara = async () => {
     setSparar(true)
@@ -196,36 +198,47 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
           </button>
         </div>
 
-        {aktuellaPunkter.map((p, i) => {
-          const s = statuses[i] || ''
-          const visaNotis = s === 'AF' || s === 'NOT' || s === 'KA' || expandNotis[i]
-          return (
-            <div key={i} style={{ borderBottom: '1px solid var(--c-border)', paddingBottom: 8, marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, flexShrink: 0 }}>{i + 1}.</span>
-                <span style={{ flex: 1, fontSize: 13 }}>{p}</span>
-                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                  {STATUSES.map(({ kod, Icon, color, bg, border, label }) => (
-                    <button key={kod} onClick={() => setStatus(i, kod)} title={label} style={{
-                      width: 30, height: 28, borderRadius: 6, border: `1px solid ${s === kod ? border : 'var(--c-border)'}`,
-                      background: s === kod ? bg : 'transparent',
-                      color: s === kod ? color : 'var(--c-text3)',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 0.12s',
-                    }}>
-                      <Icon size={13} />
-                    </button>
-                  ))}
+        {(() => {
+          let numCount = 0
+          return aktuellaPunkter.map((p, i) => {
+            if (p.startsWith('## ')) {
+              return (
+                <div key={i} style={{ margin: '14px 0 6px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-blue)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-blue)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{p.slice(3)}</span>
                 </div>
+              )
+            }
+            numCount++
+            const s = statuses[i] || ''
+            const visaNotis = s === 'AF' || s === 'NOT' || s === 'KA' || expandNotis[i]
+            return (
+              <div key={i} style={{ borderBottom: '1px solid var(--c-border)', paddingBottom: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, flexShrink: 0 }}>{numCount}.</span>
+                  <span style={{ flex: 1, fontSize: 13 }}>{p}</span>
+                  <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                    {STATUSES.map(({ kod, Icon, color, bg, border, label }) => (
+                      <button key={kod} onClick={() => setStatus(i, kod)} title={label} style={{
+                        width: 30, height: 28, borderRadius: 6, border: `1px solid ${s === kod ? border : 'var(--c-border)'}`,
+                        background: s === kod ? bg : 'transparent',
+                        color: s === kod ? color : 'var(--c-text3)',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.12s',
+                      }}>
+                        <Icon size={13} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {visaNotis && (
+                  <input type="text" placeholder="Notering / åtgärd…"
+                    value={noteringar[i] || ''} onChange={e => setNotering(i, e.target.value)}
+                    style={{ marginTop: 6, marginLeft: 28, width: 'calc(100% - 28px)', fontSize: 12, padding: '5px 8px', border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', outline: 'none' }} />
+                )}
               </div>
-              {visaNotis && (
-                <input type="text" placeholder="Notering / åtgärd…"
-                  value={noteringar[i] || ''} onChange={e => setNotering(i, e.target.value)}
-                  style={{ marginTop: 6, marginLeft: 28, width: 'calc(100% - 28px)', fontSize: 12, padding: '5px 8px', border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', outline: 'none' }} />
-              )}
-            </div>
-          )
-        })}
+            )
+          })
+        })()}
       </div>
 
       {/* Signatur */}
@@ -447,22 +460,33 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
         </div>
 
         <div className="card" style={{ marginBottom: 12 }}>
-          {punkter.map((p, i) => {
-            const kod = normKod(valdEntry.statuses?.[i] || '')
-            const s   = STATUS_MAP[kod]
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--c-border)' }}>
-                <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, paddingTop: 2 }}>{i + 1}.</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 13 }}>{p}</span>
-                  {valdEntry.noteringar?.[i] && (
-                    <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 3, fontStyle: 'italic' }}>{valdEntry.noteringar[i]}</div>
-                  )}
+          {(() => {
+            let numCount = 0
+            return punkter.map((p, i) => {
+              if (p.startsWith('## ')) {
+                return (
+                  <div key={i} style={{ margin: '12px 0 4px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-blue)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-blue)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{p.slice(3)}</span>
+                  </div>
+                )
+              }
+              numCount++
+              const kod = normKod(valdEntry.statuses?.[i] || '')
+              const s   = STATUS_MAP[kod]
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--c-border)' }}>
+                  <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, paddingTop: 2 }}>{numCount}.</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13 }}>{p}</span>
+                    {valdEntry.noteringar?.[i] && (
+                      <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 3, fontStyle: 'italic' }}>{valdEntry.noteringar[i]}</div>
+                    )}
+                  </div>
+                  {s && <StatusBadge kod={kod} />}
                 </div>
-                {s && <StatusBadge kod={kod} />}
-              </div>
-            )
-          })}
+              )
+            })
+          })()}
         </div>
 
         {valdEntry.signatur && (
