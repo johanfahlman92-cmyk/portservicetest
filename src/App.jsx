@@ -485,19 +485,6 @@ export default function App() {
     />
   )
 
-  if (roll === 'tekniker') return (
-    <TeknikerVy
-      namn={user.user_metadata?.namn || user.email}
-      arenden={arenden}
-      bokningar={bokningar}
-      objekt={objekt}
-      tekniker={tekniker}
-      onUppdateraArende={uppdateraArende}
-      onUppdateraObjekt={uppdateraObjekt}
-      onLoggaUt={loggaUt}
-    />
-  )
-
   if (roll === 'kund') return (
     <KundPortal user={user} onLoggaUt={loggaUt} />
   )

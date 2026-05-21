@@ -2,18 +2,17 @@ import { Home, ClipboardList, Calendar, Database, AlertCircle, FileText, Users, 
 import logo from '../image-1779305303942.png'
 
 const navItems = [
-  { id: 'dashboard',    label: 'Översikt',     icon: Home },
-  { id: 'fastigheter',  label: 'Fastigheter',  icon: Building2 },
-  { id: 'register',     label: 'Portregister', icon: Database },
-  { id: 'arenden',      label: 'Ärenden',      icon: AlertCircle },
-  { id: 'protokoll',    label: 'Protokoll',    icon: FileText },
-  { id: 'montering',    label: 'Montering',    icon: Wrench   },
-  { id: 'kalender',     label: 'Kalender',     icon: Calendar },
-  { id: 'kunder',       label: 'Kunder',       icon: Users },
-  { id: 'nytt-arende',  label: 'Nytt ärende',  icon: ClipboardList },
-  { id: 'statistik',    label: 'Statistik',    icon: BarChart2 },
-  // Inställningar visas bara för admin (filtreras i komponenten)
-  { id: 'installningar', label: 'Inställningar', icon: Settings, adminOnly: true },
+  { id: 'dashboard',     label: 'Översikt',      icon: Home },
+  { id: 'fastigheter',   label: 'Fastigheter',   icon: Building2 },
+  { id: 'register',      label: 'Portregister',  icon: Database },
+  { id: 'arenden',       label: 'Ärenden',       icon: AlertCircle },
+  { id: 'protokoll',     label: 'Protokoll',     icon: FileText },
+  { id: 'montering',     label: 'Montering',     icon: Wrench   },
+  { id: 'kalender',      label: 'Kalender',      icon: Calendar },
+  { id: 'kunder',        label: 'Kunder',        icon: Users },
+  { id: 'nytt-arende',   label: 'Nytt ärende',   icon: ClipboardList },
+  { id: 'statistik',     label: 'Statistik',     icon: BarChart2,  adminOnly: true },
+  { id: 'installningar', label: 'Inställningar', icon: Settings,   adminOnly: true },
 ]
 
 export default function Sidebar({ active, onNav, oppnaArenden = 0, öppen = true, erMobil = false, onToggle, onLoggaUt, epost = '', roll = '' }) {
