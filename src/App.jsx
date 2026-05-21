@@ -275,7 +275,10 @@ export default function App() {
           const grouped = {}
           for (const row of b.data) {
             if (!grouped[row.datum]) grouped[row.datum] = []
-            grouped[row.datum].push({ supabaseId: row.id, tid: row.tid, typ: row.typ, namn: row.namn, kund: row.kund, tek: row.tek, arendeId: row.arende_id })
+            // tek lagras som JSON-array-sträng eller enstaka namn (bakåtkompatibelt)
+            let tek = []
+            try { tek = row.tek ? JSON.parse(row.tek) : [] } catch { tek = row.tek ? [row.tek] : [] }
+            grouped[row.datum].push({ supabaseId: row.id, tid: row.tid, typ: row.typ, namn: row.namn, kund: row.kund, tek, arendeId: row.arende_id })
           }
           setBokningar(grouped)
         }
@@ -430,12 +433,17 @@ export default function App() {
 
   const laggTillBokning = async (datum, bokning) => {
     try {
+      const tekArr = Array.isArray(bokning.tek) ? bokning.tek : (bokning.tek ? [bokning.tek] : [])
       const { data, error } = await supabase.from('bokningar').insert({
         datum, tid: bokning.tid, typ: bokning.typ, namn: bokning.namn,
-        kund: bokning.kund, tek: bokning.tek, arende_id: bokning.arendeId || null,
+        kund: bokning.kund, tek: tekArr.length > 0 ? JSON.stringify(tekArr) : null,
+        arende_id: bokning.arendeId || null,
       }).select().single()
       if (error) throw error
-      if (data) setBokningar(prev => ({ ...prev, [datum]: [...(prev[datum] || []), { ...bokning, supabaseId: data.id }] }))
+      if (data) {
+        const tekArr = Array.isArray(bokning.tek) ? bokning.tek : (bokning.tek ? [bokning.tek] : [])
+        setBokningar(prev => ({ ...prev, [datum]: [...(prev[datum] || []), { ...bokning, tek: tekArr, supabaseId: data.id }] }))
+      }
     } catch (err) { toast('Kunde inte spara bokning: ' + err.message, 'error') }
   }
 
@@ -520,12 +528,12 @@ export default function App() {
     register:    () => <Portregister objekt={objekt} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} />,
     arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} kunder={kunder} objekt={objekt} onUppdatera={uppdateraArende} onUppdateraObjekt={uppdateraObjekt} onLaggTill={laggTillArende} onLoggAktivitet={loggAktivitet} />,
     protokoll:   () => <Protokoll objekt={objekt} tekniker={tekniker} protokollMallar={protokollMallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillBokning={laggTillBokning} onLoggAktivitet={loggAktivitet} />,
-    kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} />,
+    kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} />,
     kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objekt} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
     'nytt-arende': () => { navigera('arenden'); return null },
     montering:   () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
-    installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} /> : null,
+    installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} /> : null,
   }
 
   return (

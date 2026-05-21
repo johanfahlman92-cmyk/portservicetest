@@ -217,7 +217,93 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
   )
 }
 
-export default function Installningar({ kunder, protokollMallar = {}, onSparaProtokollMallar, montagemallar = {}, onSparaMontagemallar }) {
+// ── Medarbetare ───────────────────────────────────────────────────────────────
+function TeknikerPanel({ tekniker = [], onLaggTill, onTaBort }) {
+  const [nyNamn,       setNyNamn]       = useState('')
+  const [bekraftaBort, setBekraftaBort] = useState(null)
+
+  const laggTill = () => {
+    const namn = nyNamn.trim()
+    if (!namn || tekniker.includes(namn)) return
+    onLaggTill?.(namn)
+    setNyNamn('')
+  }
+
+  return (
+    <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginTop: 24 }}>
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)' }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>Medarbetare</div>
+        <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
+          Tekniker och personal som kan tilldelas bokningar och ärenden
+        </div>
+      </div>
+
+      <div style={{ padding: '14px 20px' }}>
+        {/* Lista */}
+        {tekniker.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--c-text3)', marginBottom: 14 }}>Inga medarbetare registrerade ännu.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+            {tekniker.map(t => (
+              <div key={t} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', borderRadius: 8,
+                background: 'var(--c-bg)', border: '1px solid var(--c-border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                    background: 'var(--c-blue-bg)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 700, color: 'var(--c-navy)',
+                  }}>
+                    {t.charAt(0).toUpperCase()}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{t}</span>
+                </div>
+                {bekraftaBort === t ? (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => { onTaBort?.(t); setBekraftaBort(null) }}
+                      style={{ padding: '4px 10px', fontSize: 12, borderRadius: 6, border: '1px solid var(--c-red)', background: 'var(--c-red-bg)', color: 'var(--c-red)', cursor: 'pointer' }}>
+                      Ta bort
+                    </button>
+                    <button onClick={() => setBekraftaBort(null)}
+                      style={{ padding: '4px 10px', fontSize: 12, borderRadius: 6, border: '1px solid var(--c-border)', background: 'transparent', color: 'var(--c-text2)', cursor: 'pointer' }}>
+                      Avbryt
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setBekraftaBort(t)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text3)', padding: 4, display: 'flex', alignItems: 'center' }}>
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Lägg till */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            type="text"
+            placeholder="Förnamn Efternamn"
+            value={nyNamn}
+            onChange={e => setNyNamn(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && laggTill()}
+            style={{ ...FÄLT, flex: 1 }}
+          />
+          <button onClick={laggTill} style={{ ...BTN_PRI, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+            <Plus size={14} /> Lägg till
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Huvudkomponent ────────────────────────────────────────────────────────────
+export default function Installningar({ kunder, protokollMallar = {}, onSparaProtokollMallar, montagemallar = {}, onSparaMontagemallar, tekniker = [], onLaggTillTekniker, onTaBortTekniker }) {
   const [inbjudningar, setInbjudningar]   = useState([])
   const [laddas,       setLaddas]         = useState(true)
   const [visaForm,     setVisaForm]       = useState(false)
@@ -517,6 +603,9 @@ export default function Installningar({ kunder, protokollMallar = {}, onSparaPro
           ))}
         </ol>
       </div>
+
+      {/* Medarbetare */}
+      <TeknikerPanel tekniker={tekniker} onLaggTill={onLaggTillTekniker} onTaBort={onTaBortTekniker} />
 
       {/* Protokollmallar */}
       <ProtokollMallar

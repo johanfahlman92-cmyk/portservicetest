@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, X, Users, AlertCircle, ChevronDown, ChevronUp, Filter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp, Filter, Check } from 'lucide-react'
 import KundVäljare from '../components/KundVäljare.jsx'
 
 const typColor = { service: 'var(--c-teal-bg)', felanmalan: 'var(--c-coral-bg)', montering: 'var(--c-purple-bg)' }
@@ -8,7 +8,6 @@ const typText  = { service: 'var(--c-teal-text)', felanmalan: 'var(--c-coral-tex
 const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Montering' }
 const DAG_NAMN = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
 
-// Tidsgrid 07:00–16:00
 const HOUR_START  = 7
 const HOUR_END    = 16
 const HOURS       = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i)
@@ -42,6 +41,39 @@ function formatDatum(d) {
   return d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })
 }
 
+// ── Tekniker-väljare (flerval med chip-knappar) ───────
+function TeknikerVäljare({ tekniker, value = [], onChange }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {tekniker.map(t => {
+        const vald = value.includes(t)
+        return (
+          <button
+            key={t}
+            type="button"
+            onClick={() => onChange(vald ? value.filter(x => x !== t) : [...value, t])}
+            style={{
+              padding: '4px 12px', fontSize: 12, borderRadius: 20, cursor: 'pointer',
+              border: `1px solid ${vald ? 'var(--c-navy)' : 'var(--c-border2)'}`,
+              background: vald ? 'var(--c-blue-bg)' : 'transparent',
+              color: vald ? 'var(--c-navy)' : 'var(--c-text2)',
+              display: 'flex', alignItems: 'center', gap: 4,
+              transition: 'all 0.15s',
+            }}
+          >
+            {vald && <Check size={11} />}{t}
+          </button>
+        )
+      })}
+      {tekniker.length === 0 && (
+        <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>
+          Inga medarbetare registrerade — lägg till i Inställningar.
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ── Ny/redigera bokning ────────────────────────────────
 function BokningForm({ initial, dag, dagar, arenden, tekniker, kunder = [], onNyKund, onSpara, onAvbryt }) {
   const redigering = !!initial
@@ -49,7 +81,7 @@ function BokningForm({ initial, dag, dagar, arenden, tekniker, kunder = [], onNy
   const [tid,  setTid]  = useState(initial?.tid  || '08:00')
   const [namn, setNamn] = useState(initial?.namn || '')
   const [kund, setKund] = useState(initial?.kund || '')
-  const [tek,  setTek]  = useState(initial?.tek  || tekniker[0] || '')
+  const [tek,  setTek]  = useState(initial?.tek  || [])
   const [datum,setDatum]= useState(initial?.datum || (dagar[0]?.nyckel || ''))
   const [valdArende, setValdArende] = useState('')
   const [fel, setFel]   = useState(false)
@@ -73,13 +105,12 @@ function BokningForm({ initial, dag, dagar, arenden, tekniker, kunder = [], onNy
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-      <div className="card" style={{ width: 400, padding: 20, maxHeight: '90vh', overflowY: 'auto' }}>
+      <div className="card" style={{ width: 420, padding: 20, maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{redigering ? 'Redigera bokning' : `Ny bokning${dag ? ` – ${dag}` : ''}`}</div>
           <button className="btn" onClick={onAvbryt} style={{ padding: '3px 7px' }}><X size={13} /></button>
         </div>
 
-        {/* Dag (i redigeraläge) */}
         {redigering && (
           <div style={fld}>
             <label style={lbl}>Dag</label>
@@ -124,18 +155,12 @@ function BokningForm({ initial, dag, dagar, arenden, tekniker, kunder = [], onNy
           </div>
           <div style={{ ...fld, gridColumn: '1 / -1' }}>
             <label style={lbl}>Medarbetare</label>
-            {tekniker.length > 0
-              ? <select value={tek} onChange={e => setTek(e.target.value)} style={inp}>
-                  <option value="">– Ej tilldelad –</option>
-                  {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              : <input type="text" placeholder="Namn på tekniker" value={tek} onChange={e => setTek(e.target.value)} style={inp} />
-            }
+            <TeknikerVäljare tekniker={tekniker} value={tek} onChange={setTek} />
           </div>
         </div>
 
         {fel && <div style={{ fontSize: 11, color: 'var(--c-red)', marginBottom: 10 }}>Fyll i objekt/beskrivning.</div>}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
           <button className="btn btn-primary" onClick={submit} style={{ fontSize: 12 }}><Plus size={13} /> Spara</button>
           <button className="btn" onClick={onAvbryt} style={{ fontSize: 12 }}>Avbryt</button>
         </div>
@@ -148,7 +173,7 @@ function BokningForm({ initial, dag, dagar, arenden, tekniker, kunder = [], onNy
 function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
   const [datum, setDatum] = useState(dagar[0]?.nyckel || '')
   const [tid,   setTid]   = useState('08:00')
-  const [tek,   setTek]   = useState(tekniker[0] || '')
+  const [tek,   setTek]   = useState([])
 
   const inp = { width: '100%', padding: '6px 10px', fontSize: 12, border: '1px solid var(--c-border2)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)' }
   const lbl = { fontSize: 11, color: 'var(--c-text2)', marginBottom: 3, display: 'block' }
@@ -160,7 +185,7 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-      <div className="card" style={{ width: 360, padding: 20 }}>
+      <div className="card" style={{ width: 380, padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>Boka in felanmälan</div>
           <button className="btn" onClick={onAvbryt} style={{ padding: '3px 7px' }}><X size={13} /></button>
@@ -169,27 +194,19 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
           <div style={{ fontWeight: 600 }}>#{arende.nr} · {arende.feltyp}</div>
           <div>{arende.kund}{arende.namn ? ` · ${arende.namn}` : ''}</div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-          <div style={{ marginBottom: 10, gridColumn: '1 / -1' }}>
-            <label style={lbl}>Dag</label>
-            <select value={datum} onChange={e => setDatum(e.target.value)} style={inp}>
-              {dagar.map(d => <option key={d.nyckel} value={d.nyckel}>{d.namn} {d.nyckel.slice(5).replace('-', '/')}</option>)}
-            </select>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={lbl}>Tid</label>
-            <input type="time" value={tid} onChange={e => setTid(e.target.value)} style={inp} />
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={lbl}>Medarbetare</label>
-            {tekniker.length > 0
-              ? <select value={tek} onChange={e => setTek(e.target.value)} style={inp}>
-                  <option value="">– Ej tilldelad –</option>
-                  {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              : <input type="text" placeholder="Tekniker" value={tek} onChange={e => setTek(e.target.value)} style={inp} />
-            }
-          </div>
+        <div style={{ marginBottom: 10 }}>
+          <label style={lbl}>Dag</label>
+          <select value={datum} onChange={e => setDatum(e.target.value)} style={inp}>
+            {dagar.map(d => <option key={d.nyckel} value={d.nyckel}>{d.namn} {d.nyckel.slice(5).replace('-', '/')}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label style={lbl}>Tid</label>
+          <input type="time" value={tid} onChange={e => setTid(e.target.value)} style={inp} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={lbl}>Medarbetare</label>
+          <TeknikerVäljare tekniker={tekniker} value={tek} onChange={setTek} />
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-primary" onClick={submit} style={{ fontSize: 12 }}><Plus size={13} /> Boka in</button>
@@ -200,55 +217,14 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
   )
 }
 
-// ── Medarbetare ────────────────────────────────────────
-function Medarbetare({ tekniker, onLaggTill, onTaBort }) {
-  const [oppen,  setOppen]  = useState(false)
-  const [nyNamn, setNyNamn] = useState('')
-
-  const laggTill = () => {
-    const namn = nyNamn.trim()
-    if (!namn || tekniker.includes(namn)) return
-    onLaggTill(namn); setNyNamn('')
-  }
-
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <button onClick={() => setOppen(o => !o)} className="btn" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Users size={14} /> Medarbetare ({tekniker.length})
-        {oppen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-      </button>
-      {oppen && (
-        <div className="card" style={{ marginTop: 8, padding: 14 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: tekniker.length ? 10 : 0 }}>
-            {tekniker.map(t => (
-              <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--c-blue-bg)', color: 'var(--c-blue-text)', borderRadius: 20, padding: '3px 10px', fontSize: 12 }}>
-                {t}
-                <button onClick={() => onTaBort(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-blue-text)', lineHeight: 1, padding: 0 }}><X size={11} /></button>
-              </span>
-            ))}
-            {tekniker.length === 0 && <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>Inga medarbetare ännu.</span>}
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input type="text" placeholder="Lägg till namn…" value={nyNamn} onChange={e => setNyNamn(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && laggTill()}
-              style={{ flex: 1, padding: '6px 10px', fontSize: 12, border: '1px solid var(--c-border2)', borderRadius: 6, background: 'var(--c-bg)' }} />
-            <button className="btn btn-primary" onClick={laggTill} style={{ fontSize: 12 }}><Plus size={13} /> Lägg till</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Huvudkomponent ─────────────────────────────────────
 export default function Kalender({
   arenden = [], tekniker = [], bokningar = {}, kunder = [],
-  onLaggTillTekniker, onTaBortTekniker,
   onLaggTillBokning, onTaBortBokning, onNyKund,
 }) {
   const [veckoOffset,  setVeckoOffset]  = useState(0)
-  const [formDag,      setFormDag]      = useState(null)  // dagnamn (Mån, Tis…)
-  const [redigerar,    setRedigerar]    = useState(null)  // { ...bokning, datum, origIdx }
+  const [formDag,      setFormDag]      = useState(null)
+  const [redigerar,    setRedigerar]    = useState(null)
   const [bokArende,    setBokArende]    = useState(null)
   const [visaObokade,  setVisaObokade]  = useState(true)
   const [filtTekniker, setFiltTekniker] = useState('')
@@ -262,18 +238,15 @@ export default function Kalender({
     return { namn: DAG_NAMN[i], datum: d, nyckel: d.toISOString().slice(0, 10) }
   })
 
-  // Obokade felanmälningar
   const allaBokFlatMap = Object.values(bokningar).flat()
   const bokadeIds      = new Set(allaBokFlatMap.map(b => b.arendeId).filter(Boolean))
   const obokade        = arenden.filter(a => a.typ === 'felanmalan' && a.status !== 'atgardad' && !bokadeIds.has(a.id))
 
-  // Ny bokning
   const sparaNyBokning = (datum, bokning) => {
     onLaggTillBokning(datum, bokning)
     setFormDag(null)
   }
 
-  // Spara redigering: ta bort gammal + lägg in ny
   const sparaRedigering = (nyttDatum, nyBokning) => {
     onTaBortBokning(redigerar.datum, redigerar.origIdx)
     onLaggTillBokning(nyttDatum, nyBokning)
@@ -304,10 +277,9 @@ export default function Kalender({
         </div>
       </div>
 
-      {/* Verktygslista */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <Medarbetare tekniker={tekniker} onLaggTill={onLaggTillTekniker} onTaBort={onTaBortTekniker} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* Filtrera medarbetare */}
+      {tekniker.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
           <Filter size={13} color="var(--c-text3)" />
           <select value={filtTekniker} onChange={e => setFiltTekniker(e.target.value)}
             style={{ padding: '5px 10px', fontSize: 12, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-surface)', color: 'var(--c-text)' }}>
@@ -315,7 +287,7 @@ export default function Kalender({
             {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-      </div>
+      )}
 
       {/* Ej inbokade felanmälningar */}
       {obokade.length > 0 && (
@@ -352,7 +324,7 @@ export default function Kalender({
         </div>
       )}
 
-      {/* ── Tidsgrid (Outlook-stil) ── */}
+      {/* Tidsgrid */}
       <div style={{ border: '1px solid var(--c-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--c-surface)' }}>
         {/* Dagheader */}
         <div style={{ display: 'flex', borderBottom: '2px solid var(--c-border)' }}>
@@ -371,7 +343,6 @@ export default function Kalender({
 
         {/* Tidsaxel + kolumner */}
         <div style={{ display: 'flex', overflowY: 'auto', maxHeight: 680 }}>
-          {/* Tidsaxel */}
           <div style={{ width: 52, flexShrink: 0, borderRight: '1px solid var(--c-border)', background: 'var(--c-surface)' }}>
             {HOURS.map((h, hi) => (
               <div key={h} style={{
@@ -384,35 +355,32 @@ export default function Kalender({
             ))}
           </div>
 
-          {/* Dagkolumner */}
           {dagar.map(dag => {
             const items = bokningar[dag.nyckel] || []
             return (
               <div key={dag.nyckel} style={{ flex: 1, position: 'relative', borderLeft: '1px solid var(--c-border)' }}>
-                {/* Timslinjer */}
                 {HOURS.map((h, hi) => (
                   <div key={h} style={{ height: HOUR_HEIGHT, borderTop: hi === 0 ? 'none' : '1px solid var(--c-border)', boxSizing: 'border-box' }} />
                 ))}
-                {/* Bokningar */}
                 {items.map((item, origIdx) => {
-                  if (filtTekniker && item.tek !== filtTekniker) return null
+                  const tekArr = Array.isArray(item.tek) ? item.tek : (item.tek ? [item.tek] : [])
+                  if (filtTekniker && !tekArr.includes(filtTekniker)) return null
                   return (
                     <div key={origIdx}
-                      onClick={() => setRedigerar({ ...item, datum: dag.nyckel, origIdx })}
+                      onClick={() => setRedigerar({ ...item, tek: tekArr, datum: dag.nyckel, origIdx })}
                       style={{
-                        position:    'absolute',
-                        top:         getTop(item.tid) + 2,
-                        left:        3,
-                        right:       3,
-                        minHeight:   HOUR_HEIGHT - 6,
-                        background:  typColor[item.typ] || 'var(--c-blue-bg)',
-                        borderLeft:  `3px solid ${typBorder[item.typ] || 'var(--c-blue)'}`,
+                        position: 'absolute',
+                        top: getTop(item.tid) + 2,
+                        left: 3, right: 3,
+                        minHeight: HOUR_HEIGHT - 6,
+                        background: typColor[item.typ] || 'var(--c-blue-bg)',
+                        borderLeft: `3px solid ${typBorder[item.typ] || 'var(--c-blue)'}`,
                         borderRadius: '0 6px 6px 0',
-                        padding:     '3px 6px',
-                        cursor:      'pointer',
-                        overflow:    'hidden',
-                        zIndex:      2,
-                        boxShadow:   '0 1px 3px rgba(0,0,0,0.08)',
+                        padding: '3px 6px',
+                        cursor: 'pointer',
+                        overflow: 'hidden',
+                        zIndex: 2,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                       }}
                     >
                       <button onClick={e => { e.stopPropagation(); onTaBortBokning(dag.nyckel, origIdx) }}
@@ -422,7 +390,11 @@ export default function Kalender({
                       <div style={{ fontSize: 10, color: typText[item.typ], fontWeight: 700, marginBottom: 1 }}>{item.tid} · {typLabel[item.typ] || item.typ}</div>
                       <div style={{ fontSize: 11, fontWeight: 500, lineHeight: 1.2, paddingRight: 14 }}>{item.namn}</div>
                       {item.kund && <div style={{ fontSize: 10, color: 'var(--c-text2)' }}>{item.kund}</div>}
-                      {item.tek  && <div style={{ fontSize: 10, color: 'var(--c-text2)' }}>{item.tek}</div>}
+                      {tekArr.length > 0 && (
+                        <div style={{ fontSize: 10, color: 'var(--c-text2)', marginTop: 1 }}>
+                          {tekArr.join(', ')}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
