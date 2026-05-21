@@ -504,6 +504,7 @@ export default function App() {
       objekt={objekt}
       onSparaArende={laggTillArende}
       onLoggaUt={loggaUt}
+      onNyKund={laggTillKund}
     />
   )
 

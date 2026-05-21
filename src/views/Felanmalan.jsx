@@ -20,7 +20,7 @@ const SERVICETYPER = [
   'Annat',
 ]
 
-export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, onLoggaUt }) {
+export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, onLoggaUt, onNyKund }) {
   const [steg, setSteg]       = useState('form')
   const [sparar, setSparar]   = useState(false)
 
@@ -52,6 +52,20 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
   const skickaIn = async () => {
     if (!valdKund && !nyKundNamn.trim()) return
     setSparar(true)
+
+    // Spara ny kund i registret om den inte redan finns
+    if (!valdKund && nyKundNamn.trim() && onNyKund) {
+      await onNyKund({
+        typ:     'foretag',
+        namn:    nyKundNamn.trim(),
+        kontakt: '',
+        telefon: nyKundTelefon.trim(),
+        epost:   '',
+        adress:  nyKundAdress.trim(),
+        ort:     nyKundOrt.trim(),
+      })
+    }
+
     const idag = new Date().toISOString().slice(0, 10)
     const nr   = idag.replace(/-/g, '').slice(2) + '-' + Math.floor(Math.random() * 90 + 10)
     await onSparaArende({
