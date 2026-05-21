@@ -14,6 +14,8 @@ import TeknikerVy from './views/TeknikerVy.jsx'
 import Montering from './views/Montering.jsx'
 import Fastigheter from './views/Fastigheter.jsx'
 import Statistik from './views/Statistik.jsx'
+import Installningar from './views/Installningar.jsx'
+import KundPortal from './views/KundPortal.jsx'
 import { Menu, Search } from 'lucide-react'
 
 // ── Datakonvertering ──────────────────────────────────────────────────────────
@@ -207,6 +209,34 @@ export default function App() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Kontrollera om nyinloggad saknar roll → kolla inbjudningstabell
+  useEffect(() => {
+    if (!user) return
+    if (user.user_metadata?.roll) return  // Redan har roll, hoppa över
+    async function kollaInbjudan() {
+      const { data } = await supabase
+        .from('brukar_inbjudningar')
+        .select('*')
+        .eq('email', user.email)
+        .maybeSingle()
+      if (!data) return
+      // Sätt roll från inbjudan
+      await supabase.auth.updateUser({
+        data: {
+          roll:      data.roll,
+          kund_id:   data.kund_id   || null,
+          kund_namn: data.kund_namn || '',
+        },
+      })
+      // Radera inbjudan (används bara en gång)
+      await supabase.from('brukar_inbjudningar').delete().eq('id', data.id)
+      // Uppdatera user-objektet med ny metadata
+      const { data: { user: refreshed } } = await supabase.auth.getUser()
+      if (refreshed) setUser(refreshed)
+    }
+    kollaInbjudan()
+  }, [user?.id])  // Kör bara när user.id förändras (ny inloggning)
 
   // Stäng sidebar automatiskt på mobil
   useEffect(() => {
@@ -468,6 +498,10 @@ export default function App() {
     />
   )
 
+  if (roll === 'kund') return (
+    <KundPortal user={user} onLoggaUt={loggaUt} />
+  )
+
   const oppnaArenden = arenden.filter(a => a.status !== 'atgardad').length
 
   const views = {
@@ -480,7 +514,8 @@ export default function App() {
     kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objekt} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
     'nytt-arende': () => <NyttArende kunder={kunder} objekt={objekt} setArenden={laggTillArende} />,
     montering:   () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} />,
-    statistik:   () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
+    statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
+    installningar: () => roll === 'admin' ? <Installningar kunder={kunder} /> : null,
   }
 
   return (
@@ -501,6 +536,7 @@ export default function App() {
         onToggle={() => setSidomenyÖppen(o => !o)}
         onLoggaUt={loggaUt}
         epost={user.email}
+        roll={roll}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>

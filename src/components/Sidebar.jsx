@@ -1,4 +1,4 @@
-import { Home, ClipboardList, Calendar, Database, AlertCircle, FileText, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2 } from 'lucide-react'
+import { Home, ClipboardList, Calendar, Database, AlertCircle, FileText, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 
 const navItems = [
@@ -12,9 +12,14 @@ const navItems = [
   { id: 'kunder',       label: 'Kunder',       icon: Users },
   { id: 'nytt-arende',  label: 'Nytt ärende',  icon: ClipboardList },
   { id: 'statistik',    label: 'Statistik',    icon: BarChart2 },
+  // Inställningar visas bara för admin (filtreras i komponenten)
+  { id: 'installningar', label: 'Inställningar', icon: Settings, adminOnly: true },
 ]
 
-export default function Sidebar({ active, onNav, oppnaArenden = 0, öppen = true, erMobil = false, onToggle, onLoggaUt, epost = '' }) {
+export default function Sidebar({ active, onNav, oppnaArenden = 0, öppen = true, erMobil = false, onToggle, onLoggaUt, epost = '', roll = '' }) {
+
+  // Filtrera bort adminOnly-items om inte admin
+  const visibleItems = navItems.filter(item => !item.adminOnly || roll === 'admin')
 
   // På mobil: dold när stängd
   if (erMobil && !öppen) return null
@@ -67,10 +72,12 @@ export default function Sidebar({ active, onNav, oppnaArenden = 0, öppen = true
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: öppen ? '0 10px' : '0 6px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
-        {navItems.map(({ id, label, icon: Icon }) => {
+        {visibleItems.map(({ id, label, icon: Icon, adminOnly }) => {
           const isActive = active === id
           return (
-            <button key={id} onClick={() => onNav(id)}
+            <div key={id}>
+              {adminOnly && <div style={{ height: 1, background: '#2a2925', margin: '6px 0' }} />}
+            <button onClick={() => onNav(id)}
               title={!öppen ? label : undefined}
               style={{
                 display: 'flex',
@@ -111,6 +118,7 @@ export default function Sidebar({ active, onNav, oppnaArenden = 0, öppen = true
                 </span>
               )}
             </button>
+            </div>
           )
         })}
       </nav>
