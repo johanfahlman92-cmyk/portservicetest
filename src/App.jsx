@@ -471,7 +471,7 @@ export default function App() {
   const oppnaArenden = arenden.filter(a => a.status !== 'atgardad').length
 
   const views = {
-    dashboard:   () => <Dashboard kunder={kunder} objekt={objekt} arenden={arenden} bokningar={bokningar} onNavigera={navigera} />,
+    dashboard:   () => <Dashboard kunder={kunder} objekt={objekt} arenden={arenden} bokningar={bokningar} onNavigera={navigera} onSparaArende={laggTillArende} />,
     fastigheter: () => <Fastigheter fastigheter={fastigheter} objekt={objekt} kunder={kunder} onLaggTill={laggTillFastighet} onTaBort={taBortFastighet} onUppdatera={uppdateraFastighet} onNyKund={snabbLaggTillKund} onUppdateraObjekt={uppdateraObjekt} />,
     register:    () => <Portregister objekt={objekt} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} />,
     arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} onUppdatera={uppdateraArende} onLoggAktivitet={loggAktivitet} />,
