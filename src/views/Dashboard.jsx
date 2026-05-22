@@ -256,7 +256,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
       {/* ── Hälsning ── */}
       <div>
         <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 }}>
-          {hälsning} 👋
+          {hälsning}
         </h1>
         <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>
           {datumStr} &nbsp;·&nbsp; vecka {veckonr}
