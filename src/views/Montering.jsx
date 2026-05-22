@@ -639,7 +639,6 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       kundTyp: 'foretag', intervallProcent: 0, dagerForsenad: 0,
       ordernummer: ordernummer.trim() || null,
       serienummer: serienummer.trim() || null,
-      dokument: [...dokument],
       historik: [nyttInslag],
     })
 
