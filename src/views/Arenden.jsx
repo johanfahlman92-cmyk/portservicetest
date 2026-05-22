@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer } from 'lucide-react'
+import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer, Archive, RotateCcw } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import Felanmalan from './Felanmalan.jsx'
 import logo from '../image-1779305303942.png'
@@ -139,6 +139,19 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
     await onUppdatera(a.id, { status: 'atgardad' })
     setSparar(false)
     onBack()
+  }
+
+  const arkivera = async () => {
+    setSparar(true)
+    await onUppdatera(a.id, { arkiverad: true })
+    setSparar(false)
+    onBack()
+  }
+
+  const ateraktivera = async () => {
+    setSparar(true)
+    await onUppdatera(a.id, { arkiverad: false, status: 'pagAr' })
+    setSparar(false)
   }
 
   const sparaProtokoll = async () => {
@@ -383,8 +396,8 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
         <DokumentZon dokument={dokument} onChange={sparaDokument} />
       </div>
 
-      {/* Knappar */}
-      {a.status !== 'atgardad' && !redigerar && (
+      {/* Knappar – öppna ärenden */}
+      {a.status !== 'atgardad' && !a.arkiverad && !redigerar && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {!visaTilldela && (
             <button className="btn btn-primary" onClick={() => setVisaTilldela(true)}>
@@ -393,6 +406,53 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
           )}
           <button className="btn" onClick={stang} disabled={sparar} style={{ background: 'var(--c-teal)', color: '#fff', borderColor: 'var(--c-teal)' }}>
             <CheckCircle size={14} /> Stäng ärende
+          </button>
+        </div>
+      )}
+
+      {/* Arkivera – åtgärdade ej arkiverade */}
+      {a.status === 'atgardad' && !a.arkiverad && !redigerar && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            onClick={arkivera}
+            disabled={sparar}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: 'none', border: '1px solid var(--c-border)',
+              color: 'var(--c-text2)', transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--c-text2)'; e.currentTarget.style.color = 'var(--c-text)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--c-border)'; e.currentTarget.style.color = 'var(--c-text2)' }}
+          >
+            <Archive size={14} /> Arkivera ärende
+          </button>
+          <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>Döljer ärendet från aktiva listor</span>
+        </div>
+      )}
+
+      {/* Återaktivera – arkiverade */}
+      {a.arkiverad && !redigerar && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'var(--c-amber-bg)', border: '1px solid var(--c-amber)',
+          borderRadius: 10, padding: '12px 14px',
+        }}>
+          <Archive size={16} color="var(--c-amber)" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-amber-text)' }}>Arkiverat ärende</div>
+            <div style={{ fontSize: 11, color: 'var(--c-amber-text)' }}>Visas inte i aktiva listor</div>
+          </div>
+          <button
+            onClick={ateraktivera}
+            disabled={sparar}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: '#fff', border: '1px solid var(--c-amber)', color: 'var(--c-amber-text)',
+            }}
+          >
+            <RotateCcw size={13} /> Återaktivera
           </button>
         </div>
       )}
@@ -417,6 +477,8 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
   }, [initialArendeId, arenden])
 
   const filtArenden = arenden.filter(a => {
+    if (filter === 'arkiverade') return a.arkiverad === true
+    if (a.arkiverad) return false  // dölj arkiverade i alla andra vyer
     const statusOk = filter === 'alla' ? true : filter === 'oppna' ? a.status !== 'atgardad' : a.status === filter
     if (!statusOk) return false
     if (!sokText) return true
@@ -473,8 +535,8 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
           style={{ width: '100%', padding: '7px 10px 7px 32px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)', boxSizing: 'border-box' }} />
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {[['oppna', 'Öppna'], ['alla', 'Alla'], ['ny', 'Nya'], ['pagAr', 'Pågår'], ['atgardad', 'Åtgärdade']].map(([id, label]) => (
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+        {[['oppna', 'Öppna'], ['alla', 'Alla'], ['ny', 'Nya'], ['pagAr', 'Pågår'], ['atgardad', 'Åtgärdade'], ['arkiverade', 'Arkiverade']].map(([id, label]) => (
           <button key={id} onClick={() => setFilter(id)} style={{
             padding: '4px 12px', fontSize: 12, borderRadius: 20,
             border: '1px solid var(--c-border)',
@@ -490,17 +552,21 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
           <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Inga ärenden att visa.</p>
         )}
         {filtArenden.map(a => (
-          <div key={a.id} className="row-item" onClick={() => setValt(a)} style={{ cursor: 'pointer' }}>
+          <div key={a.id} className="row-item" onClick={() => setValt(a)}
+            style={{ cursor: 'pointer', opacity: a.arkiverad ? 0.55 : 1 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-              background: a.status === 'ny' ? 'var(--c-red)' : a.status === 'pagAr' ? 'var(--c-amber)' : 'var(--c-teal)'
+              background: a.arkiverad ? 'var(--c-text3)' : a.status === 'ny' ? 'var(--c-red)' : a.status === 'pagAr' ? 'var(--c-amber)' : 'var(--c-teal)'
             }} />
             <div className="row-main">
               <div className="row-name">{a.namn}</div>
               <div className="row-sub">{a.feltyp} · {a.kund} · {a.datum}</div>
             </div>
             <div className="row-right">
-              <span className={`badge ${prioCls[a.prioritet]}`}>{prioLabel[a.prioritet]}</span>
-              <span className={`badge ${statusCls[a.status]}`}>{statusLabel[a.status]}</span>
+              {a.arkiverad
+                ? <span className="badge badge-gray" style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Archive size={10} /> Arkiverat</span>
+                : <><span className={`badge ${prioCls[a.prioritet]}`}>{prioLabel[a.prioritet]}</span>
+                   <span className={`badge ${statusCls[a.status]}`}>{statusLabel[a.status]}</span></>
+              }
               <ChevronRight size={16} color="var(--c-text3)" />
             </div>
           </div>
