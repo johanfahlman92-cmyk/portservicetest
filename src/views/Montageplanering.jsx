@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
+import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, Archive, ArchiveRestore, Lock } from 'lucide-react'
 import { protokollTyper, RISKPUNKTER } from '../data/store.js'
 import KundVäljare from '../components/KundVäljare.jsx'
 import { hämtaLogoBase64 } from '../utils/pdf.js'
@@ -370,19 +370,23 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
 
   // ── VY: Lista ─────────────────────────────────────────────────────────────
 
+  // Aktiva orders (exkludera arkiverade)
+  const aktivaOrder = montageorder.filter(o => !o.arkiverad)
+  const arkiveradeOrder = montageorder.filter(o => o.arkiverad)
+
   // Gruppera montageorders efter status
-  const pågående = montageorder
+  const pågående = aktivaOrder
     .filter(o => o.status !== 'utford' && (o.protokoll_data?.steg >= 1))
     .sort((a, b) => (b.protokoll_data?.steg || 0) - (a.protokoll_data?.steg || 0))
 
-  const planerade = montageorder
+  const planerade = aktivaOrder
     .filter(o => o.status === 'planerad' && (!o.protokoll_data?.steg || o.protokoll_data.steg < 1))
     .sort((a, b) => (a.onskat_montagedag || '').localeCompare(b.onskat_montagedag || ''))
 
-  const ejPlanerade = montageorder
+  const ejPlanerade = aktivaOrder
     .filter(o => o.status === 'ej_planerad' && (!o.protokoll_data?.steg || o.protokoll_data.steg < 1))
 
-  const klaraOrder = montageorder
+  const klaraOrder = aktivaOrder
     .filter(o => o.status === 'utford')
     .sort((a, b) => (b.protokoll_data?.datum || b.created_at || '').localeCompare(a.protokoll_data?.datum || a.created_at || ''))
 
@@ -501,19 +505,41 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
               </div>
             )}
 
-            {/* Statusbyte */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {Object.entries(STATUS_CFG).map(([k, s]) => (
-                <button key={k} onClick={() => onUppdatera(order.id, { ...order, status: k })}
-                  style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                    fontWeight: order.status === k ? 600 : 400,
-                    background: order.status === k ? s.bg : 'var(--c-surface)',
-                    color:      order.status === k ? s.color : 'var(--c-text3)',
-                    border: `1px solid ${order.status === k ? s.color : 'var(--c-border)'}` }}>
-                  {s.label}
+            {/* Statusbyte – låst för utförda och pågående */}
+            {order.status === 'utford' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--c-text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Lock size={11} /> Utförd – status låst
+                </span>
+                <button onClick={() => onUppdatera(order.id, { ...order, arkiverad: true })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px',
+                    borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 500,
+                    background: 'var(--c-amber-bg)', color: 'var(--c-amber-text)',
+                    border: '1px solid var(--c-amber)' }}>
+                  <Archive size={11} /> Arkivera
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : order.protokoll_data?.steg >= 1 ? (
+              <div style={{ fontSize: 11, color: 'var(--c-text3)', display: 'flex', alignItems: 'center', gap: 5, fontStyle: 'italic' }}>
+                <Lock size={11} /> Slutför via egenkontroll i wizarden för att markera som utförd
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {['ej_planerad', 'planerad'].map(k => {
+                  const s = STATUS_CFG[k]
+                  return (
+                    <button key={k} onClick={() => onUppdatera(order.id, { ...order, status: k })}
+                      style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                        fontWeight: order.status === k ? 600 : 400,
+                        background: order.status === k ? s.bg : 'var(--c-surface)',
+                        color:      order.status === k ? s.color : 'var(--c-text3)',
+                        border: `1px solid ${order.status === k ? s.color : 'var(--c-border)'}` }}>
+                      {s.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -634,9 +660,39 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
       </div>
 
       {/* Tomt state */}
-      {montageorder.length === 0 && alleaMontage.length === 0 && (
+      {aktivaOrder.length === 0 && alleaMontage.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--c-text3)' }}>
           Inga monteringar ännu. Klicka "Ny planerad order" för att börja, eller "Ej-planerat montage" för direktstart.
+        </div>
+      )}
+
+      {/* ── 🗄️ Arkiv ── */}
+      {arkiveradeOrder.length > 0 && (
+        <div>
+          <div style={{ ...SECTION_HDR, color: 'var(--c-text3)' }}>
+            <Archive size={13} /> Arkiv ({arkiveradeOrder.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {arkiveradeOrder.map(order => (
+              <div key={order.id} className="card" style={{ padding: '10px 16px', opacity: 0.75, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text2)' }}>
+                    {order.ordernummer || order.montageplats || order.kund || '–'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
+                    {order.porttyp}{order.kund ? ` · ${order.kund}` : ''}{order.protokoll_data?.datum ? ` · ${order.protokoll_data.datum}` : ''}
+                  </div>
+                </div>
+                <button onClick={() => onUppdatera(order.id, { ...order, arkiverad: false })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+                    borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                    background: 'var(--c-surface)', color: 'var(--c-text2)',
+                    border: '1px solid var(--c-border)' }}>
+                  <ArchiveRestore size={11} /> Återställ
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

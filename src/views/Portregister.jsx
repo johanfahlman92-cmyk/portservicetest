@@ -251,7 +251,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
 }
 
 // ── Portdetaljer ──────────────────────────────────────────────────────────────
-function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onDupliceraPort, onNyArende }) {
+function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onDupliceraPort, onNyArende, montageorder = [] }) {
   const [valdProtokoll,    setValdProtokoll]    = useState(null)
   const [visaSnabbBokning, setVisaSnabbBokning] = useState(false)
   const [redigeraNasta,    setRedigeraNasta]    = useState(false)
@@ -271,10 +271,16 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
     await onUppdateraObjekt(obj.id, { dokument: nyaDok })
   }
 
-  // Samla dokument från monteringshistorik
-  const monteringDok = (obj.historik || [])
+  // Länkad montageorder (ny data via Montageplanering)
+  const länkadOrder = montageorder.find(m => m.objekt_id === obj.id && m.status === 'utford')
+  const monteringProtoData = länkadOrder?.protokoll_data || null
+
+  // Samla alla monteringsdokument (ny + gammal data)
+  const monteringDokNy     = monteringProtoData?.dokument || []
+  const monteringDokGammal = (obj.historik || [])
     .filter(h => h.typ === 'montering' && h.dokument?.length)
     .flatMap(h => h.dokument)
+  const monteringDok = [...monteringDokNy, ...monteringDokGammal]
 
   const serviceProtokoll = (obj.historik || []).filter(h => h.typ !== 'montering')
   const monteringEntry   = (obj.historik || []).find(h => h.typ === 'montering')
@@ -436,20 +442,70 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
         }
       </div>
 
-      {/* Monteringspost — äldre data (ny data lagras i Montageplanering) */}
-      {monteringEntry && (
-        <div className="card" style={{ marginBottom: 12, borderColor: 'var(--c-border)', opacity: 0.8 }}>
-          <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            Montering
-            <span style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 400 }}>(äldre data — montageprotokoll finns i Montageplanering)</span>
+      {/* Montageprotokoll */}
+      {(monteringProtoData || monteringEntry) && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span>Montageprotokoll</span>
+            {monteringProtoData && (
+              <button className="btn" style={{ fontSize: 11, padding: '3px 9px', display: 'flex', alignItems: 'center', gap: 4 }}
+                onClick={async () => {
+                  const logoBase64 = await hämtaLogoBase64()
+                  // enkel print-vy
+                  const p = monteringProtoData
+                  const win = window.open('', '_blank', 'width=860,height=1100')
+                  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Monteringsprotokoll</title>
+                    <style>body{font-family:Arial,sans-serif;font-size:12px;margin:32px 40px}h2{font-size:13px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75;margin-top:18px}table{width:100%;border-collapse:collapse}th{background:#f3f2ef;padding:5px 8px;font-size:11px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:#1D9E75;font-weight:600}.ej{color:#b83333;font-weight:600}.na{color:#888}</style></head><body>
+                    ${logoBase64 ? `<img src="${logoBase64}" style="height:50px;margin-bottom:12px">` : ''}
+                    <h1 style="font-size:18px">Monteringsprotokoll</h1>
+                    <p style="font-size:11px;color:#555">${p.kund||''} · ${p.adress||''} · ${p.datum||''} · ${p.tekniker||''}</p>
+                    <h2>Egenkontroll – ${p.portTyp||''}</h2>
+                    <table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Notering</th></tr></thead><tbody>
+                    ${Object.entries(p.egenkontroll||{}).map(([i,s]) => `<tr><td>${i}</td><td class="${s==='OK'?'ok':s==='EJ'?'ej':'na'}">${s==='OK'?'✓ OK':s==='EJ'?'✗ Ej OK':'N/A'}</td><td>${p.egenNoteringar?.[i]||''}</td></tr>`).join('')}
+                    </tbody></table>
+                    ${p.signatur ? `<h2>Signatur</h2><img src="${p.signatur}" style="max-width:280px;border:1px solid #ccc;border-radius:6px">` : ''}
+                    </body></html>`)
+                  win.document.close(); setTimeout(() => win.print(), 400)
+                }}>
+                <Printer size={11} /> Skriv ut
+              </button>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 14, padding: '6px 0', fontSize: 12 }}>
-            <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.datum}</span>
-            <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.tekniker || '–'}</span>
-            <span style={{ color: 'var(--c-teal)', fontWeight: 500 }}>
-              {monteringEntry.ok ?? 0} OK · {monteringEntry.ej ?? 0} Ej OK
-            </span>
-          </div>
+
+          {/* Ny data från montageorder */}
+          {monteringProtoData && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px 16px', marginBottom: 10 }}>
+                {[['Datum', monteringProtoData.datum], ['Tekniker', monteringProtoData.tekniker], ['Porttyp', monteringProtoData.portTyp],
+                  ['Ordernummer', monteringProtoData.ordernummer], ['Serienummer', monteringProtoData.serienummer]
+                ].filter(([,v]) => v).map(([l, v]) => (
+                  <div key={l}>
+                    <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 600, textTransform: 'uppercase' }}>{l}</div>
+                    <div style={{ fontSize: 12, color: 'var(--c-text)', marginTop: 1 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 10, fontSize: 12, flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--c-teal)', fontWeight: 600 }}>✓ {monteringProtoData.ok ?? 0} OK</span>
+                {(monteringProtoData.ej ?? 0) > 0 && <span style={{ color: 'var(--c-red)', fontWeight: 600 }}>✗ {monteringProtoData.ej} Ej OK</span>}
+                {(monteringProtoData.na ?? 0) > 0 && <span style={{ color: '#888' }}>{monteringProtoData.na} N/A</span>}
+                {monteringProtoData.godkannande && (
+                  <span style={{ fontWeight: 600, color: monteringProtoData.godkannande === 'godkand' ? 'var(--c-teal)' : 'var(--c-red)' }}>
+                    {monteringProtoData.godkannande === 'godkand' ? '✓ Godkänd' : '✗ Ej godkänd'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Äldre data från objekt.historik */}
+          {!monteringProtoData && monteringEntry && (
+            <div style={{ display: 'flex', gap: 14, padding: '4px 0', fontSize: 12 }}>
+              <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.datum}</span>
+              <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.tekniker || '–'}</span>
+              <span style={{ color: 'var(--c-teal)', fontWeight: 500 }}>{monteringEntry.ok ?? 0} OK · {monteringEntry.ej ?? 0} Ej OK</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -731,7 +787,7 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, initialObjektId, onInitialObjektHandled, onNyArende }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, initialObjektId, onInitialObjektHandled, onNyArende }) {
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)
@@ -782,6 +838,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
         setVisaForm(true)
       }}
       onNyArende={onNyArende}
+      montageorder={montageorder}
     />
   )
 
