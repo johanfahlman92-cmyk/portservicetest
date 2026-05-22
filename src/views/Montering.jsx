@@ -228,7 +228,8 @@ ${risker
   : `<table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Åtgärd / notering</th></tr></thead><tbody>${riskRows}${egenRiskRows}</tbody></table>`
 }
 ${godkannandeSektionHtml}
-<h2>Egenkontroll – ${portTyp}</h2>
+<div style="page-break-before:always;break-before:page"></div>
+<h2 style="margin-top:0">Egenkontroll – ${portTyp}</h2>
 <table>
   <thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Notering</th></tr></thead>
   <tbody>${egenRows}</tbody>
