@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { CheckCircle, ChevronRight, Printer, CheckSquare, History, ArrowLeft,
          Search, CalendarPlus, X, Check, Wrench, AlertCircle, AlertTriangle,
          Minus, Pencil, Plus, ClipboardList } from 'lucide-react'
-import { protokollPunkter as defaultMallar } from '../data/store.js'
+import { protokollPunkter as defaultMallar, RISKPUNKTER } from '../data/store.js'
 import { hämtaLogoBase64 } from '../utils/pdf.js'
 
 const PDF_STATUS_LABEL = { OK: 'Godkänd', AF: 'Åtgärdad', NOT: 'Att notera', KA: 'Kräver åtgärd', EJ: 'Ej tillämpbar' }
@@ -17,6 +17,14 @@ const STATUSES = [
   { kod: 'EJ',  label: 'Ej tillämpbar', Icon: Minus,         color: '#9ca3af', bg: '#f9fafb', border: '#d1d5db' },
 ]
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.kod, s]))
+
+// ── Riskbedömningsstatus ───────────────────────────────────────────────────
+const RISKSTATUS = [
+  { id: 'ok',          label: '✓ OK',           color: '#1D9E75', bg: '#e8f7f1', txt: '#0f4e38' },
+  { id: 'atgard',      label: '⚠ Åtgärd krävs', color: '#d97706', bg: '#fffbeb', txt: '#92400e' },
+  { id: 'ej_aktuellt', label: '– Ej aktuellt',  color: '#888',    bg: '#e8e7e4', txt: '#555555' },
+]
+const RISK_MAP = Object.fromEntries(RISKSTATUS.map(s => [s.id, s]))
 
 // Bakåtkompatibilitet: gamla G/J/A → nya koder
 const LEGACY = { G: 'OK', J: 'NOT', A: 'KA' }
@@ -95,6 +103,9 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
   const [datumStr,      setDatumStr]      = useState(entry?.datum || new Date().toISOString().slice(0, 10))
   const [visaSignatur,  setVisaSignatur]  = useState(false)
   const [signaturbild,  setSignaturbild]  = useState(entry?.signatur || '')
+  const [visaRisk,       setVisaRisk]       = useState(!!(entry?.harRiskbedömning))
+  const [riskKontroll,   setRiskKontroll]   = useState(entry?.riskKontroll || {})
+  const [riskNoteringar, setRiskNoteringar] = useState(entry?.riskNoteringar || {})
   const [sparar,        setSparar]        = useState(false)
   const [expandNotis,   setExpandNotis]   = useState({})
 
@@ -130,6 +141,10 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
       statuses:   { ...statuses },
       noteringar: { ...noteringar },
       signatur:   signaturbild || null,
+      // Riskbedömning (tillval)
+      harRiskbedömning: visaRisk,
+      riskKontroll:     visaRisk ? { ...riskKontroll }   : null,
+      riskNoteringar:   visaRisk ? { ...riskNoteringar } : null,
       // Summary counts
       ok:  counts.OK,
       af:  counts.AF,
@@ -184,6 +199,56 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
       </div>
       <div className="progress-bar" style={{ height: 6, marginBottom: 14 }}>
         <div className="progress-fill" style={{ width: `${pct}%`, background: counts.KA > 0 ? 'var(--c-red)' : 'var(--c-teal)' }} />
+      </div>
+
+      {/* Riskbedömning (tillval) */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="toggle-row" style={{ borderBottom: visaRisk ? '1px solid var(--c-border)' : 'none', paddingBottom: visaRisk ? 12 : 0, marginBottom: visaRisk ? 12 : 0 }}>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: 13 }}>Riskbedömning</div>
+            <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Tillval – bifoga riskbedömning till protokollet</div>
+          </div>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={visaRisk} onChange={e => setVisaRisk(e.target.checked)} />
+            <div className="toggle-track" /><div className="toggle-thumb" />
+          </label>
+        </div>
+        {visaRisk && (
+          <div>
+            {RISKPUNKTER.map((punkt, i) => {
+              const vald = riskKontroll[i] || ''
+              return (
+                <div key={i} style={{ borderBottom: '1px solid var(--c-border)', paddingBottom: 10, marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--c-text)', marginBottom: 6, lineHeight: 1.5 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--c-text3)', marginRight: 5 }}>{i + 1}.</span>{punkt}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: vald === 'atgard' ? 6 : 0 }}>
+                    {RISKSTATUS.map(rs => (
+                      <button key={rs.id}
+                        onClick={() => setRiskKontroll(p => ({ ...p, [i]: p[i] === rs.id ? '' : rs.id }))}
+                        style={{
+                          fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid',
+                          borderColor: vald === rs.id ? rs.color : 'var(--c-border)',
+                          background:  vald === rs.id ? rs.bg    : 'transparent',
+                          color:       vald === rs.id ? rs.txt   : 'var(--c-text2)',
+                          cursor: 'pointer', fontWeight: vald === rs.id ? 600 : 400,
+                          transition: 'all 0.12s',
+                        }}>
+                        {rs.label}
+                      </button>
+                    ))}
+                  </div>
+                  {vald === 'atgard' && (
+                    <input type="text" placeholder="Beskriv åtgärd…"
+                      value={riskNoteringar[i] || ''}
+                      onChange={e => setRiskNoteringar(p => ({ ...p, [i]: e.target.value }))}
+                      style={{ width: '100%', fontSize: 12, padding: '5px 8px', border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box' }} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Checklista */}
@@ -345,6 +410,19 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
     const logoBase64 = await hämtaLogoBase64()
     const punkter    = protokollPunkter[entry.portTyp || obj?.typ] || protokollPunkter['Vikport'] || []
 
+    // Riskbedömningsrader (om bifogad)
+    const riskRader = entry.harRiskbedömning ? RISKPUNKTER.map((punkt, i) => {
+      const vald  = entry.riskKontroll?.[i] || ''
+      const label = vald === 'ok' ? '✓ OK' : vald === 'atgard' ? '⚠ Åtgärd krävs' : vald === 'ej_aktuellt' ? '– Ej aktuellt' : '–'
+      const color = vald === 'ok' ? '#16a34a' : vald === 'atgard' ? '#d97706' : '#888'
+      const not   = entry.riskNoteringar?.[i] || ''
+      return `<tr>
+        <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;text-align:justify"><span style="color:#888;margin-right:5px">${i + 1}.</span>${punkt}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;color:${color};font-weight:600;white-space:nowrap">${label}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;color:#555">${not}</td>
+      </tr>`
+    }).join('') : ''
+
     let numCount = 0
     const rader = punkter.map((p, i) => {
       if (p.startsWith('## ')) {
@@ -388,6 +466,15 @@ ${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin
   <div><b>Tekniker:</b> ${entry.tekniker || '–'}</div>
   <div><b>Adress:</b> ${obj?.adress || obj?.plats || '–'}</div>
 </div>
+${entry.harRiskbedömning ? `<h2>Riskbedömning</h2>
+<table>
+  <thead><tr>
+    <th style="width:60%">Riskpunkt</th>
+    <th style="width:20%">Status</th>
+    <th style="width:20%">Åtgärd</th>
+  </tr></thead>
+  <tbody>${riskRader}</tbody>
+</table>` : ''}
 <h2>Kontrollpunkter</h2>
 <table>
   <thead><tr>
@@ -562,6 +649,32 @@ ${entry.signatur ? `<h2>Signatur tekniker</h2>
             })
           })()}
         </div>
+
+        {valdEntry.harRiskbedömning && (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Riskbedömning</div>
+            {RISKPUNKTER.map((punkt, i) => {
+              const vald = valdEntry.riskKontroll?.[i] || ''
+              const rs   = RISK_MAP[vald]
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--c-border)' }}>
+                  <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, paddingTop: 2, flexShrink: 0 }}>{i + 1}.</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 12, lineHeight: 1.5 }}>{punkt}</span>
+                    {valdEntry.riskNoteringar?.[i] && (
+                      <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 3, fontStyle: 'italic' }}>{valdEntry.riskNoteringar[i]}</div>
+                    )}
+                  </div>
+                  {rs && (
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: rs.bg, color: rs.txt, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {rs.label}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {valdEntry.signatur && (
           <div className="card">
