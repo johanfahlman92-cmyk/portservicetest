@@ -409,8 +409,10 @@ export default function App() {
       if (data) {
         setArenden(prev => [...prev, data])
         loggAktivitet('arende_skapat', 'arende', data.id, data.namn, `Nytt ärende: ${data.namn} (${data.kund})`)
+        return data
       }
     } catch (err) { toast('Kunde inte spara ärende: ' + err.message, 'error') }
+    return null
   }
 
   const uppdateraArende = async (id, changes) => {
@@ -610,7 +612,7 @@ export default function App() {
   const views = {
     dashboard:   () => <Dashboard kunder={kunder} objekt={objekt} arenden={arenden} bokningar={bokningar} montageorder={montageorder} onNavigera={navigera} onSparaArende={laggTillArende} />,
     fastigheter: () => <Fastigheter fastigheter={fastigheter} objekt={objekt} kunder={kunder} onLaggTill={laggTillFastighet} onTaBort={taBortFastighet} onUppdatera={uppdateraFastighet} onNyKund={snabbLaggTillKund} onUppdateraObjekt={uppdateraObjekt} />,
-    register:    () => <Portregister objekt={objekt} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} montageorder={montageorder} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} initialObjektId={valObjekt} onInitialObjektHandled={() => setValObjekt(null)} onNyArende={navigeraFelanmalan} />,
+    register:    () => <Portregister objekt={objekt} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} montageorder={montageorder} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} onLaggTillArende={laggTillArende} initialObjektId={valObjekt} onInitialObjektHandled={() => setValObjekt(null)} onNyArende={navigeraFelanmalan} />,
     arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} kunder={kunder} objekt={objekt} onUppdatera={uppdateraArende} onUppdateraObjekt={uppdateraObjekt} onLaggTill={laggTillArende} onLaggTillBokning={laggTillBokning} onNyKund={laggTillKund} onLoggAktivitet={loggAktivitet} initialArendeId={valArende} onInitialArendeHandled={() => setValArende(null)} prefilladPort={prefilladPort} onPrefilladPortHandled={() => setPrefilladPort(null)} />,
     protokoll:   () => <Protokoll objekt={objekt} tekniker={tekniker} protokollMallar={protokollMallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillBokning={laggTillBokning} onLoggAktivitet={loggAktivitet} />,
     kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} objekt={objekt} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigera={navigera} onNavigeraArende={navigeraArende} onNavigeraObjekt={navigeraObjekt} />,

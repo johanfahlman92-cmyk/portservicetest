@@ -151,23 +151,55 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort }) {
 }
 
 // ── Snabb-bokningsmodal ───────────────────────────────────────────────────────
-function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
+function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onStäng }) {
   const idag = new Date().toISOString().slice(0, 10)
-  const [datum,  setDatum]  = useState(obj.nasta && obj.nasta >= idag ? obj.nasta : idag)
-  const [tid,    setTid]    = useState('08:00')
-  const [tek,    setTek]    = useState(tekniker[0] || '')
-  const [sparar, setSparar] = useState(false)
-  const [klar,   setKlar]   = useState(false)
+  const [datum,     setDatum]     = useState(obj.nasta && obj.nasta >= idag ? obj.nasta : idag)
+  const [tid,       setTid]       = useState('08:00')
+  const [tek,       setTek]       = useState(tekniker[0] || '')
+  const [prioritet, setPrioritet] = useState('normal')
+  const [notering,  setNotering]  = useState('')
+  const [sparar,    setSparar]    = useState(false)
+  const [klar,      setKlar]      = useState(false)
+  const [arendeNr,  setArendeNr]  = useState('')
 
   const boka = async () => {
     setSparar(true)
+
+    // Generera ärendenummer
+    const nr = idag.replace(/-/g, '').slice(2) + '-' + Math.floor(Math.random() * 90 + 10)
+    setArendeNr(nr)
+
+    // Skapa ärende
+    let skapatArendeId = null
+    if (onLaggTillArende) {
+      const arende = await onLaggTillArende({
+        id:          'a' + Date.now(),
+        nr,
+        typ:         'service',
+        namn:        obj.namn,
+        kund:        obj.kund || '',
+        feltyp:      'Planerad service',
+        beskrivning: notering.trim() || `Planerad service bokad via portregistret${obj.fabrikat ? ` – ${obj.fabrikat}` : ''}.`,
+        kontakt:     '',
+        datum:       idag,
+        besok:       datum,
+        status:      'ny',
+        prioritet,
+        tekniker:    tek || null,
+        objekt_id:   obj.id || null,
+      })
+      skapatArendeId = arende?.id || null
+    }
+
+    // Skapa kalenderbokning
     await onSpara(datum, {
       tid, typ: 'service',
       namn: obj.namn,
       kund: obj.kund || '',
       tek,
-      arendeId: null,
+      arendeId: skapatArendeId,
     })
+
     setSparar(false)
     setKlar(true)
   }
@@ -183,9 +215,16 @@ function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
           <div style={{ textAlign: 'center', padding: '12px 0' }}>
             <CheckCircle size={40} color="var(--c-teal)" style={{ margin: '0 auto 12px', display: 'block' }} />
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Service inbokad!</div>
-            <div style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 20 }}>
+            <div style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 8 }}>
               {obj.namn} · {datum} kl. {tid}{tek ? ` · ${tek}` : ''}
             </div>
+            {arendeNr && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12,
+                padding: '5px 12px', borderRadius: 6, marginBottom: 16,
+                background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)', border: '1px solid var(--c-teal)' }}>
+                <CheckCircle size={12} /> Ärende #{arendeNr} skapat
+              </div>
+            )}
             <button className="btn" onClick={onStäng} style={{ width: '100%' }}>Stäng</button>
           </div>
         ) : (
@@ -210,13 +249,13 @@ function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--c-text2)' }}>Senast / Nästa service</span>
-                <span style={{ fontWeight: 500 }}>{obj.senaste || '–'} → {obj.nasta}</span>
+                <span style={{ fontWeight: 500 }}>{obj.senaste || '–'} → {obj.nasta || '–'}</span>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px', marginBottom: 12 }}>
               <div>
-                <label style={lbl}>Datum</label>
+                <label style={lbl}>Besöksdatum</label>
                 <input type="date" value={datum} onChange={e => setDatum(e.target.value)} style={inp} />
               </div>
               <div>
@@ -225,7 +264,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
               </div>
             </div>
 
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 12 }}>
               <label style={lbl}>Tekniker</label>
               {tekniker.length > 0
                 ? <select value={tek} onChange={e => setTek(e.target.value)} style={inp}>
@@ -237,9 +276,25 @@ function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
               }
             </div>
 
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbl}>Prioritet</label>
+              <select value={prioritet} onChange={e => setPrioritet(e.target.value)} style={inp}>
+                <option value="normal">Normal</option>
+                <option value="hog">Hög</option>
+                <option value="akut">Akut</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 18 }}>
+              <label style={lbl}>Notering (valfri)</label>
+              <textarea value={notering} onChange={e => setNotering(e.target.value)}
+                placeholder="T.ex. specifik del att kontrollera, kundönskemål…"
+                rows={2} style={{ ...inp, resize: 'vertical' }} />
+            </div>
+
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={boka} disabled={sparar} style={{ flex: 1 }}>
-                {sparar ? 'Bokar…' : <><CalendarPlus size={14} /> Boka in</>}
+              <button className="btn btn-primary" onClick={boka} disabled={sparar || !datum} style={{ flex: 1 }}>
+                {sparar ? 'Bokar…' : <><CalendarPlus size={14} /> Boka in &amp; skapa ärende</>}
               </button>
               <button className="btn" onClick={onStäng}>Avbryt</button>
             </div>
@@ -251,7 +306,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
 }
 
 // ── Portdetaljer ──────────────────────────────────────────────────────────────
-function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onDupliceraPort, onNyArende, montageorder = [] }) {
+function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillArende, onDupliceraPort, onNyArende, montageorder = [] }) {
   const [valdProtokoll,    setValdProtokoll]    = useState(null)
   const [visaSnabbBokning, setVisaSnabbBokning] = useState(false)
   const [redigeraNasta,    setRedigeraNasta]    = useState(false)
@@ -349,6 +404,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           obj={obj}
           tekniker={tekniker}
           onSpara={onLaggTillBokning}
+          onLaggTillArende={onLaggTillArende}
           onStäng={() => setVisaSnabbBokning(false)}
         />
       )}
@@ -787,7 +843,7 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, initialObjektId, onInitialObjektHandled, onNyArende }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, initialObjektId, onInitialObjektHandled, onNyArende }) {
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)
@@ -838,6 +894,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
         setVisaForm(true)
       }}
       onNyArende={onNyArende}
+      onLaggTillArende={onLaggTillArende}
       montageorder={montageorder}
     />
   )
