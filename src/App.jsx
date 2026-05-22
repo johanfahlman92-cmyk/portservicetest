@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from './lib/supabase.js'
 import Sidebar from './components/Sidebar.jsx'
 import Login from './views/Login.jsx'
@@ -197,6 +197,32 @@ export default function App() {
   const [aktivitetslogg,  setAktivitetslogg]  = useState([])
   const [protokollMallar, setProtokollMallar] = useState(defaultProtokollMallar)
   const [montagemallar,   setMontagemallar]   = useState(defaultMontagemallar)
+
+  // ── Automatisk statusberäkning per port ───────────────────────────────────
+  const objektMedStatus = useMemo(() => {
+    const idag  = new Date().toISOString().slice(0, 10)
+    const om30  = new Date(); om30.setDate(om30.getDate() + 30)
+    const om30d = om30.toISOString().slice(0, 10)
+    return objekt.map(obj => {
+      if (obj.arkiverad) return obj
+      // 1. Öppet ärende kopplat till porten → 'arende'
+      const harÖppetArende = arenden.some(a =>
+        !a.arkiverad &&
+        a.status !== 'atgardad' &&
+        (a.objekt_id ? a.objekt_id === obj.id : (a.namn === obj.namn && a.kund === obj.kund))
+      )
+      if (harÖppetArende) return { ...obj, status: 'arende' }
+      // 2. Datumbaserad status utifrån nästa servicedatum
+      if (obj.nasta) {
+        if (obj.nasta < idag)       return { ...obj, status: 'forsenad' }
+        if (obj.nasta <= om30d)     return { ...obj, status: 'snart' }
+        return { ...obj, status: 'ok' }
+      }
+      // 3. Inget servicedatum inlagt än
+      if (!obj.senaste) return { ...obj, status: 'ny' }
+      return { ...obj, status: 'ok' }
+    })
+  }, [objekt, arenden])
 
   // Toast-system
   const [toasts, setToasts] = useState([])
@@ -610,18 +636,18 @@ export default function App() {
   const oppnaArenden = arenden.filter(a => a.status !== 'atgardad').length
 
   const views = {
-    dashboard:   () => <Dashboard kunder={kunder} objekt={objekt} arenden={arenden} bokningar={bokningar} montageorder={montageorder} onNavigera={navigera} onSparaArende={laggTillArende} />,
-    fastigheter: () => <Fastigheter fastigheter={fastigheter} objekt={objekt} kunder={kunder} onLaggTill={laggTillFastighet} onTaBort={taBortFastighet} onUppdatera={uppdateraFastighet} onNyKund={snabbLaggTillKund} onUppdateraObjekt={uppdateraObjekt} />,
-    register:    () => <Portregister objekt={objekt} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} montageorder={montageorder} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} onLaggTillArende={laggTillArende} onNavigeraArende={navigeraArende} initialObjektId={valObjekt} onInitialObjektHandled={() => setValObjekt(null)} onNyArende={navigeraFelanmalan} />,
-    arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} kunder={kunder} objekt={objekt} protokollMallar={protokollMallar} onUppdatera={uppdateraArende} onUppdateraObjekt={uppdateraObjekt} onLaggTill={laggTillArende} onLaggTillBokning={laggTillBokning} onNyKund={laggTillKund} onLoggAktivitet={loggAktivitet} initialArendeId={valArende} onInitialArendeHandled={() => setValArende(null)} prefilladPort={prefilladPort} onPrefilladPortHandled={() => setPrefilladPort(null)} />,
-    protokoll:   () => <Protokoll objekt={objekt} tekniker={tekniker} protokollMallar={protokollMallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillBokning={laggTillBokning} onLoggAktivitet={loggAktivitet} />,
-    kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} objekt={objekt} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigera={navigera} onNavigeraArende={navigeraArende} onNavigeraObjekt={navigeraObjekt} />,
-    kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objekt} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
+    dashboard:   () => <Dashboard kunder={kunder} objekt={objektMedStatus} arenden={arenden} bokningar={bokningar} montageorder={montageorder} onNavigera={navigera} onSparaArende={laggTillArende} />,
+    fastigheter: () => <Fastigheter fastigheter={fastigheter} objekt={objektMedStatus} kunder={kunder} onLaggTill={laggTillFastighet} onTaBort={taBortFastighet} onUppdatera={uppdateraFastighet} onNyKund={snabbLaggTillKund} onUppdateraObjekt={uppdateraObjekt} />,
+    register:    () => <Portregister objekt={objektMedStatus} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} montageorder={montageorder} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} onLaggTillArende={laggTillArende} onNavigeraArende={navigeraArende} initialObjektId={valObjekt} onInitialObjektHandled={() => setValObjekt(null)} onNyArende={navigeraFelanmalan} />,
+    arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} kunder={kunder} objekt={objektMedStatus} protokollMallar={protokollMallar} onUppdatera={uppdateraArende} onUppdateraObjekt={uppdateraObjekt} onLaggTill={laggTillArende} onLaggTillBokning={laggTillBokning} onNyKund={laggTillKund} onLoggAktivitet={loggAktivitet} initialArendeId={valArende} onInitialArendeHandled={() => setValArende(null)} prefilladPort={prefilladPort} onPrefilladPortHandled={() => setPrefilladPort(null)} />,
+    protokoll:   () => <Protokoll objekt={objektMedStatus} tekniker={tekniker} protokollMallar={protokollMallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillBokning={laggTillBokning} onLoggAktivitet={loggAktivitet} />,
+    kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} objekt={objektMedStatus} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigera={navigera} onNavigeraArende={navigeraArende} onNavigeraObjekt={navigeraObjekt} />,
+    kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objektMedStatus} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
     'nytt-arende': () => { navigera('arenden'); return null },
-    montering:        () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} förifylldMontageorder={förifylldMontageorder} onFörifylldHandled={() => setFörifylldMontageorder(null)} montageorder={montageorder} onUppdateraMontageorder={uppdateraMontageorder} onLaggTillMontageorder={laggTillMontageorder} onTillbaka={() => navigera('montageplanering')} />,
-    montageplanering: () => <Montageplanering kunder={kunder} fastigheter={fastigheter} montageorder={montageorder} tekniker={tekniker} objekt={objekt} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} onNyKund={snabbLaggTillKund} onNavigeraMontering={navigeraMontering} onNyttEjPlaneratMontage={() => navigeraMontering(null)} />,
-    planeringstavla:  () => <Planeringstavla montageorder={montageorder} arenden={arenden} bokningar={bokningar} tekniker={tekniker} kunder={kunder} objekt={objekt} onNavigeraArende={navigeraArende} onNavigeraMontering={navigeraMontering} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigeraObjekt={navigeraObjekt} />,
-    statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
+    montering:        () => <Montering objekt={objektMedStatus} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} förifylldMontageorder={förifylldMontageorder} onFörifylldHandled={() => setFörifylldMontageorder(null)} montageorder={montageorder} onUppdateraMontageorder={uppdateraMontageorder} onLaggTillMontageorder={laggTillMontageorder} onTillbaka={() => navigera('montageplanering')} />,
+    montageplanering: () => <Montageplanering kunder={kunder} fastigheter={fastigheter} montageorder={montageorder} tekniker={tekniker} objekt={objektMedStatus} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} onNyKund={snabbLaggTillKund} onNavigeraMontering={navigeraMontering} onNyttEjPlaneratMontage={() => navigeraMontering(null)} />,
+    planeringstavla:  () => <Planeringstavla montageorder={montageorder} arenden={arenden} bokningar={bokningar} tekniker={tekniker} kunder={kunder} objekt={objektMedStatus} onNavigeraArende={navigeraArende} onNavigeraMontering={navigeraMontering} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigeraObjekt={navigeraObjekt} />,
+    statistik:     () => <Statistik kunder={kunder} objekt={objektMedStatus} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
     installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} /> : null,
   }
 
