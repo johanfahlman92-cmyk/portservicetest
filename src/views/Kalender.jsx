@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp, Filter, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp, Filter, Check, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import KundVäljare from '../components/KundVäljare.jsx'
 
 const typColor = { service: 'var(--c-teal-bg)', felanmalan: 'var(--c-coral-bg)', montering: 'var(--c-purple-bg)' }
@@ -70,6 +70,80 @@ function TeknikerVäljare({ tekniker, value = [], onChange }) {
           Inga medarbetare registrerade — lägg till i Inställningar.
         </span>
       )}
+    </div>
+  )
+}
+
+// ── Händelsepopup ─────────────────────────────────────
+function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onStäng }) {
+  const { item, dagNamn, nyckel } = val
+  const tekArr = Array.isArray(item.tek) ? item.tek : (item.tek ? [item.tek] : [])
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}
+      onClick={onStäng}>
+      <div className="card" style={{ width: 320, padding: 20 }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 3 }}>
+              {dagNamn} {nyckel?.slice(5).replace('-', '/')} · {item.tid}
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.3 }}>{item.namn}</div>
+            {item.kund && <div style={{ fontSize: 13, color: 'var(--c-text2)', marginTop: 2 }}>{item.kund}</div>}
+          </div>
+          <button onClick={onStäng} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text3)', padding: 2 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Badges */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+          <span className={`badge ${
+            item.typ === 'service' ? 'badge-teal' :
+            item.typ === 'felanmalan' ? 'badge-coral' : 'badge-purple'
+          }`}>{typLabel[item.typ] || item.typ}</span>
+          {tekArr.length > 0 && (
+            <span className="badge badge-gray">{tekArr.join(', ')}</span>
+          )}
+        </div>
+
+        {/* Knappar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {item.arendeId && (
+            <button
+              onClick={onGåTillÄrende}
+              style={{
+                width: '100%', padding: '10px 14px', borderRadius: 8,
+                background: 'var(--c-blue)', color: '#fff', border: 'none',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}
+            >
+              <ExternalLink size={14} /> Gå till ärende
+            </button>
+          )}
+          <button
+            onClick={onRedigera}
+            className="btn"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+          >
+            <Pencil size={13} /> Redigera bokning
+          </button>
+          <button
+            onClick={onTaBort}
+            style={{
+              width: '100%', padding: '8px 14px', borderRadius: 8,
+              background: 'none', border: '1px solid var(--c-border)',
+              color: 'var(--c-red)', cursor: 'pointer', fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            }}
+          >
+            <Trash2 size={13} /> Ta bort bokning
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -220,7 +294,7 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
 // ── Huvudkomponent ─────────────────────────────────────
 export default function Kalender({
   arenden = [], tekniker = [], bokningar = {}, kunder = [],
-  onLaggTillBokning, onTaBortBokning, onNyKund,
+  onLaggTillBokning, onTaBortBokning, onNyKund, onNavigera, onNavigeraArende,
 }) {
   const [veckoOffset,  setVeckoOffset]  = useState(0)
   const [formDag,      setFormDag]      = useState(null)
@@ -228,6 +302,7 @@ export default function Kalender({
   const [bokArende,    setBokArende]    = useState(null)
   const [visaObokade,  setVisaObokade]  = useState(true)
   const [filtTekniker, setFiltTekniker] = useState('')
+  const [visaDetalj,   setVisaDetalj]   = useState(null)
 
   const måndag  = getMåndag(veckoOffset)
   const veckonr = getVeckonummer(måndag)
@@ -367,7 +442,7 @@ export default function Kalender({
                   if (filtTekniker && !tekArr.includes(filtTekniker)) return null
                   return (
                     <div key={origIdx}
-                      onClick={() => setRedigerar({ ...item, tek: tekArr, datum: dag.nyckel, origIdx })}
+                      onClick={() => setVisaDetalj({ item: { ...item, tek: tekArr }, dagNamn: dag.namn, nyckel: dag.nyckel, origIdx })}
                       style={{
                         position: 'absolute',
                         top: getTop(item.tid) + 2,
@@ -383,10 +458,6 @@ export default function Kalender({
                         boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                       }}
                     >
-                      <button onClick={e => { e.stopPropagation(); onTaBortBokning(dag.nyckel, origIdx) }}
-                        style={{ position: 'absolute', top: 2, right: 2, background: 'none', border: 'none', cursor: 'pointer', color: typText[item.typ], opacity: 0.7, padding: 1 }}>
-                        <X size={9} />
-                      </button>
                       <div style={{ fontSize: 10, color: typText[item.typ], fontWeight: 700, marginBottom: 1 }}>{item.tid} · {typLabel[item.typ] || item.typ}</div>
                       <div style={{ fontSize: 11, fontWeight: 500, lineHeight: 1.2, paddingRight: 14 }}>{item.namn}</div>
                       {item.kund && <div style={{ fontSize: 10, color: 'var(--c-text2)' }}>{item.kund}</div>}
@@ -433,6 +504,26 @@ export default function Kalender({
 
       {bokArende && (
         <BokArendeDialog arende={bokArende} dagar={dagar} tekniker={tekniker} onSpara={bokaNed} onAvbryt={() => setBokArende(null)} />
+      )}
+
+      {visaDetalj && (
+        <HändelseDetalj
+          val={visaDetalj}
+          onStäng={() => setVisaDetalj(null)}
+          onRedigera={() => {
+            setRedigerar({ ...visaDetalj.item, datum: visaDetalj.nyckel, origIdx: visaDetalj.origIdx })
+            setVisaDetalj(null)
+          }}
+          onTaBort={() => {
+            onTaBortBokning(visaDetalj.nyckel, visaDetalj.origIdx)
+            setVisaDetalj(null)
+          }}
+          onGåTillÄrende={() => {
+            setVisaDetalj(null)
+            if (onNavigeraArende && visaDetalj.item.arendeId) onNavigeraArende(visaDetalj.item.arendeId)
+            else onNavigera?.('arenden')
+          }}
+        />
       )}
     </div>
   )

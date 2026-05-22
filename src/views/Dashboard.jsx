@@ -243,45 +243,55 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
       {/* ── Snabbåtgärder ── */}
       <div>
         <div style={SECTION}>Snabbåtgärder</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
 
-          {/* Felanmälan – expanderbar */}
+          {/* Ny felanmälan */}
           <button
             onClick={() => setVisaSnabbForm(v => !v)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10,
+              padding: '14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
               border: `1.5px solid ${visaSnabbForm ? 'var(--c-red)' : 'var(--c-border)'}`,
               background: visaSnabbForm ? 'var(--c-red-bg)' : 'var(--c-surface)',
-              color: visaSnabbForm ? 'var(--c-red-text)' : 'var(--c-text)',
               transition: 'all 0.15s',
             }}
           >
-            <AlertCircle size={15} color={visaSnabbForm ? 'var(--c-red)' : 'var(--c-text2)'} />
-            Ny felanmälan
-            {visaSnabbForm && <X size={12} style={{ marginLeft: 2 }} />}
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: visaSnabbForm ? 'var(--c-red)' : 'var(--c-red-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertCircle size={18} color={visaSnabbForm ? '#fff' : 'var(--c-red)'} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)', marginBottom: 2 }}>
+                {visaSnabbForm ? 'Stäng formulär' : 'Ny felanmälan'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Registrera fel direkt</div>
+            </div>
           </button>
 
           {[
-            { label: 'Kalender',     icon: CalendarDays, page: 'kalender',  color: 'var(--c-teal)' },
-            { label: 'Protokoll',    icon: FileText,     page: 'protokoll', color: 'var(--c-blue)' },
-            { label: 'Portregister', icon: DoorOpen,     page: 'register',  color: 'var(--c-purple)' },
-          ].map(({ label, icon: Icon, page, color }) => (
+            { label: 'Kalender',     sub: 'Boka & planera',    icon: CalendarDays, page: 'kalender',  color: 'var(--c-teal)',   bg: 'var(--c-teal-bg)'   },
+            { label: 'Protokoll',    sub: 'Serviceprotokoll',  icon: FileText,     page: 'protokoll', color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)'   },
+            { label: 'Portregister', sub: 'Alla portar',       icon: DoorOpen,     page: 'register',  color: 'var(--c-purple)', bg: 'var(--c-purple-bg)' },
+          ].map(({ label, sub, icon: Icon, page, color, bg }) => (
             <button
               key={page}
               onClick={() => onNavigera?.(page)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10,
+                padding: '14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
                 border: '1.5px solid var(--c-border)',
-                background: 'var(--c-surface)', color: 'var(--c-text)',
+                background: 'var(--c-surface)',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = color + '18' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = bg }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--c-border)'; e.currentTarget.style.background = 'var(--c-surface)' }}
             >
-              <Icon size={15} color="var(--c-text2)" />
-              {label}
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={18} color={color} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)', marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{sub}</div>
+              </div>
             </button>
           ))}
         </div>
@@ -327,10 +337,18 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
             </div>
           ) : (
             veckoSchema.map((v, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 0', borderBottom: i < veckoSchema.length - 1 ? '1px solid var(--c-border)' : 'none',
-              }}>
+              <div key={i}
+                onClick={() => onNavigera?.('kalender')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 6px', marginLeft: -6, marginRight: -6,
+                  borderRadius: 8, cursor: 'pointer',
+                  borderBottom: i < veckoSchema.length - 1 ? '1px solid var(--c-border)' : 'none',
+                  transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
                 <div style={{
                   fontSize: 10, fontWeight: 700, color: 'var(--c-text3)',
                   minWidth: 52, lineHeight: 1.3,
@@ -341,9 +359,12 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
                   <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.namn}</div>
                   <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{v.kund} · {v.tekniker}</div>
                 </div>
-                <span className={`badge ${typBadge[v.typ] || 'badge-gray'}`} style={{ fontSize: 10 }}>
-                  {typLabel[v.typ] || v.typ}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span className={`badge ${typBadge[v.typ] || 'badge-gray'}`} style={{ fontSize: 10 }}>
+                    {typLabel[v.typ] || v.typ}
+                  </span>
+                  <ChevronRight size={12} color="var(--c-text3)" />
+                </div>
               </div>
             ))
           )}

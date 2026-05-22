@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import Felanmalan from './Felanmalan.jsx'
@@ -354,11 +354,21 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onNyKund, onLoggAktivitet }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled }) {
   const [valt,     setValt]     = useState(null)
   const [filter,   setFilter]   = useState('oppna')
   const [sokText,  setSokText]  = useState('')
   const [visaForm, setVisaForm] = useState(false)
+
+  useEffect(() => {
+    if (initialArendeId && arenden.length > 0) {
+      const a = arenden.find(x => x.id === initialArendeId)
+      if (a) {
+        setValt(a)
+        onInitialArendeHandled?.()
+      }
+    }
+  }, [initialArendeId, arenden])
 
   const filtArenden = arenden.filter(a => {
     const statusOk = filter === 'alla' ? true : filter === 'oppna' ? a.status !== 'atgardad' : a.status === filter
