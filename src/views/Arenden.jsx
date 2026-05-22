@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
-import NyttArende from './NyttArende.jsx'
+import Felanmalan from './Felanmalan.jsx'
+import logo from '../image-1779305303942.png'
 
 const statusLabel = { ny: 'Ny', pagAr: 'Pågår', atgardad: 'Åtgärdad' }
 const statusCls   = { ny: 'badge-red', pagAr: 'badge-amber', atgardad: 'badge-green' }
@@ -10,15 +11,26 @@ const prioCls     = { normal: 'badge-gray', hog: 'badge-amber', akut: 'badge-red
 
 const FÄLT = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }
 
-function skrivUtArende(a) {
+async function skrivUtArende(a) {
+  // Hämta logotyp som base64
+  let logoBase64 = null
+  try {
+    const res  = await fetch(logo)
+    const blob = await res.blob()
+    logoBase64 = await new Promise(resolve => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.readAsDataURL(blob)
+    })
+  } catch { /* om det misslyckas visas inget logo */ }
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>Felanmälan #${a.nr}</title>
   <style>
     *{box-sizing:border-box}
     body{font-family:system-ui,sans-serif;margin:0;padding:32px 40px;color:#1a1917;font-size:13px}
-    .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #1a1917}
-    .company{font-size:20px;font-weight:800;letter-spacing:-0.5px}
-    .company-sub{font-size:11px;color:#666;margin-top:2px}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #1C3461}
+    .company-sub{font-size:11px;color:#666;margin-top:4px}
     .nr{font-size:22px;font-weight:700;text-align:right}
     .nr-sub{font-size:11px;color:#666;text-align:right}
     h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:20px 0 8px}
@@ -35,7 +47,10 @@ function skrivUtArende(a) {
     @media print{body{padding:16px 20px}}
   </style></head><body>
   <div class="top">
-    <div><div class="company">NMV Portservice</div><div class="company-sub">Felanmälan</div></div>
+    <div>
+      ${logoBase64 ? `<img src="${logoBase64}" style="height:44px;display:block" alt="NMV Portservice" />` : '<div style="font-size:20px;font-weight:800">NMV Portservice</div>'}
+      <div class="company-sub">Felanmälan</div>
+    </div>
     <div><div class="nr">#${a.nr}</div><div class="nr-sub">${a.datum || ''}</div></div>
   </div>
   <h3>Kund &amp; Port</h3>
@@ -55,8 +70,6 @@ function skrivUtArende(a) {
   ${a.beskrivning ? `<h3>Kundens beskrivning</h3><div class="desc">"${a.beskrivning}"</div>` : ''}
   <h3>Utfört arbete (fylls i av tekniker)</h3>
   <div class="work"></div>
-  <h3>Material &amp; reservdelar</h3>
-  <div class="work" style="min-height:60px"></div>
   <div class="sigs">
     <div class="sig">Teknikerns underskrift &amp; datum</div>
     <div class="sig">Kundens underskrift &amp; datum</div>
@@ -65,7 +78,7 @@ function skrivUtArende(a) {
   const w = window.open('', '_blank')
   w.document.write(html)
   w.document.close()
-  setTimeout(() => w.print(), 300)
+  setTimeout(() => w.print(), 400)
 }
 
 function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt, onBack }) {
@@ -78,7 +91,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   const [visaProtokoll, setVisaProtokoll] = useState(false)
   const [protokollSparad, setProtokollSparad] = useState(false)
   const [protokollForm, setProtokollForm] = useState({
-    utfort: '', material: '', nastaService: '', status: 'ok', tekniker: a.tekniker || '',
+    utfort: '', nastaService: '', status: 'ok', tekniker: a.tekniker || '',
   })
 
   const updEdit  = (k, v) => setEditForm(f => ({ ...f, [k]: v }))
@@ -129,7 +142,6 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
     await onUppdatera(a.id, {
       status:    'atgardad',
       protokoll: protokollForm.utfort,
-      material:  protokollForm.material,
       tekniker:  protokollForm.tekniker || a.tekniker,
     })
     setSparar(false)
@@ -292,10 +304,6 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
                     placeholder="Beskriv vad som gjordes…" rows={3} style={{ ...FÄLT, resize: 'vertical' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Material / reservdelar</div>
-                  <input value={protokollForm.material} onChange={e => updProt('material', e.target.value)} placeholder="t.ex. Fjäder, styrbox…" style={FÄLT} />
-                </div>
-                <div>
                   <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>Portstatus efter åtgärd</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     {[['ok','OK'],['varning','Varning'],['försenad','Kräver uppföljning']].map(([v, l]) => (
@@ -346,7 +354,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onLoggAktivitet }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onNyKund, onLoggAktivitet }) {
   const [valt,     setValt]     = useState(null)
   const [filter,   setFilter]   = useState('oppna')
   const [sokText,  setSokText]  = useState('')
@@ -391,13 +399,14 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
       {/* Inline-formulär */}
       {visaForm && (
         <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: '20px', marginBottom: 20 }}>
-          <NyttArende
+          <Felanmalan
             kunder={kunder}
             objekt={objekt}
-            setArenden={(a) => {
+            onSparaArende={(a) => {
               onLaggTill?.(a)
-              setVisaForm(false)
             }}
+            onNyKund={onNyKund}
+            standaloneMode={false}
           />
         </div>
       )}

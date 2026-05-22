@@ -224,19 +224,37 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
                 )}
               </div>
 
-              {/* Port */}
-              <div className="card" style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Port (valfritt)</div>
-                <label style={lbl}>Välj berörd port</label>
-                <select value={valdObjekt} onChange={e => setValdObjekt(e.target.value)} style={inp}>
-                  <option value="">Okänd / ej specificerad</option>
-                  {(kundObjekt.length > 0 ? kundObjekt : objekt).map(o => (
-                    <option key={o.id} value={o.namn}>
-                      {o.namn} {kundObjekt.length === 0 ? `· ${o.kund}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Port – visas bara när en kund är vald */}
+              {(valdKund || nyKundNamn.trim()) && (
+                <div className="card" style={{ marginBottom: 14 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Port (valfritt)</div>
+
+                  {kundObjekt.length > 0 ? (
+                    <>
+                      <label style={lbl}>Välj berörd port</label>
+                      <select value={valdObjekt} onChange={e => setValdObjekt(e.target.value)} style={inp}>
+                        <option value="">Ej specificerad</option>
+                        {kundObjekt.map(o => (
+                          <option key={o.id} value={o.namn}>{o.namn}</option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: 12, color: 'var(--c-text3)', margin: '0 0 8px' }}>
+                        Inga portar registrerade för denna kund – ange portbeskrivning manuellt.
+                      </p>
+                      <input
+                        type="text"
+                        value={valdObjekt}
+                        onChange={e => setValdObjekt(e.target.value)}
+                        placeholder="t.ex. Vikport lager A, Grind entré…"
+                        style={inp}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Felinformation */}
               <div className="card" style={{ marginBottom: 20 }}>

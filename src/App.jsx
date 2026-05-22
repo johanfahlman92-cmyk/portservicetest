@@ -8,7 +8,6 @@ import Arenden from './views/Arenden.jsx'
 import Protokoll from './views/Protokoll.jsx'
 import Kalender from './views/Kalender.jsx'
 import Kunder from './views/Kunder.jsx'
-import NyttArende from './views/NyttArende.jsx'
 import Felanmalan from './views/Felanmalan.jsx'
 import TeknikerVy from './views/TeknikerVy.jsx'
 import Montering from './views/Montering.jsx'
@@ -526,12 +525,11 @@ export default function App() {
     dashboard:   () => <Dashboard kunder={kunder} objekt={objekt} arenden={arenden} bokningar={bokningar} onNavigera={navigera} onSparaArende={laggTillArende} />,
     fastigheter: () => <Fastigheter fastigheter={fastigheter} objekt={objekt} kunder={kunder} onLaggTill={laggTillFastighet} onTaBort={taBortFastighet} onUppdatera={uppdateraFastighet} onNyKund={snabbLaggTillKund} onUppdateraObjekt={uppdateraObjekt} />,
     register:    () => <Portregister objekt={objekt} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} />,
-    arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} kunder={kunder} objekt={objekt} onUppdatera={uppdateraArende} onUppdateraObjekt={uppdateraObjekt} onLaggTill={laggTillArende} onLoggAktivitet={loggAktivitet} />,
+    arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} kunder={kunder} objekt={objekt} onUppdatera={uppdateraArende} onUppdateraObjekt={uppdateraObjekt} onLaggTill={laggTillArende} onNyKund={laggTillKund} onLoggAktivitet={loggAktivitet} />,
     protokoll:   () => <Protokoll objekt={objekt} tekniker={tekniker} protokollMallar={protokollMallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillBokning={laggTillBokning} onLoggAktivitet={loggAktivitet} />,
     kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} />,
     kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objekt} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
     'nytt-arende': () => { navigera('arenden'); return null },
-    felanmalan:  () => <Felanmalan kunder={kunder} objekt={objekt} onSparaArende={laggTillArende} onNyKund={laggTillKund} standaloneMode={false} />,
     montering:   () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
     installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} /> : null,
