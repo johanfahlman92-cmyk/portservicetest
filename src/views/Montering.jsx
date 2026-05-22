@@ -831,6 +831,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       const ord = montageorder.find(m => m.id === montageorderId)
       if (ord) {
         onUppdateraMontageorder(montageorderId, {
+          status: 'pagår',   // markera som pågående i listan
           protokoll_data: {
             ...(ord.protokoll_data || {}),
             steg: 2,
@@ -841,6 +842,32 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
         })
       }
     }
+  }
+
+  // Öppna ett montageorder direkt från listan och återuppta rätt steg
+  const öppnaFrånOrder = (o) => {
+    setPortNamn(o.montageplats || '')
+    setAdress(o.montageplats || '')
+    setKund(o.kund || '')
+    setOrdernummer(o.ordernummer || '')
+    setSerienummer(o.serienummer || '')
+    const spF = o.protokoll_data?.fabrikat || ''
+    if (FASTA_FABRIKAT.includes(spF))   { setFabrikat(spF); setAnnatFabrikat('') }
+    else if (spF)                        { setFabrikat('Annat'); setAnnatFabrikat(spF) }
+    else                                 { setFabrikat(''); setAnnatFabrikat('') }
+    setMontageorderId(o.id || null)
+    const steg = o.protokoll_data?.steg || 0
+    if (steg >= 2) {
+      setRiskKontroll(o.protokoll_data?.riskKontroll || {})
+      setRiskNoteringar(o.protokoll_data?.riskNoteringar || {})
+      setEgenRisker(o.protokoll_data?.egenRisker || [])
+      setAktFlik('egenkontroll')
+    } else if (steg >= 1) {
+      setAktFlik('risk')
+    } else {
+      setAktFlik('info')
+    }
+    setVy('ny')
   }
 
   const sparaSteg2 = () => {
@@ -859,48 +886,121 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const inp2 = { width: '100%', padding: '8px 11px', fontSize: 13, boxSizing: 'border-box', border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-surface)', color: 'var(--c-text)' }
 
   // ── Lista-vy ──
-  if (vy === 'lista') return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0, flex: 1 }}>Montageprotokoll</h1>
-        <button onClick={() => setVy('ny')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <PlusCircle size={14} /> Nytt protokoll
-        </button>
-      </div>
-      {alleaMontage.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--c-text3)' }}>
-          Inga sparade montageprotokoll ännu.
+  if (vy === 'lista') {
+    // Gruppera montageorders
+    const pågående = montageorder.filter(o =>
+      o.status !== 'utford' && (o.protokoll_data?.steg >= 1)
+    ).sort((a, b) => (b.protokoll_data?.steg || 0) - (a.protokoll_data?.steg || 0))
+
+    const tilldelade = montageorder.filter(o =>
+      o.status !== 'utford' && (!o.protokoll_data?.steg || o.protokoll_data.steg < 1)
+    ).sort((a, b) => (a.onskat_montagedag || '').localeCompare(b.onskat_montagedag || ''))
+
+    const SECTION = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--c-text3)', marginBottom: 8 }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0, flex: 1 }}>Montering</h1>
+          <button onClick={() => { setVy('ny'); setAktFlik('info'); setMontageorderId(null); setPortNamn(''); setKund(''); setAdress(''); setFabrikat(''); setAnnatFabrikat('') }}
+            className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <PlusCircle size={14} /> Nytt montage
+          </button>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {alleaMontage.map((p, i) => (
-            <div key={i} onClick={() => öppnaProtokoll(p)} style={{ cursor: 'pointer' }}>
-              <div className="card" style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 14, transition: 'background 0.12s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'var(--c-surface)'}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text)' }}>{p.objektNamn}</div>
-                  <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>
-                    {p.portTyp} · {p.kund || p.adress || '–'} · {p.datum}
+
+        {/* ── Pågående – saknar egenkontroll ── */}
+        {pågående.length > 0 && (
+          <div>
+            <div style={SECTION}>🔴 Pågår – saknar egenkontroll</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {pågående.map(o => {
+                const steg = o.protokoll_data?.steg || 0
+                const stegLabel = steg >= 2 ? 'Riskbedömning klar' : 'Portuppgifter sparade'
+                return (
+                  <div key={o.id} className="card" style={{ borderLeft: '4px solid var(--c-red)', padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text)' }}>{o.montageplats || o.kund || '–'}</div>
+                        <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 3 }}>
+                          {o.kund}{o.porttyp ? ` · ${o.porttyp}` : ''}{o.ordernummer ? ` · ${o.ordernummer}` : ''}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--c-red)', marginTop: 4, fontWeight: 500 }}>{stegLabel}</div>
+                      </div>
+                      <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, whiteSpace: 'nowrap' }}
+                        onClick={() => öppnaFrånOrder(o)}>
+                        {steg >= 2 ? 'Fortsätt → Egenkontroll' : 'Fortsätt → Riskbedömning'} <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Tilldelade / nya ── */}
+        {tilldelade.length > 0 && (
+          <div>
+            <div style={SECTION}>🟡 Tilldelade monteringar</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {tilldelade.map(o => (
+                <div key={o.id} className="card" style={{ borderLeft: '4px solid var(--c-amber)', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text)' }}>{o.montageplats || o.kund || '–'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 3 }}>
+                        {o.kund}{o.porttyp ? ` · ${o.porttyp}` : ''}{o.onskat_montagedag ? ` · Planerad ${o.onskat_montagedag}` : ''}
+                      </div>
+                    </div>
+                    <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, whiteSpace: 'nowrap' }}
+                      onClick={() => öppnaFrånOrder(o)}>
+                      Starta <ChevronRight size={13} />
+                    </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  {p.ok > 0  && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#12302b', color: '#6ee7b7', fontWeight: 600 }}>✓ {p.ok}</span>}
-                  {p.ej > 0  && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#3d1818', color: '#fca5a5', fontWeight: 600 }}>✗ {p.ej}</span>}
-                  {p.na > 0  && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#2a2925', color: '#8a8880', fontWeight: 600 }}>N/A {p.na}</span>}
-                  {p.godkannande === 'godkand'    && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#d1fae5', color: '#1D9E75', fontWeight: 600 }}>Godkänd</span>}
-                  {p.godkannande === 'ej_godkand' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#fee2e2', color: '#b83333', fontWeight: 600 }}>Ej godkänd</span>}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--c-text3)', flexShrink: 0 }}>{p.tekniker || '–'}</div>
-                <ChevronRight size={14} color="var(--c-text3)" />
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+          </div>
+        )}
+
+        {/* ── Klara protokoll ── */}
+        {alleaMontage.length > 0 && (
+          <div>
+            <div style={SECTION}>✅ Klara montageprotokoll</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {alleaMontage.map((p, i) => (
+                <div key={i} onClick={() => öppnaProtokoll(p)} style={{ cursor: 'pointer' }}>
+                  <div className="card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, transition: 'background 0.12s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--c-surface)'}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{p.objektNamn}</div>
+                      <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 2 }}>
+                        {p.portTyp} · {p.kund || '–'} · {p.datum}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      {p.godkannande === 'godkand'    && <span className="badge badge-teal">Godkänd</span>}
+                      {p.godkannande === 'ej_godkand' && <span className="badge badge-red">Ej godkänd</span>}
+                      {p.ok > 0 && <span style={{ fontSize: 11, color: 'var(--c-teal)' }}>✓ {p.ok}</span>}
+                    </div>
+                    <ChevronRight size={13} color="var(--c-text3)" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {pågående.length === 0 && tilldelade.length === 0 && alleaMontage.length === 0 && (
+          <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--c-text3)' }}>
+            Inga monteringar ännu. Klicka "Nytt montage" för att börja.
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // ── Detalj-vy ──
   if (vy === 'detalj' && valdProtokoll) {
