@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, UserPlus } from 'lucide-react'
+import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 import { protokollTyper } from '../data/store.js'
+import KundVäljare from '../components/KundVäljare.jsx'
 
 // Samma porttyper som i Portregister
 const PORTTYPER      = Object.keys(protokollTyper)           // Vikport, Takskjutport, Lastbrygga, Grind
@@ -50,9 +51,6 @@ export default function Montageplanering({ kunder = [], montageorder = [], onLag
   const [sokText,       setSokText]       = useState('')
   const [filterStatus,  setFilterStatus]  = useState('alla')
   const [expandId,      setExpandId]      = useState(null)
-  const [nyttKundNamn,  setNyttKundNamn]  = useState('')
-  const [visaNyKund,    setVisaNyKund]    = useState(false)
-  const [spararKund,    setSpararKund]    = useState(false)
 
   const F = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -96,16 +94,6 @@ export default function Montageplanering({ kunder = [], montageorder = [], onLag
     if (!valt) return
     await onTaBort(valt.id)
     setVy('lista'); setValt(null)
-  }
-
-  const läggTillNyKund = async () => {
-    if (!nyttKundNamn.trim()) return
-    setSpararKund(true)
-    await onNyKund?.(nyttKundNamn.trim())
-    F('kund', nyttKundNamn.trim())
-    setNyttKundNamn('')
-    setVisaNyKund(false)
-    setSpararKund(false)
   }
 
   const skrivUt = async (order) => {
@@ -212,30 +200,19 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Kund</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input list="montage-kund-lista" type="text" value={form.kund} onChange={e => F('kund', e.target.value)}
-                  placeholder="Välj eller skriv" style={{ ...inp, flex: 1 }} />
-                <datalist id="montage-kund-lista">
-                  {kunder.map(k => <option key={k.id} value={k.namn} />)}
-                </datalist>
-                {onNyKund && (
-                  <button className="btn" title="Lägg till ny kund" onClick={() => setVisaNyKund(v => !v)}
-                    style={{ flexShrink: 0, padding: '0 10px' }}>
-                    <UserPlus size={14} />
-                  </button>
-                )}
-              </div>
-              {visaNyKund && (
-                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                  <input type="text" placeholder="Nytt kundnamn…" value={nyttKundNamn}
-                    onChange={e => setNyttKundNamn(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && läggTillNyKund()}
-                    style={{ ...inp, flex: 1 }} autoFocus />
-                  <button className="btn btn-teal" onClick={läggTillNyKund} disabled={spararKund || !nyttKundNamn.trim()}
-                    style={{ flexShrink: 0 }}>
-                    {spararKund ? '…' : 'Lägg till'}
-                  </button>
-                  <button className="btn" onClick={() => { setVisaNyKund(false); setNyttKundNamn('') }}>✕</button>
+              <KundVäljare
+                kunder={kunder}
+                value={form.kund}
+                onChange={v => F('kund', v)}
+                onNyKund={onNyKund}
+                style={inp}
+                placeholder="– Välj kund –"
+              />
+              {form.kund && (
+                <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6,
+                  fontSize: 12, color: 'var(--c-teal-text)', background: 'var(--c-teal-bg)',
+                  border: '1px solid var(--c-teal)', borderRadius: 6, padding: '5px 10px' }}>
+                  <Check size={13} /> Vald kund: <strong>{form.kund}</strong>
                 </div>
               )}
             </div>
