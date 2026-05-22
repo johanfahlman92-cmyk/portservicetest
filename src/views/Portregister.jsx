@@ -314,7 +314,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
 }
 
 // ── Portdetaljer ──────────────────────────────────────────────────────────────
-function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillArende, onNavigeraArende, onDupliceraPort, onNyArende, montageorder = [] }) {
+function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillArende, onNavigeraArende, onDupliceraPort, onNyArende, montageorder = [], arenden = [] }) {
   const [valdProtokoll,    setValdProtokoll]    = useState(null)
   const [visaSnabbBokning, setVisaSnabbBokning] = useState(false)
   const [redigeraNasta,    setRedigeraNasta]    = useState(false)
@@ -333,6 +333,14 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
     setDokument(nyaDok)
     await onUppdateraObjekt(obj.id, { dokument: nyaDok })
   }
+
+  // Ärenden kopplade till porten
+  const portArenden = arenden.filter(a =>
+    !a.arkiverad &&
+    (a.objekt_id ? a.objekt_id === obj.id : (a.namn === obj.namn && a.kund === obj.kund))
+  )
+  const öppnaPortArenden  = portArenden.filter(a => a.status !== 'atgardad')
+  const stängdaPortArenden = portArenden.filter(a => a.status === 'atgardad').slice(-3).reverse()
 
   // Länkad montageorder (ny data via Montageplanering)
   const länkadOrder = montageorder.find(m => m.objekt_id === obj.id && m.status === 'utford')
@@ -483,6 +491,57 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           </>
         )}
       </div>
+
+      {/* Ärenden kopplade till porten */}
+      {portArenden.length > 0 && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="section-title" style={{ marginBottom: 8 }}>
+            Ärenden
+            {öppnaPortArenden.length > 0 && (
+              <span style={{ marginLeft: 8, background: 'var(--c-red)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10 }}>
+                {öppnaPortArenden.length} öppna
+              </span>
+            )}
+          </div>
+
+          {öppnaPortArenden.map(a => (
+            <div key={a.id} className="row-item" onClick={() => onNavigeraArende?.(a.id)}
+              style={{ cursor: onNavigeraArende ? 'pointer' : 'default', borderLeft: '3px solid var(--c-red)', paddingLeft: 10 }}>
+              <div className="row-main">
+                <div className="row-name" style={{ fontSize: 13 }}>#{a.nr} · {a.feltyp || a.typ}</div>
+                <div className="row-sub">{a.datum}{a.tekniker ? ` · ${a.tekniker}` : ''}{a.besok ? ` · Besök: ${a.besok}` : ''}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                <span className={`badge ${a.status === 'ny' ? 'badge-red' : 'badge-amber'}`}>
+                  {a.status === 'ny' ? 'Ny' : 'Pågår'}
+                </span>
+                {onNavigeraArende && <ChevronRight size={15} color="var(--c-text3)" />}
+              </div>
+            </div>
+          ))}
+
+          {stängdaPortArenden.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '10px 0 4px', paddingTop: öppnaPortArenden.length > 0 ? 8 : 0, borderTop: öppnaPortArenden.length > 0 ? '1px solid var(--c-border)' : 'none' }}>
+                Senaste avslutade
+              </div>
+              {stängdaPortArenden.map(a => (
+                <div key={a.id} className="row-item" onClick={() => onNavigeraArende?.(a.id)}
+                  style={{ cursor: onNavigeraArende ? 'pointer' : 'default', opacity: 0.7 }}>
+                  <div className="row-main">
+                    <div className="row-name" style={{ fontSize: 13 }}>#{a.nr} · {a.feltyp || a.typ}</div>
+                    <div className="row-sub">{a.datum}{a.tekniker ? ` · ${a.tekniker}` : ''}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                    <span className="badge badge-green">Åtgärdad</span>
+                    {onNavigeraArende && <ChevronRight size={15} color="var(--c-text3)" />}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Serviceprotokoll */}
       <div className="card" style={{ marginBottom: 12 }}>
@@ -852,7 +911,7 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, onNavigeraArende, initialObjektId, onInitialObjektHandled, onNyArende }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], arenden = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, onNavigeraArende, initialObjektId, onInitialObjektHandled, onNyArende }) {
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)
@@ -905,6 +964,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
       onNyArende={onNyArende}
       onLaggTillArende={onLaggTillArende}
       onNavigeraArende={onNavigeraArende}
+      arenden={arenden}
       montageorder={montageorder}
     />
   )
