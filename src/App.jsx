@@ -12,6 +12,7 @@ import Felanmalan from './views/Felanmalan.jsx'
 import TeknikerVy from './views/TeknikerVy.jsx'
 import Montering from './views/Montering.jsx'
 import Montageplanering from './views/Montageplanering.jsx'
+import Planeringstavla from './views/Planeringstavla.jsx'
 import Fastigheter from './views/Fastigheter.jsx'
 import Statistik from './views/Statistik.jsx'
 import Installningar from './views/Installningar.jsx'
@@ -597,6 +598,7 @@ export default function App() {
     'nytt-arende': () => { navigera('arenden'); return null },
     montering:        () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} förifylldMontageorder={förifylldMontageorder} onFörifylldHandled={() => setFörifylldMontageorder(null)} montageorder={montageorder} onUppdateraMontageorder={uppdateraMontageorder} onLaggTillMontageorder={laggTillMontageorder} />,
     montageplanering: () => <Montageplanering kunder={kunder} fastigheter={fastigheter} montageorder={montageorder} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} onNyKund={snabbLaggTillKund} onNavigeraMontering={navigeraMontering} />,
+    planeringstavla:  () => <Planeringstavla montageorder={montageorder} arenden={arenden} bokningar={bokningar} tekniker={tekniker} kunder={kunder} onNavigeraArende={navigeraArende} onNavigeraMontering={navigeraMontering} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
     installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} /> : null,
   }
@@ -666,7 +668,7 @@ export default function App() {
           flex: 1,
           padding: erMobil ? '16px' : '28px 32px',
           overflowY: 'auto',
-          maxWidth: erMobil ? '100%' : page === 'kalender' ? 1600 : 900,
+          maxWidth: erMobil ? '100%' : (page === 'kalender' || page === 'planeringstavla') ? 1600 : 900,
           width: '100%',
         }}>
           {(views[page] || views.dashboard)()}
