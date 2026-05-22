@@ -5,6 +5,21 @@ import { CheckCircle, ChevronRight, Printer, CheckSquare, History, ArrowLeft,
 import logo from '../image-1779305303942.png'
 import { protokollPunkter as defaultMallar } from '../data/store.js'
 
+async function hämtaLogoBase64() {
+  try {
+    const res  = await fetch(logo)
+    const blob = await res.blob()
+    return new Promise(resolve => {
+      const r = new FileReader()
+      r.onload = () => resolve(r.result)
+      r.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
+const PDF_STATUS_LABEL = { OK: 'Godkänd', AF: 'Åtgärdad', NOT: 'Att notera', KA: 'Kräver åtgärd', EJ: 'Ej tillämpbar' }
+const PDF_STATUS_COLOR = { OK: '#16a34a', AF: '#2563eb', NOT: '#d97706', KA: '#dc2626', EJ: '#9ca3af' }
+
 // ── Nya statusalternativ (5 st) ────────────────────────────────────────────
 const STATUSES = [
   { kod: 'OK',  label: 'Godkänd',       Icon: Check,         color: '#16a34a', bg: '#f0fdf4', border: '#16a34a' },
@@ -337,6 +352,71 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
     setBokar(false); setBokaKlar(true)
   }
 
+  // ── Skriv ut PDF ─────────────────────────────────────────────────────────
+  const skrivUtProtokoll = async (obj, entry) => {
+    const logoBase64 = await hämtaLogoBase64()
+    const punkter    = protokollPunkter[entry.portTyp || obj?.typ] || protokollPunkter['Vikport'] || []
+
+    let numCount = 0
+    const rader = punkter.map((p, i) => {
+      if (p.startsWith('## ')) {
+        return `<tr><td colspan="3" style="background:#f3f2ef;padding:6px 8px;font-size:10px;font-weight:700;color:#1C3461;text-transform:uppercase;letter-spacing:0.06em">${p.slice(3)}</td></tr>`
+      }
+      numCount++
+      const kod   = normKod(entry.statuses?.[i] || '')
+      const label = PDF_STATUS_LABEL[kod] || ''
+      const color = PDF_STATUS_COLOR[kod] || '#888'
+      const not   = entry.noteringar?.[i] || ''
+      return `<tr>
+        <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;text-align:justify"><span style="color:#888;margin-right:5px">${numCount}.</span>${p}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;color:${color};font-weight:600;white-space:nowrap">${label}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;color:#555;text-align:justify">${not}</td>
+      </tr>`
+    }).join('')
+
+    const win = window.open('', '_blank', 'width=860,height=1100')
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Serviceprotokoll – ${obj?.namn}</title>
+<style>
+body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;margin:32px 40px}
+h1{font-size:20px;margin-bottom:6px}
+h2{font-size:13px;margin-top:22px;margin-bottom:8px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:14px;font-size:11px;color:#555}
+.meta b{color:#1a1917}
+table{width:100%;border-collapse:collapse;margin-bottom:14px}
+th{background:#f3f2ef;padding:6px 8px;text-align:left;font-size:11px;font-weight:600}
+td{vertical-align:top}
+p{text-align:justify;line-height:1.6}
+.sig-box{border:1px solid #ccc;border-radius:6px;padding:8px;display:inline-block}
+@media print{body{margin:16px}}
+</style></head><body>
+${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
+<h1>Serviceprotokoll</h1>
+<div class="meta">
+  <div><b>Port:</b> ${obj?.namn || '–'}</div>
+  <div><b>Kund:</b> ${obj?.kund || '–'}</div>
+  <div><b>Porttyp:</b> ${entry.portTyp || obj?.typ || '–'}</div>
+  <div><b>Datum:</b> ${entry.datum || '–'}</div>
+  <div><b>Tekniker:</b> ${entry.tekniker || '–'}</div>
+  <div><b>Adress:</b> ${obj?.adress || obj?.plats || '–'}</div>
+</div>
+<h2>Kontrollpunkter</h2>
+<table>
+  <thead><tr>
+    <th style="width:60%">Kontrollpunkt</th>
+    <th style="width:20%">Status</th>
+    <th style="width:20%">Notering</th>
+  </tr></thead>
+  <tbody>${rader}</tbody>
+</table>
+${entry.signatur ? `<h2>Signatur tekniker</h2>
+<div class="sig-box"><img src="${entry.signatur}" style="max-width:300px;max-height:90px"/></div>
+<p style="font-size:11px;color:#555;margin-top:6px">${entry.tekniker || ''},&nbsp;${entry.datum}</p>` : ''}
+</body></html>`)
+    win.document.close()
+    setTimeout(() => win.print(), 400)
+  }
+
   // ── Välj objekt för nytt protokoll ───────────────────────────────────────
   const valjObjektForNytt = (o) => {
     setValdObjekt(o); setValdEntry(null); setValdEntryIdx(null)
@@ -433,9 +513,14 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <button className="btn" onClick={() => setVy('lista')}>← Tillbaka</button>
-          <button className="btn" onClick={() => setRedigerar(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Pencil size={13} /> Redigera
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={() => skrivUtProtokoll(valdObjekt, valdEntry)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Printer size={13} /> Skriv ut
+            </button>
+            <button className="btn" onClick={() => setRedigerar(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Pencil size={13} /> Redigera
+            </button>
+          </div>
         </div>
 
         <div className="card" style={{ marginBottom: 12 }}>

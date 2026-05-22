@@ -11,6 +11,7 @@ import Kunder from './views/Kunder.jsx'
 import Felanmalan from './views/Felanmalan.jsx'
 import TeknikerVy from './views/TeknikerVy.jsx'
 import Montering from './views/Montering.jsx'
+import Montageplanering from './views/Montageplanering.jsx'
 import Fastigheter from './views/Fastigheter.jsx'
 import Statistik from './views/Statistik.jsx'
 import Installningar from './views/Installningar.jsx'
@@ -187,6 +188,7 @@ export default function App() {
   const [arenden,       setArenden]       = useState([])
   const [tekniker,      setTekniker]      = useState([])
   const [bokningar,     setBokningar]     = useState({})
+  const [montageorder,  setMontageorder]  = useState([])
   const [aktivitetslogg,  setAktivitetslogg]  = useState([])
   const [protokollMallar, setProtokollMallar] = useState(defaultProtokollMallar)
   const [montagemallar,   setMontagemallar]   = useState(defaultMontagemallar)
@@ -251,7 +253,7 @@ export default function App() {
     if (!user) return
     async function ladda() {
       try {
-        const [k, o, f, a, t, b, al, cfg, montCfg] = await Promise.all([
+        const [k, o, f, a, t, b, al, cfg, montCfg, mo] = await Promise.all([
           supabase.from('kunder').select('*').order('created_at'),
           supabase.from('objekt').select('*').order('created_at'),
           supabase.from('fastigheter').select('*').order('created_at'),
@@ -261,6 +263,7 @@ export default function App() {
           supabase.from('aktivitetslogg').select('*').order('created_at', { ascending: false }).limit(100),
           supabase.from('app_config').select('data').eq('id', 'protokoll_mallar').maybeSingle(),
           supabase.from('app_config').select('data').eq('id', 'montage_mallar').maybeSingle(),
+          supabase.from('montageorder').select('*').order('created_at'),
         ])
         if (k.data) setKunder(k.data)
         if (o.data) setObjekt(o.data.map(dbToObjekt))
@@ -270,6 +273,7 @@ export default function App() {
         if (al.data)  setAktivitetslogg(al.data)
         if (cfg.data)     setProtokollMallar(cfg.data.data)
         if (montCfg.data) setMontagemallar(montCfg.data.data)
+        if (mo.data)      setMontageorder(mo.data)
         if (b.data) {
           const grouped = {}
           for (const row of b.data) {
@@ -452,6 +456,31 @@ export default function App() {
     setBokningar(prev => ({ ...prev, [datum]: prev[datum].filter((_, i) => i !== index) }))
   }
 
+  // ── Montageorder CRUD ─────────────────────────────────────────────────────
+  const laggTillMontageorder = async (ny) => {
+    try {
+      const { data, error } = await supabase.from('montageorder').insert(ny).select().single()
+      if (error) throw error
+      if (data) setMontageorder(prev => [...prev, data])
+    } catch (err) { toast('Kunde inte spara montageorder: ' + err.message, 'error') }
+  }
+
+  const uppdateraMontageorder = async (id, changes) => {
+    try {
+      const { data, error } = await supabase.from('montageorder').update(changes).eq('id', id).select().single()
+      if (error) throw error
+      if (data) setMontageorder(prev => prev.map(m => m.id === id ? data : m))
+    } catch (err) { toast('Kunde inte uppdatera montageorder: ' + err.message, 'error') }
+  }
+
+  const taBortMontageorder = async (id) => {
+    try {
+      const { error } = await supabase.from('montageorder').delete().eq('id', id)
+      if (error) throw error
+      setMontageorder(prev => prev.filter(m => m.id !== id))
+    } catch (err) { toast('Kunde inte ta bort montageorder: ' + err.message, 'error') }
+  }
+
   // ── CSV-export-funktioner ─────────────────────────────────────────────────
   const exportPortarCSV = () => exportCSV(
     ['Namn', 'Kund', 'Fastighet', 'Typ', 'Fabrikat', 'Installationsår', 'Ordernummer', 'Serienummer', 'Senaste service', 'Nästa service', 'Status'],
@@ -548,7 +577,8 @@ export default function App() {
     kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} objekt={objekt} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigera={navigera} onNavigeraArende={navigeraArende} onNavigeraObjekt={navigeraObjekt} />,
     kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objekt} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
     'nytt-arende': () => { navigera('arenden'); return null },
-    montering:   () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} />,
+    montering:        () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} />,
+    montageplanering: () => <Montageplanering kunder={kunder} montageorder={montageorder} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
     installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} /> : null,
   }
