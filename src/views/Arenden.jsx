@@ -461,10 +461,13 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
 }
 
 export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled }) {
-  const [valt,     setValt]     = useState(null)
-  const [filter,   setFilter]   = useState('oppna')
-  const [sokText,  setSokText]  = useState('')
-  const [visaForm, setVisaForm] = useState(false)
+  const [valt,      setValt]      = useState(null)
+  const [filter,    setFilter]    = useState('oppna')
+  const [sokText,   setSokText]   = useState('')
+  const [visaForm,  setVisaForm]  = useState(false)
+  const [valjLage,  setValjLage]  = useState(false)
+  const [valda,     setValda]     = useState(new Set())
+  const [bulkSparar, setBulkSparar] = useState(false)
 
   useEffect(() => {
     if (initialArendeId && arenden.length > 0) {
@@ -475,6 +478,28 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
       }
     }
   }, [initialArendeId, arenden])
+
+  const toggleVald = (id) => setValda(prev => {
+    const ny = new Set(prev)
+    ny.has(id) ? ny.delete(id) : ny.add(id)
+    return ny
+  })
+
+  const avslutaValjLage = () => { setValjLage(false); setValda(new Set()) }
+
+  const bulkArkivera = async () => {
+    setBulkSparar(true)
+    await Promise.all([...valda].map(id => onUppdatera(id, { arkiverad: true })))
+    setBulkSparar(false)
+    avslutaValjLage()
+  }
+
+  const bulkAteraktivera = async () => {
+    setBulkSparar(true)
+    await Promise.all([...valda].map(id => onUppdatera(id, { arkiverad: false, status: 'pagAr' })))
+    setBulkSparar(false)
+    avslutaValjLage()
+  }
 
   const filtArenden = arenden.filter(a => {
     if (filter === 'arkiverade') return a.arkiverad === true
@@ -499,19 +524,36 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
           <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Ärenden</h1>
           <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Öppna och pågående serviceärenden</p>
         </div>
-        <button
-          onClick={() => setVisaForm(v => !v)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-            background: visaForm ? 'var(--c-surface)' : 'var(--c-teal)',
-            color: visaForm ? 'var(--c-text2)' : '#fff',
-            border: visaForm ? '1px solid var(--c-border)' : 'none',
-            cursor: 'pointer',
-          }}
-        >
-          {visaForm ? <><X size={14} /> Stäng</> : <><Plus size={14} /> Nytt ärende</>}
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {!visaForm && (
+            <button
+              onClick={() => { setValjLage(v => !v); setValda(new Set()) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                background: valjLage ? 'var(--c-blue-bg)' : 'transparent',
+                color: valjLage ? 'var(--c-blue-text)' : 'var(--c-text2)',
+                border: `1px solid ${valjLage ? 'var(--c-blue)' : 'var(--c-border)'}`,
+                cursor: 'pointer',
+              }}
+            >
+              {valjLage ? <><X size={14} /> Avsluta val</> : 'Välj flera'}
+            </button>
+          )}
+          <button
+            onClick={() => { setVisaForm(v => !v); if (valjLage) avslutaValjLage() }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              background: visaForm ? 'var(--c-surface)' : 'var(--c-teal)',
+              color: visaForm ? 'var(--c-text2)' : '#fff',
+              border: visaForm ? '1px solid var(--c-border)' : 'none',
+              cursor: 'pointer',
+            }}
+          >
+            {visaForm ? <><X size={14} /> Stäng</> : <><Plus size={14} /> Nytt ärende</>}
+          </button>
+        </div>
       </div>
 
       {/* Inline-formulär */}
@@ -547,30 +589,119 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
         ))}
       </div>
 
+      {/* Bulk-åtgärdsrad */}
+      {valjLage && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+          background: 'var(--c-blue-bg)', border: '1px solid var(--c-blue)',
+          borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-blue-text)', marginRight: 4 }}>
+            {valda.size === 0 ? 'Välj ärenden' : `${valda.size} valda`}
+          </span>
+          {valda.size > 0 && (<>
+            {filter !== 'arkiverade' && (
+              <button
+                onClick={bulkArkivera}
+                disabled={bulkSparar}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 13px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  background: 'var(--c-text)', color: '#fff', border: 'none',
+                  opacity: bulkSparar ? 0.6 : 1,
+                }}
+              >
+                <Archive size={13} /> {bulkSparar ? 'Arkiverar…' : `Arkivera valda (${valda.size})`}
+              </button>
+            )}
+            {filter === 'arkiverade' && (
+              <button
+                onClick={bulkAteraktivera}
+                disabled={bulkSparar}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 13px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  background: 'var(--c-text)', color: '#fff', border: 'none',
+                  opacity: bulkSparar ? 0.6 : 1,
+                }}
+              >
+                <RotateCcw size={13} /> {bulkSparar ? 'Återaktiverar…' : `Återaktivera valda (${valda.size})`}
+              </button>
+            )}
+          </>)}
+          <button
+            onClick={avslutaValjLage}
+            style={{ marginLeft: 'auto', padding: '5px 11px', borderRadius: 7, fontSize: 12, cursor: 'pointer', background: 'none', border: '1px solid var(--c-blue)', color: 'var(--c-blue-text)', fontWeight: 500 }}
+          >
+            Avbryt
+          </button>
+        </div>
+      )}
+
       <div className="card">
+        {/* Välj alla – visas i välj-läge */}
+        {valjLage && filtArenden.length > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 4px 10px', borderBottom: '1px solid var(--c-border)',
+            marginBottom: 4,
+          }}>
+            <input
+              type="checkbox"
+              checked={filtArenden.length > 0 && filtArenden.every(a => valda.has(a.id))}
+              onChange={e => {
+                if (e.target.checked) setValda(new Set(filtArenden.map(a => a.id)))
+                else setValda(new Set())
+              }}
+              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--c-blue)' }}
+            />
+            <span style={{ fontSize: 12, color: 'var(--c-text2)' }}>Välj alla ({filtArenden.length})</span>
+          </div>
+        )}
+
         {filtArenden.length === 0 && (
           <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Inga ärenden att visa.</p>
         )}
-        {filtArenden.map(a => (
-          <div key={a.id} className="row-item" onClick={() => setValt(a)}
-            style={{ cursor: 'pointer', opacity: a.arkiverad ? 0.55 : 1 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-              background: a.arkiverad ? 'var(--c-text3)' : a.status === 'ny' ? 'var(--c-red)' : a.status === 'pagAr' ? 'var(--c-amber)' : 'var(--c-teal)'
-            }} />
-            <div className="row-main">
-              <div className="row-name">{a.namn}</div>
-              <div className="row-sub">{a.feltyp} · {a.kund} · {a.datum}</div>
+        {filtArenden.map(a => {
+          const ärVald = valda.has(a.id)
+          return (
+            <div key={a.id} className="row-item"
+              onClick={() => valjLage ? toggleVald(a.id) : setValt(a)}
+              style={{
+                cursor: 'pointer',
+                opacity: a.arkiverad && !valjLage ? 0.55 : 1,
+                background: ärVald ? 'var(--c-blue-bg)' : undefined,
+                borderRadius: ärVald ? 8 : undefined,
+              }}>
+              {valjLage && (
+                <input
+                  type="checkbox"
+                  checked={ärVald}
+                  onChange={() => toggleVald(a.id)}
+                  onClick={e => e.stopPropagation()}
+                  style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0, accentColor: 'var(--c-blue)' }}
+                />
+              )}
+              {!valjLage && (
+                <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                  background: a.arkiverad ? 'var(--c-text3)' : a.status === 'ny' ? 'var(--c-red)' : a.status === 'pagAr' ? 'var(--c-amber)' : 'var(--c-teal)'
+                }} />
+              )}
+              <div className="row-main">
+                <div className="row-name">{a.namn}</div>
+                <div className="row-sub">{a.feltyp} · {a.kund} · {a.datum}</div>
+              </div>
+              <div className="row-right">
+                {!valjLage && (a.arkiverad
+                  ? <span className="badge badge-gray" style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Archive size={10} /> Arkiverat</span>
+                  : <><span className={`badge ${prioCls[a.prioritet]}`}>{prioLabel[a.prioritet]}</span>
+                     <span className={`badge ${statusCls[a.status]}`}>{statusLabel[a.status]}</span></>
+                )}
+                {!valjLage && <ChevronRight size={16} color="var(--c-text3)" />}
+              </div>
             </div>
-            <div className="row-right">
-              {a.arkiverad
-                ? <span className="badge badge-gray" style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Archive size={10} /> Arkiverat</span>
-                : <><span className={`badge ${prioCls[a.prioritet]}`}>{prioLabel[a.prioritet]}</span>
-                   <span className={`badge ${statusCls[a.status]}`}>{statusLabel[a.status]}</span></>
-              }
-              <ChevronRight size={16} color="var(--c-text3)" />
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
