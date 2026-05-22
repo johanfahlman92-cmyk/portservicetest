@@ -492,6 +492,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
+  const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
 
   // ── Vyläge ──
   const [vy,            setVy]            = useState('ny')
@@ -531,6 +532,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [dokument,         setDokument]         = useState([])
   const [ordernummer,      setOrdernummer]      = useState('')
   const [serienummer,      setSerienummer]      = useState('')
+  const [fabrikat,         setFabrikat]         = useState('')
+  const [annatFabrikat,    setAnnatFabrikat]    = useState('')
   const [sparad,           setSparad]           = useState(false)
   const [sparar,           setSparar]           = useState(false)
   const [montageorderId,   setMontageorderId]   = useState(null)
@@ -545,6 +548,13 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setKund(o.kund || '')
     setOrdernummer(o.ordernummer || '')
     setSerienummer(o.serienummer || '')
+    // Återställ fabrikat
+    const sparatFabrikat = o.protokoll_data?.fabrikat || ''
+    if (FASTA_FABRIKAT.includes(sparatFabrikat)) {
+      setFabrikat(sparatFabrikat); setAnnatFabrikat('')
+    } else if (sparatFabrikat) {
+      setFabrikat('Annat'); setAnnatFabrikat(sparatFabrikat)
+    }
     setMontageorderId(o.id || null)
     // Återuppta rätt steg baserat på sparat protokoll
     const sparat = o.protokoll_data?.steg || 0
@@ -630,6 +640,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const uppdateraEditEgenRisk  = (id, fält, val) => setEditEgenRisker(prev => prev.map(r => r.id === id ? { ...r, [fält]: val } : r))
   const taBortEditEgenRisk     = (id) => setEditEgenRisker(prev => prev.filter(r => r.id !== id))
 
+  const effektivtFabrikat = fabrikat === 'Annat' ? annatFabrikat.trim() : fabrikat
   const kanSpara = portNamn.trim().length > 0 && !!signaturbild
   const setEgen  = (idx, val) => setEgenkontroll(prev => ({ ...prev, [idx]: val }))
 
@@ -660,6 +671,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     const nyskapadPort = await onLaggTillObjekt({
       id: 'o' + Date.now(), namn: portNamn.trim(), kund: kund.trim(),
       typ: portTyp, adress: adress.trim(), status: 'ok',
+      fabrikat: effektivtFabrikat || '',
       kundTyp: 'foretag', intervallProcent: 0, dagerForsenad: 0,
       ordernummer: ordernummer.trim() || null,
       serienummer: serienummer.trim() || null,
@@ -687,7 +699,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       // Inget befintligt order — skapa ett automatiskt och markera som utfört
       await onLaggTillMontageorder({
         porttyp:        portTyp,
-        fabrikat:       '',
+        fabrikat:       effektivtFabrikat || '',
         ordernummer:    ordernummer.trim() || null,
         serienummer:    serienummer.trim() || null,
         montageplats:   adress.trim(),
@@ -793,6 +805,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
             steg: 1,
             portTyp, datum, teknikerNamn,
             adress: adress.trim(), kund: kund.trim(),
+            fabrikat: effektivtFabrikat,
             serviceIntervall: parseInt(serviceIntervall) || 0,
           },
         })
@@ -801,14 +814,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setAktFlik('risk')
   }
 
-  const sparaSteg2 = () => {
-    const harRisk = Object.keys(riskKontroll).length > 0
-    if (!harRisk && !riskVarning) {
-      setRiskVarning(true)
-      return
-    }
-    setRiskVarning(false)
-    // Mellansparning av riskdata om vi har ett order-id
+  // Sparar riskdata till DB utan att navigera vidare (används av "Spara & Montera")
+  const sparaSteg2NonNavigate = () => {
     if (montageorderId && onUppdateraMontageorder) {
       const ord = montageorder.find(m => m.id === montageorderId)
       if (ord) {
@@ -823,6 +830,16 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
         })
       }
     }
+  }
+
+  const sparaSteg2 = () => {
+    const harRisk = Object.keys(riskKontroll).length > 0
+    if (!harRisk && !riskVarning) {
+      setRiskVarning(true)
+      return
+    }
+    setRiskVarning(false)
+    sparaSteg2NonNavigate()
     setAktFlik('egenkontroll')
   }
 
@@ -1236,16 +1253,31 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               </select>
             </div>
             <div>
+              <label style={lbl}>Fabrikat</label>
+              <select value={fabrikat} onChange={e => { setFabrikat(e.target.value); setAnnatFabrikat('') }} style={inp}>
+                <option value="">– Välj fabrikat –</option>
+                {FASTA_FABRIKAT.map(f => <option key={f} value={f}>{f}</option>)}
+                <option value="Annat">Annat / okänt</option>
+              </select>
+              {fabrikat === 'Annat' && (
+                <input type="text" placeholder="Ange fabrikat…" value={annatFabrikat}
+                  onChange={e => setAnnatFabrikat(e.target.value)}
+                  style={{ ...inp, marginTop: 6 }} />
+              )}
+            </div>
+          </div>
+          <div className="grid2">
+            <div>
               <label style={lbl}>Monteringsdatum</label>
               <input type="date" value={datum} onChange={e => setDatum(e.target.value)} style={inp} />
             </div>
-          </div>
-          <div>
-            <label style={lbl}>Tekniker</label>
-            <select value={teknikerNamn} onChange={e => setTeknikerNamn(e.target.value)} style={inp}>
-              <option value="">– Välj tekniker –</option>
-              {tekniker.map(t => <option key={t}>{t}</option>)}
-            </select>
+            <div>
+              <label style={lbl}>Tekniker</label>
+              <select value={teknikerNamn} onChange={e => setTeknikerNamn(e.target.value)} style={inp}>
+                <option value="">– Välj tekniker –</option>
+                {tekniker.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
           <div className="grid2">
             <div>
@@ -1373,8 +1405,15 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
           )}
 
           {!riskVarning && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-              <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={sparaSteg2}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 8 }}>
+              {montageorderId && (
+                <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+                  onClick={() => { sparaSteg2NonNavigate(); setVy('lista') }}
+                  title="Sparar riskbedömningen och stänger – du kan återkomma för egenkontroll">
+                  💾 Spara &amp; Montera porten
+                </button>
+              )}
+              <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }} onClick={sparaSteg2}>
                 {montageorderId ? 'Spara & Nästa' : 'Nästa'}: Egenkontroll <ChevronRight size={14} />
               </button>
             </div>
