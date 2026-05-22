@@ -333,7 +333,9 @@ export default function App() {
 
   const laggTillObjekt = async (nytt) => {
     try {
-      const { data, error } = await supabase.from('objekt').insert(objektToDB(nytt)).select().single()
+      // Strippa det lokala temporär-id:t (t.ex. 'p' + Date.now()) – Supabase genererar riktigt UUID
+      const { id: _tempId, ...dbPayload } = objektToDB(nytt)
+      const { data, error } = await supabase.from('objekt').insert(dbPayload).select().single()
       if (error) throw error
       if (data) {
         setObjekt(prev => [...prev, dbToObjekt(data)])
@@ -392,9 +394,15 @@ export default function App() {
     } catch (err) { toast('Kunde inte uppdatera fastighet: ' + err.message, 'error') }
   }
 
+  // Validerar att ett värde är ett riktigt UUID – ej lokalt temp-id som 'p...' eller 'a...'
+  const isUUID = (v) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+
   const laggTillArende = async (nytt) => {
     try {
-      const { data, error } = await supabase.from('arenden').insert(nytt).select().single()
+      // Strippa lokalt temp-id och rensa objekt_id om det inte är ett riktigt UUID
+      const { id: _tempId, ...payload } = nytt
+      if (payload.objekt_id && !isUUID(payload.objekt_id)) payload.objekt_id = null
+      const { data, error } = await supabase.from('arenden').insert(payload).select().single()
       if (error) throw error
       if (data) {
         setArenden(prev => [...prev, data])
