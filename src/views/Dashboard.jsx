@@ -215,7 +215,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
       veckoExtra.push({ dag: dagLbl, namn: m.ordernummer, kund: m.kund, tekniker: m.tekniker || '–', typ: 'montage', nav: 'montageplanering' })
     })
   }
-  const alleVecka = [...veckoSchema.map(v => ({ ...v, nav: 'kalender' })), ...veckoExtra]
+  const alleVecka = [...veckoSchema.map(v => ({ ...v, nav: 'planeringstavla' })), ...veckoExtra]
     .sort((a, b) => a.dag.localeCompare(b.dag))
 
   // Hälsning
@@ -243,7 +243,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
         {[
           { label: 'Aktiva portar',       value: aktivaPortar,      icon: DoorOpen,     color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)',   nav: 'register' },
           { label: 'Öppna ärenden',       value: öppnaArenden,      icon: AlertCircle,  color: 'var(--c-red)',    bg: 'var(--c-red-bg)',    nav: 'arenden'  },
-          { label: 'Service denna månad', value: serviceDennaMånad, icon: CalendarDays, color: 'var(--c-teal)',   bg: 'var(--c-teal-bg)',   nav: 'kalender' },
+          { label: 'Service denna månad', value: serviceDennaMånad, icon: CalendarDays, color: 'var(--c-teal)',   bg: 'var(--c-teal-bg)',   nav: 'planeringstavla' },
           { label: 'Monteringar (mån)',   value: monteringar,       icon: Wrench,       color: 'var(--c-purple)', bg: 'var(--c-purple-bg)', nav: 'montering'},
         ].map(m => (
           <div
@@ -297,7 +297,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
           </button>
 
           {[
-            { label: 'Kalender',     sub: 'Boka & planera',    icon: CalendarDays, page: 'kalender',  color: 'var(--c-teal)',   bg: 'var(--c-teal-bg)'   },
+            { label: 'Planeringstavla', sub: 'Boka & planera',  icon: CalendarDays, page: 'planeringstavla', color: 'var(--c-teal)', bg: 'var(--c-teal-bg)' },
             { label: 'Protokoll',    sub: 'Serviceprotokoll',  icon: FileText,     page: 'protokoll', color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)'   },
             { label: 'Portregister', sub: 'Alla portar',       icon: DoorOpen,     page: 'register',  color: 'var(--c-purple)', bg: 'var(--c-purple-bg)' },
           ].map(({ label, sub, icon: Icon, page, color, bg }) => (
@@ -374,7 +374,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
               const lbl  = v.typ === 'service' ? 'Service' : v.typ === 'montage' ? 'Montage' : v.typ === 'akut' ? 'Akut' : v.typ === 'arende' ? 'Ärende' : typLabel[v.typ] || v.typ
               return (
                 <div key={i}
-                  onClick={() => onNavigera?.(v.nav || 'kalender')}
+                  onClick={() => onNavigera?.(v.nav || 'planeringstavla')}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '7px 6px', marginLeft: -6, marginRight: -6,
