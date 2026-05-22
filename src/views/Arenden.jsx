@@ -115,7 +115,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   }
 
   const startRedigera = () => {
-    setEditForm({ datum: a.datum || '', besok: a.besok || '', feltyp: a.feltyp || '', prioritet: a.prioritet || 'normal', beskrivning: a.beskrivning || '', kontakt: a.kontakt || '' })
+    setEditForm({ datum: a.datum || '', besok: a.besok || '', feltyp: a.feltyp || '', prioritet: a.prioritet || 'normal', beskrivning: a.beskrivning || '', kontakt: a.kontakt || '', tekniker: a.tekniker || '' })
     setRedigerar(true)
   }
 
@@ -173,7 +173,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
           <button onClick={() => skrivUtArende(a)} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <Printer size={13} /> Skriv ut
           </button>
-          {a.status !== 'atgardad' && !redigerar && (
+          {!redigerar && (
             <button onClick={startRedigera} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <Pencil size={13} /> Redigera
             </button>
@@ -220,9 +220,18 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
                 </select>
               </div>
             </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Kontaktperson</div>
-              <input value={editForm.kontakt} onChange={e => updEdit('kontakt', e.target.value)} style={FÄLT} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Kontaktperson</div>
+                <input value={editForm.kontakt} onChange={e => updEdit('kontakt', e.target.value)} style={FÄLT} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Tilldelad tekniker</div>
+                <select value={editForm.tekniker} onChange={e => updEdit('tekniker', e.target.value)} style={FÄLT}>
+                  <option value="">– Ej tilldelad –</option>
+                  {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
             </div>
             <div>
               <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Beskrivning</div>
