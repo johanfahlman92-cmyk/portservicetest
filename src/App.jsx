@@ -486,8 +486,9 @@ export default function App() {
         }
         return
       }
-      if (data) setMontageorder(prev => [...prev, data])
+      if (data) { setMontageorder(prev => [...prev, data]); return data }
     } catch (err) { toast('Kunde inte spara montageorder: ' + err.message, 'error') }
+    return null
   }
 
   const uppdateraMontageorder = async (id, changes) => {

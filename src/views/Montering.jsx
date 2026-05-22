@@ -790,26 +790,37 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
 
   // ── Mellansparningar ─────────────────────────────────────────────────────────
   const sparaSteg1 = async () => {
-    // Om vi har ett känt montageorder-id, uppdatera det med steg-1-data
+    const steg1Data = {
+      montageplats: adress.trim() || portNamn.trim(),
+      kund:         kund.trim(),
+      ordernummer:  ordernummer.trim() || null,
+      serienummer:  serienummer.trim() || null,
+      protokoll_data: {
+        steg: 1,
+        portTyp, datum, teknikerNamn,
+        adress: adress.trim(), kund: kund.trim(),
+        fabrikat: effektivtFabrikat,
+        serviceIntervall: parseInt(serviceIntervall) || 0,
+      },
+    }
+
     if (montageorderId && onUppdateraMontageorder) {
+      // Uppdatera befintligt order
       const ord = montageorder.find(m => m.id === montageorderId)
       if (ord) {
-        await onUppdateraMontageorder(montageorderId, {
-          montageplats: adress.trim() || portNamn.trim(),
-          kund: kund.trim(),
-          ordernummer: ordernummer.trim() || null,
-          serienummer: serienummer.trim() || null,
-          status: ord.status === 'ej_planerad' ? 'planerad' : ord.status,
-          protokoll_data: {
-            ...(ord.protokoll_data || {}),
-            steg: 1,
-            portTyp, datum, teknikerNamn,
-            adress: adress.trim(), kund: kund.trim(),
-            fabrikat: effektivtFabrikat,
-            serviceIntervall: parseInt(serviceIntervall) || 0,
-          },
-        })
+        steg1Data.status = ord.status === 'ej_planerad' ? 'planerad' : ord.status
+        steg1Data.protokoll_data = { ...(ord.protokoll_data || {}), ...steg1Data.protokoll_data }
+        await onUppdateraMontageorder(montageorderId, steg1Data)
       }
+    } else if (onLaggTillMontageorder) {
+      // Inget befintligt order – skapa ett så vi kan mellansparma risk och egenkontroll
+      const nyttOrd = await onLaggTillMontageorder({
+        ...steg1Data,
+        porttyp: portTyp,
+        fabrikat: effektivtFabrikat || '',
+        status: 'planerad',
+      })
+      if (nyttOrd?.id) setMontageorderId(nyttOrd.id)
     }
     setAktFlik('risk')
   }
@@ -1310,11 +1321,12 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={sparaSteg1} disabled={!portNamn.trim()}>
-              {montageorderId ? 'Spara & Nästa' : 'Nästa'}: Riskbedömning <ChevronRight size={14} />
+            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={sparaSteg1} disabled={!portNamn.trim() || !kund.trim()}>
+              Spara &amp; Nästa: Riskbedömning <ChevronRight size={14} />
             </button>
           </div>
-          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 4 }}>Fyll i placering för att fortsätta.</p>}
+          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-red)', textAlign: 'right', marginTop: 4 }}>Fyll i placering för att fortsätta.</p>}
+          {portNamn.trim() && !kund.trim() && <p style={{ fontSize: 12, color: 'var(--c-red)', textAlign: 'right', marginTop: 4 }}>Välj kund för att fortsätta.</p>}
         </div>
       )}
 
@@ -1406,13 +1418,11 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
 
           {!riskVarning && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 8 }}>
-              {montageorderId && (
-                <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-                  onClick={() => { sparaSteg2NonNavigate(); setVy('lista') }}
-                  title="Sparar riskbedömningen och stänger – du kan återkomma för egenkontroll">
-                  💾 Spara &amp; Montera porten
-                </button>
-              )}
+              <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+                onClick={() => { sparaSteg2NonNavigate(); setVy('lista') }}
+                title="Sparar riskbedömningen – återkom för egenkontroll när porten är monterad">
+                💾 Spara &amp; Montera porten
+              </button>
               <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }} onClick={sparaSteg2}>
                 {montageorderId ? 'Spara & Nästa' : 'Nästa'}: Egenkontroll <ChevronRight size={14} />
               </button>
