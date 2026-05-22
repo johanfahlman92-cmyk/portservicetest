@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle, Clock, ChevronRight, DoorOpen, Users, CalendarDays, FileText, Wrench, CheckCircle, X } from 'lucide-react'
+import { AlertCircle, Clock, ChevronRight, DoorOpen, CalendarDays, FileText, Wrench, CheckCircle, X, AlertTriangle, Zap } from 'lucide-react'
 
 // ── Hjälpfunktioner ───────────────────────────────────────────────────────────
 function getVeckonummer(datum) {
@@ -33,22 +33,20 @@ function getLarm(objekt, arenden) {
   const larm = []
   for (const o of objekt) {
     if (o.arkiverad) continue
-    if (o.status === 'forsenad') larm.push({ typ: 'red',   text: `${o.namn}: serviceintervall passerat ${o.dagerForsenad || '?'} dagar sedan` })
-    if (o.status === 'arende')   larm.push({ typ: 'red',   text: `${o.namn}: öppet ärende ej åtgärdat` })
+    if (o.status === 'forsenad') larm.push({ typ: 'red',   text: `${o.namn}: serviceintervall passerat${o.dagerForsenad ? ' ' + o.dagerForsenad + ' dagar sedan' : ''}`, nav: 'register' })
+    if (o.status === 'arende')   larm.push({ typ: 'red',   text: `${o.namn}: öppet ärende ej åtgärdat`, nav: 'register' })
   }
   for (const a of arenden) {
-    if (a.status !== 'atgardad' && a.prioritet === 'akut')  larm.push({ typ: 'red',   text: `Ärende #${a.nr}: akut felanmälan – ${a.kund}` })
-    if (a.status !== 'atgardad' && !a.tekniker)              larm.push({ typ: 'amber', text: `${a.namn}: tekniker ej tilldelad` })
+    if (a.status !== 'atgardad' && a.prioritet === 'akut')  larm.push({ typ: 'red',   text: `Ärende #${a.nr}: akut felanmälan – ${a.kund}`, nav: 'arenden', arendeId: a.id })
+    if (a.status !== 'atgardad' && !a.tekniker)              larm.push({ typ: 'amber', text: `${a.namn}: tekniker ej tilldelad`, nav: 'arenden', arendeId: a.id })
   }
   for (const o of objekt) {
-    if (!o.arkiverad && o.status === 'snart') larm.push({ typ: 'amber', text: `${o.namn}: service snart` })
+    if (!o.arkiverad && o.status === 'snart') larm.push({ typ: 'amber', text: `${o.namn}: service snart`, nav: 'register' })
   }
-  return larm.slice(0, 7)
+  return larm
 }
 
-const typBadge = { service: 'badge-teal', felanmalan: 'badge-coral', montering: 'badge-purple' }
 const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Montering' }
-
 const SECTION = { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c-text3)', marginBottom: 10 }
 
 // ── Snabb-felanmälan ──────────────────────────────────────────────────────────
@@ -181,36 +179,53 @@ function getVeckansStart() {
   return mn
 }
 
-export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokningar = {}, montageorder = [], onNavigera, onSparaArende }) {
+export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokningar = {}, montageorder = [], onNavigera, onNavigeraArende, onSparaArende }) {
   const idag    = new Date()
   const veckonr = getVeckonummer(idag)
   const mThis   = idag.toISOString().slice(0, 7)
 
   const [visaSnabbForm, setVisaSnabbForm] = useState(false)
 
-  // Datapunkter
+  // ── Datapunkter ──────────────────────────────────────────────────────────────
   const allaBokningar     = Object.entries(bokningar).flatMap(([datum, items]) => items.map(b => ({ ...b, datum })))
   const serviceDennaMånad = allaBokningar.filter(b => b.datum.startsWith(mThis) && b.typ === 'service').length
   const öppnaArenden      = arenden.filter(a => a.status !== 'atgardad').length
   const monteringar       = allaBokningar.filter(b => b.datum.startsWith(mThis) && b.typ === 'montering').length
   const aktivaPortar      = objekt.filter(o => !o.arkiverad).length
 
-  const veckoSchema = getVeckansBokningar(bokningar)
-  const larm        = getLarm(objekt, arenden)
+  // ── Portstatus-fördelning ────────────────────────────────────────────────────
+  const statusCounts = {
+    arende:   objekt.filter(o => !o.arkiverad && o.status === 'arende').length,
+    forsenad: objekt.filter(o => !o.arkiverad && o.status === 'forsenad').length,
+    snart:    objekt.filter(o => !o.arkiverad && o.status === 'snart').length,
+    ok:       objekt.filter(o => !o.arkiverad && o.status === 'ok').length,
+    ny:       objekt.filter(o => !o.arkiverad && o.status === 'ny').length,
+  }
 
-  // Berika veckoschemat med montageorder + arenden med besök-datum
-  const veckStart = getVeckansStart()
+  // ── Akuta ärenden ────────────────────────────────────────────────────────────
+  const akutaArenden = arenden.filter(a => a.status !== 'atgardad' && a.prioritet === 'akut')
+
+  // ── Försenade portar ─────────────────────────────────────────────────────────
+  const forsendePoratar = objekt
+    .filter(o => !o.arkiverad && o.status === 'forsenad')
+    .sort((a, b) => (a.nasta || '').localeCompare(b.nasta || ''))
+
+  // ── Larm ─────────────────────────────────────────────────────────────────────
+  const alleLarm   = getLarm(objekt, arenden)
+  const visadeLarm = alleLarm.slice(0, 7)
+
+  // ── Veckoschemat ─────────────────────────────────────────────────────────────
+  const veckoSchema = getVeckansBokningar(bokningar)
+  const veckStart   = getVeckansStart()
   const dagNamnKort = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
-  const veckoExtra = []
+  const veckoExtra  = []
   for (let i = 0; i < 5; i++) {
     const d = new Date(veckStart); d.setDate(veckStart.getDate() + i)
-    const ymd = d.toISOString().slice(0, 10)
+    const ymd    = d.toISOString().slice(0, 10)
     const dagLbl = dagNamnKort[i] + ' ' + d.getDate() + '/' + (d.getMonth() + 1)
-    // Ärenden med besök-datum denna dag
     arenden.filter(a => a.status !== 'atgardad' && a.besok === ymd).forEach(a => {
-      veckoExtra.push({ dag: dagLbl, namn: a.namn, kund: a.kund, tekniker: a.tekniker || '–', typ: a.prioritet === 'akut' ? 'akut' : 'arende', nav: 'arenden' })
+      veckoExtra.push({ dag: dagLbl, namn: a.namn, kund: a.kund, tekniker: a.tekniker || '–', typ: a.prioritet === 'akut' ? 'akut' : 'arende', nav: 'arenden', arendeId: a.id })
     })
-    // Montageorder med önskad montagedag
     montageorder.filter(m => m.status !== 'utford' && m.onskat_montagedag === ymd).forEach(m => {
       veckoExtra.push({ dag: dagLbl, namn: m.ordernummer, kund: m.kund, tekniker: m.tekniker || '–', typ: 'montage', nav: 'montageplanering' })
     })
@@ -218,12 +233,22 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
   const alleVecka = [...veckoSchema.map(v => ({ ...v, nav: 'planeringstavla' })), ...veckoExtra]
     .sort((a, b) => a.dag.localeCompare(b.dag))
 
-  // Hälsning
-  const hour    = idag.getHours()
-  const hälsning = hour < 5 ? 'God natt' : hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kväll'
-  const dagNamn  = ['söndag', 'måndag', 'tisdag', 'onsdag', 'torsdag', 'fredag', 'lördag']
-  const mNamn    = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december']
-  const datumStr = `${dagNamn[idag.getDay()]} ${idag.getDate()} ${mNamn[idag.getMonth()]}`
+  // ── Hälsning ──────────────────────────────────────────────────────────────────
+  const hour      = idag.getHours()
+  const hälsning  = hour < 5 ? 'God natt' : hour < 12 ? 'God morgon' : hour < 17 ? 'God eftermiddag' : 'God kväll'
+  const dagNamn   = ['söndag', 'måndag', 'tisdag', 'onsdag', 'torsdag', 'fredag', 'lördag']
+  const mNamn     = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december']
+  const datumStr  = `${dagNamn[idag.getDay()]} ${idag.getDate()} ${mNamn[idag.getMonth()]}`
+
+  // ── Navigationshjälp ──────────────────────────────────────────────────────────
+  const handleLarmClick = (l) => {
+    if (l.arendeId && onNavigeraArende) onNavigeraArende(l.arendeId)
+    else onNavigera?.(l.nav || 'register')
+  }
+  const handleVeckaClick = (v) => {
+    if (v.arendeId && onNavigeraArende) onNavigeraArende(v.arendeId)
+    else onNavigera?.(v.nav || 'planeringstavla')
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -269,6 +294,84 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
         ))}
       </div>
 
+      {/* ── Portstatus-fördelning ── */}
+      <div className="card" style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={SECTION}>Portstatus</div>
+          <span onClick={() => onNavigera?.('register')}
+            style={{ fontSize: 11, color: 'var(--c-teal)', cursor: 'pointer', textDecoration: 'underline' }}>
+            Portregister →
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { key: 'arende',   label: 'Ärende',   color: 'var(--c-red)',   bg: 'var(--c-red-bg)'   },
+            { key: 'forsenad', label: 'Försenad',  color: '#dc2626',        bg: '#fef2f2'           },
+            { key: 'snart',    label: 'Snart',     color: 'var(--c-amber)', bg: 'var(--c-amber-bg)' },
+            { key: 'ok',       label: 'OK',        color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)'  },
+            { key: 'ny',       label: 'Ny',        color: 'var(--c-text2)', bg: 'var(--c-surface)'  },
+          ].filter(s => statusCounts[s.key] > 0).map(s => (
+            <div
+              key={s.key}
+              onClick={() => onNavigera?.('register')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                background: s.bg, border: `1px solid ${s.color}33`,
+                fontSize: 12, fontWeight: 600, color: s.color,
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} />
+              {statusCounts[s.key]} {s.label}
+            </div>
+          ))}
+          {Object.values(statusCounts).every(c => c === 0) && (
+            <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>Inga aktiva portar</span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Akuta ärenden ── */}
+      {akutaArenden.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--c-red)', borderWidth: 1.5, background: 'var(--c-red-bg)', padding: '12px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Zap size={14} color="var(--c-red)" />
+            <div style={{ ...SECTION, color: 'var(--c-red)', marginBottom: 0 }}>
+              {akutaArenden.length} akut{akutaArenden.length > 1 ? 'a' : ''} ärende{akutaArenden.length > 1 ? 'n' : ''}
+            </div>
+          </div>
+          {akutaArenden.map((a, i) => (
+            <div
+              key={a.id}
+              onClick={() => onNavigeraArende ? onNavigeraArende(a.id) : onNavigera?.('arenden')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '7px 6px', marginLeft: -6, marginRight: -6,
+                borderRadius: 8, cursor: 'pointer',
+                borderBottom: i < akutaArenden.length - 1 ? '1px solid rgba(220,38,38,0.2)' : 'none',
+                transition: 'background 0.12s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.08)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <AlertTriangle size={14} color="var(--c-red)" style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-red)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Ärende #{a.nr} — {a.namn}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>
+                  {a.kund}{a.tekniker ? ' · ' + a.tekniker : ' · Tekniker ej tilldelad'}
+                </div>
+              </div>
+              <ChevronRight size={13} color="var(--c-red)" style={{ flexShrink: 0 }} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── Snabbåtgärder ── */}
       <div>
         <div style={SECTION}>Snabbåtgärder</div>
@@ -298,8 +401,8 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
 
           {[
             { label: 'Planeringstavla', sub: 'Boka & planera',  icon: CalendarDays, page: 'planeringstavla', color: 'var(--c-teal)', bg: 'var(--c-teal-bg)' },
-            { label: 'Protokoll',    sub: 'Serviceprotokoll',  icon: FileText,     page: 'protokoll', color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)'   },
-            { label: 'Portregister', sub: 'Alla portar',       icon: DoorOpen,     page: 'register',  color: 'var(--c-purple)', bg: 'var(--c-purple-bg)' },
+            { label: 'Protokoll',       sub: 'Serviceprotokoll', icon: FileText,    page: 'protokoll',       color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)'   },
+            { label: 'Portregister',    sub: 'Alla portar',      icon: DoorOpen,    page: 'register',        color: 'var(--c-purple)', bg: 'var(--c-purple-bg)' },
           ].map(({ label, sub, icon: Icon, page, color, bg }) => (
             <button
               key={page}
@@ -348,8 +451,8 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
         )}
       </div>
 
-      {/* ── Tvåkolumns: Kommande vecka + Larm ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      {/* ── 3-kolumner: Denna vecka · Larm & notiser · Försenade portar ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
 
         {/* Kommande besök */}
         <div className="card">
@@ -374,7 +477,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
               const lbl  = v.typ === 'service' ? 'Service' : v.typ === 'montage' ? 'Montage' : v.typ === 'akut' ? 'Akut' : v.typ === 'arende' ? 'Ärende' : typLabel[v.typ] || v.typ
               return (
                 <div key={i}
-                  onClick={() => onNavigera?.(v.nav || 'planeringstavla')}
+                  onClick={() => handleVeckaClick(v)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '7px 6px', marginLeft: -6, marginRight: -6,
@@ -410,8 +513,16 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
 
         {/* Larm & notiser */}
         <div className="card">
-          <div style={SECTION}>Larm & notiser</div>
-          {larm.length === 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={SECTION}>Larm & notiser</div>
+            {alleLarm.length > 7 && (
+              <span onClick={() => onNavigera?.('arenden')}
+                style={{ fontSize: 11, color: 'var(--c-red)', cursor: 'pointer', fontWeight: 700 }}>
+                +{alleLarm.length - 7} till
+              </span>
+            )}
+          </div>
+          {visadeLarm.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
               <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--c-teal-bg)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -423,11 +534,20 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
               </div>
             </div>
           ) : (
-            larm.map((l, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-                padding: '7px 0', borderBottom: i < larm.length - 1 ? '1px solid var(--c-border)' : 'none',
-              }}>
+            visadeLarm.map((l, i) => (
+              <div
+                key={i}
+                onClick={() => handleLarmClick(l)}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '7px 6px', marginLeft: -6, marginRight: -6,
+                  borderRadius: 8, cursor: 'pointer',
+                  borderBottom: i < visadeLarm.length - 1 ? '1px solid var(--c-border)' : 'none',
+                  transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
                 <div style={{
                   width: 24, height: 24, borderRadius: 6, flexShrink: 0, marginTop: 1,
                   background: l.typ === 'red' ? 'var(--c-red-bg)' : 'var(--c-amber-bg)',
@@ -437,12 +557,12 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
                     ? <AlertCircle size={12} color="var(--c-red)" />
                     : <Clock       size={12} color="var(--c-amber)" />}
                 </div>
-                <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--c-text)', paddingTop: 2 }}>{l.text}</div>
+                <div style={{ flex: 1, fontSize: 12, lineHeight: 1.5, color: 'var(--c-text)', paddingTop: 2 }}>{l.text}</div>
+                <ChevronRight size={12} color="var(--c-text3)" style={{ flexShrink: 0, marginTop: 3 }} />
               </div>
             ))
           )}
-
-          {larm.length > 0 && (
+          {alleLarm.length > 0 && (
             <button
               onClick={() => onNavigera?.('arenden')}
               style={{
@@ -452,6 +572,63 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
             >
               Se alla ärenden →
             </button>
+          )}
+        </div>
+
+        {/* Försenade portar */}
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={SECTION}>Försenade portar</div>
+            <span onClick={() => onNavigera?.('register')}
+              style={{ fontSize: 11, color: 'var(--c-teal)', cursor: 'pointer', textDecoration: 'underline' }}>
+              Portregister →
+            </span>
+          </div>
+          {forsendePoratar.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--c-teal-bg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckCircle size={14} color="var(--c-teal)" />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--c-teal-text)' }}>Inga försenade</div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Alla serviceintervall är à jour.</div>
+              </div>
+            </div>
+          ) : (
+            forsendePoratar.slice(0, 8).map((o, i) => (
+              <div
+                key={o.id}
+                onClick={() => onNavigera?.('register')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '7px 6px', marginLeft: -6, marginRight: -6,
+                  borderRadius: 8, cursor: 'pointer',
+                  borderBottom: i < Math.min(forsendePoratar.length, 8) - 1 ? '1px solid var(--c-border)' : 'none',
+                  transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: '#fef2f2',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Clock size={13} color="#dc2626" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.namn}</div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>
+                    {o.kund}{o.nasta ? ' · Senast ' + o.nasta : ''}
+                  </div>
+                </div>
+                <ChevronRight size={12} color="var(--c-text3)" style={{ flexShrink: 0 }} />
+              </div>
+            ))
+          )}
+          {forsendePoratar.length > 8 && (
+            <div onClick={() => onNavigera?.('register')}
+              style={{ fontSize: 11, color: 'var(--c-text3)', textAlign: 'center', paddingTop: 8, cursor: 'pointer' }}>
+              + {forsendePoratar.length - 8} till — visa alla i Portregister
+            </div>
           )}
         </div>
       </div>
