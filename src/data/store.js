@@ -25,6 +25,15 @@ export const protokollTyper = {
 // Egenkontroll-mallar för monteringsprotokoll (kan åsidosättas via Supabase app_config)
 export const monteringPunkter = {
   'Eldriven port': [
+    '## Förberedelser',
+    'Korrekt och godkänd personlig skyddsutrustning för ändamålsenligt arbete. Vid arbete från hög höjd (≥2,1 m), kontrollera om ställning/skylift kan användas istället för stege.',
+    'Avspärrning av arbetsplats för att eliminera risk för påkörning av fordonstrafik. Om möjligt – parkera montagefordon framför porthål som fysiskt skydd.',
+    'Arbetsströmbrytare avstängd, bruten och låst med hänglås.',
+    'Kontroll av "dolda krafter" och säkring av dessa.',
+    'Genomgång av lokala säkerhetsbestämmelser gällande brandskydd och generell säkerhet. Heta arbeten?',
+    'Portomfattning kontrollerad och korrekt för installationens ändamål.',
+    'Portens tänkta arbetsområde kontrollerat (kläm-/klippningsrisker).',
+    'Riskbedömning inlämnad till BAS-U alt. platsansvarig.',
     '## Montering & installation',
     'Att drivutrustningen är monterad enligt tillverkarens anvisningar',
     'Att inga risker eller hinder befinner sig i portens riskzoner och arbetsområde vid körning',
@@ -44,6 +53,9 @@ export const monteringPunkter = {
     '## Slutkontroll',
     'Att varningssymboler och övriga dekaler inklusive CE-märkning är monterade',
     'Att kablage är fackmannamässigt dragna',
+    '## Avslutande bedömning',
+    'Ovanstående arbetsplats kan påbörjas utan fara för säkerhet och hälsa.',
+    'Ovanstående installationsplats kan INTE användas utan fara – ansvarig för anläggningen är informerad om fel och åtgärder.',
   ],
   Vikport: [
     '## Mekanik',
