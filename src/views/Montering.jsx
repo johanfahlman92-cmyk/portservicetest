@@ -489,7 +489,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder }) {
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder, onTillbaka }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
   const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
@@ -901,6 +901,11 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {onTillbaka && (
+            <button onClick={onTillbaka} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+              <ChevronLeft size={14} /> Tillbaka
+            </button>
+          )}
           <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0, flex: 1 }}>Montering</h1>
           <button onClick={() => { setVy('ny'); setAktFlik('info'); setMontageorderId(null); setPortNamn(''); setKund(''); setAdress(''); setFabrikat(''); setAnnatFabrikat('') }}
             className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1017,7 +1022,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => setVy('lista')} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px' }}>
+          <button onClick={() => onTillbaka ? onTillbaka() : setVy('lista')} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px' }}>
             <ChevronLeft size={14} /> Tillbaka
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1249,12 +1254,17 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
         <CheckCircle size={52} color="var(--c-teal)" style={{ marginBottom: 16 }} />
         <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Monteringsprotokoll sparat!</h2>
         <p style={{ color: 'var(--c-text2)', fontSize: 14, marginBottom: 24 }}>
-          Protokollet har sparats i portens historik.<br />
-          <span style={{ color: 'var(--c-teal)' }}>Porten har lagts till i portregistret.</span>
+          Protokollet har sparats och porten är tillagd i portregistret.<br />
+          <span style={{ color: 'var(--c-teal)' }}>Monteringsordern är markerad som utförd.</span>
           {serviceIntervall !== '0' && (<><br /><span style={{ color: 'var(--c-blue)' }}>Kalenderbokning för nästa service skapad automatiskt.</span></>)}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={nyttProtokoll}>Nytt protokoll</button>
+          {onTillbaka && (
+            <button className="btn btn-teal" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={onTillbaka}>
+              <ChevronLeft size={14} /> Tillbaka till Montering
+            </button>
+          )}
+          <button className="btn" onClick={nyttProtokoll}>Nytt montage</button>
           <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={skrivUtPDF}>
             <Printer size={14} /> Skriv ut PDF
           </button>
@@ -1274,13 +1284,15 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {onTillbaka && (
+          <button onClick={onTillbaka} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <ChevronLeft size={14} /> Tillbaka
+          </button>
+        )}
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Montering</h1>
           <p style={{ color: 'var(--c-text2)', fontSize: 13, margin: 0 }}>Monteringsprotokoll, riskbedömning och egenkontroll</p>
         </div>
-        <button onClick={() => setVy('lista')} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-          <List size={14} /> Sparade ({alleaMontage.length})
-        </button>
       </div>
 
       {/* Ny port */}

@@ -111,7 +111,7 @@ const TOMFORM = {
   onskat_montagedag: '', tekniker: '', status: 'ej_planerad', notering: '',
 }
 
-export default function Montageplanering({ kunder = [], fastigheter = [], montageorder = [], tekniker = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering }) {
+export default function Montageplanering({ kunder = [], fastigheter = [], montageorder = [], tekniker = [], objekt = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering, onNyttEjPlaneratMontage }) {
   const [vy,            setVy]            = useState('lista')
   const [valt,          setValt]          = useState(null)
   const [form,          setForm]          = useState(TOMFORM)
@@ -369,209 +369,276 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
   }
 
   // ── VY: Lista ─────────────────────────────────────────────────────────────
-  const filtrerade = montageorder
-    .filter(o => filterStatus === 'alla' || o.status === filterStatus)
-    .filter(o => {
-      if (!sokText) return true
-      const q = sokText.toLowerCase()
-      return o.ordernummer?.toLowerCase().includes(q)
-          || o.kund?.toLowerCase().includes(q)
-          || o.montageplats?.toLowerCase().includes(q)
-          || o.porttyp?.toLowerCase().includes(q)
-          || o.fabrikat?.toLowerCase().includes(q)
-    })
-    .sort((a, b) => {
-      if (a.status === 'utford' && b.status !== 'utford') return 1
-      if (b.status === 'utford' && a.status !== 'utford') return -1
-      const da = a.onskat_montagedag || a.preliminar_leverans || a.created_at || ''
-      const db = b.onskat_montagedag || b.preliminar_leverans || b.created_at || ''
-      return da.localeCompare(db)
-    })
 
-  const räkna = s => montageorder.filter(o => o.status === s).length
+  // Gruppera montageorders efter status
+  const pågående = montageorder
+    .filter(o => o.status !== 'utford' && (o.protokoll_data?.steg >= 1))
+    .sort((a, b) => (b.protokoll_data?.steg || 0) - (a.protokoll_data?.steg || 0))
 
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Montageplanering</h1>
-          <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Planera och följ upp montagearbeten</p>
-        </div>
-        <button className="btn btn-teal" onClick={() => öppnaForm()}
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} /> Ny montageorder
-        </button>
-      </div>
+  const planerade = montageorder
+    .filter(o => o.status === 'planerad' && (!o.protokoll_data?.steg || o.protokoll_data.steg < 1))
+    .sort((a, b) => (a.onskat_montagedag || '').localeCompare(b.onskat_montagedag || ''))
 
-      {/* Statistikcards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-        {Object.entries(STATUS_CFG).map(([k, s]) => (
-          <div key={k} onClick={() => setFilterStatus(k === filterStatus ? 'alla' : k)}
-            style={{ background: 'var(--c-surface)', borderRadius: 10, padding: '12px 16px',
-              border: `1px solid ${filterStatus === k ? s.color : 'var(--c-border)'}`,
-              cursor: 'pointer', transition: 'border-color 0.15s' }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{räkna(k)}</div>
-            <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
+  const ejPlanerade = montageorder
+    .filter(o => o.status === 'ej_planerad' && (!o.protokoll_data?.steg || o.protokoll_data.steg < 1))
 
-      {/* Filter-chips */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-        {[['alla', `Alla (${montageorder.length})`], ...Object.entries(STATUS_CFG).map(([k, s]) => [k, `${s.label} (${räkna(k)})`])].map(([k, label]) => (
-          <button key={k} onClick={() => setFilterStatus(k)}
-            style={{ padding: '4px 12px', borderRadius: 16, fontSize: 12, cursor: 'pointer',
-              fontWeight: filterStatus === k ? 600 : 400,
-              background: filterStatus === k ? 'var(--c-teal)' : 'var(--c-surface)',
-              color:      filterStatus === k ? '#fff'          : 'var(--c-text2)',
-              border:     filterStatus === k ? 'none'          : '1px solid var(--c-border)' }}>
-            {label}
-          </button>
-        ))}
-      </div>
+  const klaraOrder = montageorder
+    .filter(o => o.status === 'utford')
+    .sort((a, b) => (b.protokoll_data?.datum || b.created_at || '').localeCompare(a.protokoll_data?.datum || a.created_at || ''))
 
-      {/* Sök */}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
-        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
-        <input type="text" placeholder="Sök ordernummer, kund, plats, fabrikat…" value={sokText} onChange={e => setSokText(e.target.value)}
-          style={{ width: '100%', padding: '7px 10px 7px 32px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)', boxSizing: 'border-box' }} />
-      </div>
+  // Legacy: protokoll sparade i objekt.historik
+  const alleaMontage = objekt
+    .filter(o => !o.arkiverad)
+    .flatMap(o => (o.historik || [])
+      .map((h, idx) => ({ ...h, objektId: o.id, objektNamn: o.namn, historikIdx: idx }))
+      .filter(h => h.typ === 'montering')
+    )
+    .sort((a, b) => new Date(b.datum) - new Date(a.datum))
 
-      {/* Lista */}
-      <div className="card">
-        {filtrerade.length === 0 && (
-          <p style={{ fontSize: 13, color: 'var(--c-text3)', textAlign: 'center', padding: '16px 0' }}>
-            {montageorder.length === 0
-              ? 'Inga montageordrar ännu. Klicka "Ny montageorder" för att börja.'
-              : 'Inga montageordrar matchar sökningen.'}
-          </p>
-        )}
-        {filtrerade.map(order => {
-          const expanded = expandId === order.id
-          return (
-            <div key={order.id} style={{ borderBottom: '1px solid var(--c-border)', padding: '10px 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+  const totalKlara = klaraOrder.length + alleaMontage.length
 
-                {/* Klickbar rad */}
-                <div style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}
-                  onClick={() => setExpandId(expanded ? null : order.id)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>{order.ordernummer}</span>
-                    <StatusBadge status={order.status} />
-                    <span style={{ fontSize: 11, color: 'var(--c-text2)' }}>{order.porttyp}</span>
-                    {order.fabrikat && <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>{order.fabrikat}</span>}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>
-                    {[order.kund, order.montageplats].filter(Boolean).join(' · ')}
-                  </div>
-                  {order.tekniker && (
-                    <div style={{ fontSize: 11, color: 'var(--c-teal-text)', marginTop: 1 }}>
-                      👷 {order.tekniker}
-                    </div>
-                  )}
-                  {(order.preliminar_leverans || order.onskat_montagedag) && (
-                    <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
-                      {order.preliminar_leverans && `📦 Leverans: ${order.preliminar_leverans}`}
-                      {order.preliminar_leverans && order.onskat_montagedag && '  '}
-                      {order.onskat_montagedag   && `🔧 Montage: ${order.onskat_montagedag}`}
-                    </div>
-                  )}
-                </div>
+  // Sökfilter för klara
+  const sokKlara = (o) => {
+    if (!sokText) return true
+    const q = sokText.toLowerCase()
+    return o.ordernummer?.toLowerCase().includes(q)
+        || o.kund?.toLowerCase().includes(q)
+        || o.montageplats?.toLowerCase().includes(q)
+        || o.porttyp?.toLowerCase().includes(q)
+        || o.objektNamn?.toLowerCase().includes(q)
+  }
 
-                {/* Knappar */}
-                <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                  <button className="btn" style={{ fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
-                    onClick={() => skrivUt(order)}>
-                    <Printer size={11} /> PDF
-                  </button>
-                  <button className="btn" style={{ fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
-                    onClick={() => öppnaForm(order)}>
-                    <Pencil size={11} />
-                  </button>
-                  <button className="btn" style={{ fontSize: 11, padding: '4px 8px' }}
-                    onClick={() => setExpandId(expanded ? null : order.id)}>
-                    {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                  </button>
-                </div>
+  const SECTION_HDR = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--c-text3)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }
+
+  // Hjälp-render för expanderbar orderrad
+  const renderOrderRad = (order, accentColor) => {
+    const expanded = expandId === order.id
+    const steg = order.protokoll_data?.steg || 0
+    return (
+      <div key={order.id} className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${accentColor}` }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div style={{ flex: 1, cursor: 'pointer', minWidth: 0 }} onClick={() => setExpandId(expanded ? null : order.id)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {order.ordernummer && <span style={{ fontWeight: 600, fontSize: 13 }}>{order.ordernummer}</span>}
+              <span style={{ fontSize: 12, color: 'var(--c-text)' }}>{order.montageplats || order.kund || '–'}</span>
+              {order.porttyp && <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>{order.porttyp}</span>}
+              {order.fabrikat && <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>{order.fabrikat}</span>}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>
+              {order.kund}{order.tekniker ? ` · 👷 ${order.tekniker}` : ''}
+            </div>
+            {(order.preliminar_leverans || order.onskat_montagedag) && (
+              <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
+                {order.preliminar_leverans && `📦 Leverans: ${order.preliminar_leverans}`}
+                {order.preliminar_leverans && order.onskat_montagedag && '  '}
+                {order.onskat_montagedag && `🔧 Montage: ${order.onskat_montagedag}`}
               </div>
+            )}
+            {steg >= 1 && (
+              <div style={{ fontSize: 11, color: accentColor, fontWeight: 500, marginTop: 3 }}>
+                {steg >= 2 ? '● Riskbedömning klar – inväntar egenkontroll' : '● Portuppgifter sparade – inväntar riskbedömning'}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 5, flexShrink: 0, alignItems: 'center' }}>
+            {onNavigeraMontering && order.status !== 'utford' && (
+              <button className="btn btn-primary" style={{ fontSize: 11, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                onClick={() => onNavigeraMontering(order)}>
+                {steg >= 1 ? 'Fortsätt' : 'Starta'} <ArrowRight size={11} />
+              </button>
+            )}
+            <button className="btn" style={{ fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
+              onClick={() => skrivUt(order)}>
+              <Printer size={11} />
+            </button>
+            <button className="btn" style={{ fontSize: 11, padding: '4px 8px' }}
+              onClick={() => öppnaForm(order)}>
+              <Pencil size={11} />
+            </button>
+            <button className="btn" style={{ fontSize: 11, padding: '4px 8px' }}
+              onClick={() => setExpandId(expanded ? null : order.id)}>
+              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
+        </div>
 
-              {/* Expanderad vy */}
-              {expanded && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-border)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12, marginBottom: 12 }}>
-                    {order.serienummer         && <div><span style={{ color: 'var(--c-text3)' }}>Serienummer: </span>{order.serienummer}</div>}
-                    {order.fabrikat            && <div><span style={{ color: 'var(--c-text3)' }}>Fabrikat: </span>{order.fabrikat}</div>}
-                    {order.preliminar_leverans && <div><span style={{ color: 'var(--c-text3)' }}>Prel. leverans: </span>{order.preliminar_leverans}</div>}
-                    {order.onskat_montagedag   && <div><span style={{ color: 'var(--c-text3)' }}>Önskad montagedag: </span>{order.onskat_montagedag}</div>}
-                    {order.notering && (
-                      <div style={{ gridColumn: '1 / -1', padding: '8px 10px', background: 'var(--c-bg)', borderRadius: 6, color: 'var(--c-text2)', fontStyle: 'italic' }}>
-                        {order.notering}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Montageprotokoll (om sparat) */}
-                  {order.protokoll_data && (
-                    <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--c-teal-bg)', borderRadius: 8, border: '1px solid var(--c-teal)' }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--c-teal-text)', marginBottom: 6 }}>
-                        📋 Montageprotokoll sparat
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>
-                        {order.protokoll_data.datum && <span>{order.protokoll_data.datum} · </span>}
-                        {order.protokoll_data.tekniker && <span>{order.protokoll_data.tekniker} · </span>}
-                        <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {order.protokoll_data.ok ?? 0} OK</span>
-                        {(order.protokoll_data.ej ?? 0) > 0 && <span style={{ color: '#b83333', fontWeight: 600 }}> · ✗ {order.protokoll_data.ej} Ej OK</span>}
-                        {(order.protokoll_data.na ?? 0) > 0 && <span style={{ color: '#888' }}> · {order.protokoll_data.na} N/A</span>}
-                      </div>
-                      {order.protokoll_data.dokument?.length > 0 && (
-                        <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 6 }}>
-                          📎 {order.protokoll_data.dokument.length} dokument bifogad{order.protokoll_data.dokument.length > 1 ? 'e' : 't'}
-                        </div>
-                      )}
-                      <button className="btn" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
-                        onClick={async () => {
-                          const logoBase64 = await hämtaLogoBase64()
-                          const html = genereraMontagePDF({ p: order.protokoll_data, logoBase64 })
-                          const win = window.open('', '_blank', 'width=860,height=1100')
-                          win.document.write(html); win.document.close()
-                          setTimeout(() => win.print(), 400)
-                        }}>
-                        <Printer size={11} /> Skriv ut montageprotokoll
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Snabb-statusbyte */}
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 4 }}>Ändra status:</div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {Object.entries(STATUS_CFG).map(([k, s]) => (
-                        <button key={k} onClick={() => onUppdatera(order.id, { ...order, status: k })}
-                          style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                            fontWeight: order.status === k ? 600 : 400,
-                            background: order.status === k ? s.bg : 'var(--c-surface)',
-                            color:      order.status === k ? s.color : 'var(--c-text3)',
-                            border: `1px solid ${order.status === k ? s.color : 'var(--c-border)'}` }}>
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Starta montering */}
-                  {onNavigeraMontering && order.status !== 'utford' && (
-                    <button className="btn btn-teal"
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}
-                      onClick={() => onNavigeraMontering(order)}>
-                      <ArrowRight size={13} /> Starta montering
-                    </button>
-                  )}
+        {/* Expanderad detalj */}
+        {expanded && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12, marginBottom: 12 }}>
+              {order.serienummer && <div><span style={{ color: 'var(--c-text3)' }}>Serienummer: </span>{order.serienummer}</div>}
+              {order.fabrikat    && <div><span style={{ color: 'var(--c-text3)' }}>Fabrikat: </span>{order.fabrikat}</div>}
+              {order.preliminar_leverans && <div><span style={{ color: 'var(--c-text3)' }}>Prel. leverans: </span>{order.preliminar_leverans}</div>}
+              {order.onskat_montagedag   && <div><span style={{ color: 'var(--c-text3)' }}>Önskad montagedag: </span>{order.onskat_montagedag}</div>}
+              {order.notering && (
+                <div style={{ gridColumn: '1 / -1', padding: '8px 10px', background: 'var(--c-bg)', borderRadius: 6, color: 'var(--c-text2)', fontStyle: 'italic' }}>
+                  {order.notering}
                 </div>
               )}
             </div>
-          )
-        })}
+
+            {/* Protokoll-sammanfattning om utförd */}
+            {order.protokoll_data && order.status === 'utford' && (
+              <div style={{ marginBottom: 10, padding: '10px 12px', background: 'var(--c-teal-bg)', borderRadius: 8, border: '1px solid var(--c-teal)' }}>
+                <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--c-teal-text)', marginBottom: 4 }}>📋 Monteringsprotokoll</div>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>
+                  {order.protokoll_data.datum && <span>{order.protokoll_data.datum} · </span>}
+                  {order.protokoll_data.tekniker && <span>{order.protokoll_data.tekniker} · </span>}
+                  <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {order.protokoll_data.ok ?? 0} OK</span>
+                  {(order.protokoll_data.ej ?? 0) > 0 && <span style={{ color: '#b83333', fontWeight: 600 }}> · ✗ {order.protokoll_data.ej} Ej OK</span>}
+                  {(order.protokoll_data.na ?? 0) > 0 && <span style={{ color: '#888' }}> · {order.protokoll_data.na} N/A</span>}
+                </div>
+                <button className="btn" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                  onClick={async () => {
+                    const logoBase64 = await hämtaLogoBase64()
+                    const html = genereraMontagePDF({ p: order.protokoll_data, logoBase64 })
+                    const win = window.open('', '_blank', 'width=860,height=1100')
+                    win.document.write(html); win.document.close()
+                    setTimeout(() => win.print(), 400)
+                  }}>
+                  <Printer size={11} /> Skriv ut protokoll
+                </button>
+              </div>
+            )}
+
+            {/* Statusbyte */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {Object.entries(STATUS_CFG).map(([k, s]) => (
+                <button key={k} onClick={() => onUppdatera(order.id, { ...order, status: k })}
+                  style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                    fontWeight: order.status === k ? 600 : 400,
+                    background: order.status === k ? s.bg : 'var(--c-surface)',
+                    color:      order.status === k ? s.color : 'var(--c-text3)',
+                    border: `1px solid ${order.status === k ? s.color : 'var(--c-border)'}` }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Montering</h1>
+          <p style={{ color: 'var(--c-text2)', fontSize: 13, margin: 0 }}>Planera, genomför och följ upp monteringsarbeten</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {onNyttEjPlaneratMontage && (
+            <button className="btn" onClick={onNyttEjPlaneratMontage}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Plus size={14} /> Ej-planerat montage
+            </button>
+          )}
+          <button className="btn btn-teal" onClick={() => öppnaForm()}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={14} /> Ny planerad order
+          </button>
+        </div>
+      </div>
+
+      {/* ── 🔴 Pågår ── */}
+      {pågående.length > 0 && (
+        <div>
+          <div style={SECTION_HDR}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--c-red)' }} />
+            Pågår – saknar egenkontroll ({pågående.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pågående.map(o => renderOrderRad(o, 'var(--c-red)'))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 🟡 Planerade ── */}
+      {planerade.length > 0 && (
+        <div>
+          <div style={SECTION_HDR}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--c-amber)' }} />
+            Planerade ({planerade.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {planerade.map(o => renderOrderRad(o, 'var(--c-amber)'))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 📦 Ej planerade ── */}
+      {ejPlanerade.length > 0 && (
+        <div>
+          <div style={SECTION_HDR}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#9ca3af' }} />
+            Ej planerade ({ejPlanerade.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {ejPlanerade.map(o => renderOrderRad(o, '#9ca3af'))}
+          </div>
+        </div>
+      )}
+
+      {/* ── ✅ Klara ── */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={SECTION_HDR}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#16a34a' }} />
+            Klara ({totalKlara})
+          </div>
+          {totalKlara > 0 && (
+            <div style={{ position: 'relative' }}>
+              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
+              <input type="text" placeholder="Sök i klara…" value={sokText} onChange={e => setSokText(e.target.value)}
+                style={{ padding: '5px 8px 5px 26px', fontSize: 12, border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-surface)', color: 'var(--c-text)', width: 180 }} />
+            </div>
+          )}
+        </div>
+
+        {/* Klara från montageorder */}
+        {klaraOrder.filter(sokKlara).length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+            {klaraOrder.filter(sokKlara).map(o => renderOrderRad(o, '#16a34a'))}
+          </div>
+        )}
+
+        {/* Legacy-protokoll från objekt.historik */}
+        {alleaMontage.filter(sokKlara).length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {alleaMontage.filter(sokKlara).map((p, i) => (
+              <div key={i} className="card" style={{ padding: '12px 16px', borderLeft: '4px solid #16a34a', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{p.objektNamn}</div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 2 }}>
+                    {p.portTyp} · {p.kund || '–'} · {p.datum}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                  {p.godkannande === 'godkand'    && <span className="badge badge-teal">Godkänd</span>}
+                  {p.godkannande === 'ej_godkand' && <span className="badge badge-red">Ej godkänd</span>}
+                  {p.ok > 0 && <span style={{ fontSize: 11, color: 'var(--c-teal)' }}>✓ {p.ok}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {totalKlara === 0 && (
+          <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--c-text3)', fontStyle: 'italic' }}>
+            Inga avslutade monteringar ännu.
+          </div>
+        )}
+      </div>
+
+      {/* Tomt state */}
+      {montageorder.length === 0 && alleaMontage.length === 0 && (
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--c-text3)' }}>
+          Inga monteringar ännu. Klicka "Ny planerad order" för att börja, eller "Ej-planerat montage" för direktstart.
+        </div>
+      )}
     </div>
   )
 }
