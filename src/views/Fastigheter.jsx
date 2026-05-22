@@ -93,7 +93,10 @@ function KopplaPortarPanel({ fastighet, alleaObjekt, koppladeIds, onSpara, onSt�
   const [sök,     setSök]     = useState('')
   const [sparar,  setSparar]  = useState(false)
 
-  const tillgängliga = alleaObjekt.filter(o => !o.arkiverad)
+  const tillgängliga = alleaObjekt.filter(o =>
+    !o.arkiverad &&
+    (!fastighet.kund || o.kund === fastighet.kund)
+  )
   const filtrerade   = sök.trim()
     ? tillgängliga.filter(o =>
         o.namn?.toLowerCase().includes(sök.toLowerCase()) ||
@@ -147,7 +150,10 @@ function KopplaPortarPanel({ fastighet, alleaObjekt, koppladeIds, onSpara, onSt�
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: 15 }}>Koppla portar</div>
-            <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>{fastighet.namn} · {antalValda} vald{antalValda !== 1 ? 'a' : ''}</div>
+            <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>
+              {fastighet.namn} · {antalValda} vald{antalValda !== 1 ? 'a' : ''}
+              {fastighet.kund && <span style={{ marginLeft: 6, color: 'var(--c-text3)' }}>· Visar portar för {fastighet.kund}</span>}
+            </div>
           </div>
           <button onClick={onStäng} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text2)', padding: 4 }}>
             <X size={18} />
