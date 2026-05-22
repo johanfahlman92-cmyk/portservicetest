@@ -400,6 +400,9 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
                         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                           <span style={{ display: 'inline-block', width: 16, height: 16, background: 'var(--c-red)', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>A</span> Anmärkning
                         </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ display: 'inline-block', padding: '0 3px', height: 16, background: '#9ca3af', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>N/A</span> Ej tillämpbart
+                        </span>
                       </div>
                     </div>
                     <div style={{ border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
@@ -415,15 +418,15 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                               <span style={{ fontSize: 12, flex: 1 }}>{punkt}</span>
                               <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                                {[['G', 'var(--c-teal)'], ['J', 'var(--c-amber)'], ['A', 'var(--c-red)']].map(([btn, bg]) => (
+                                {[['G', 'var(--c-teal)', '#fff'], ['J', 'var(--c-amber)', '#fff'], ['A', 'var(--c-red)', '#fff'], ['N/A', '#9ca3af', '#fff']].map(([btn, bg, fg]) => (
                                   <button key={btn} type="button"
                                     onClick={() => setCheckStatuses(prev => ({ ...prev, [punkt]: btn }))}
                                     style={{
-                                      width: 28, height: 24, fontSize: 11, fontWeight: 700, borderRadius: 5,
+                                      padding: '3px 7px', height: 24, fontSize: 11, fontWeight: 700, borderRadius: 5,
                                       border: sts === btn ? `2px solid ${bg}` : '1px solid var(--c-border)',
                                       cursor: 'pointer',
                                       background: sts === btn ? bg : 'var(--c-bg)',
-                                      color: sts === btn ? '#fff' : 'var(--c-text3)',
+                                      color: sts === btn ? fg : 'var(--c-text3)',
                                       transition: 'all 0.1s',
                                     }}
                                   >{btn}</button>
