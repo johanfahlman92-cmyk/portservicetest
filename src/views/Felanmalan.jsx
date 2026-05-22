@@ -1,22 +1,13 @@
 import { useState } from 'react'
-import { AlertCircle, CheckCircle, LogOut, Phone, Search, Wrench } from 'lucide-react'
+import { AlertCircle, CheckCircle, LogOut, Phone, Search } from 'lucide-react'
 import logo from '../logo.png'
 
 const FELTYPER = [
-  'Porten öppnar/stänger inte',
-  'Porten fastnar',
-  'Ovanliga ljud',
-  'Fjärrkontroll fungerar inte',
-  'Synlig skada',
-  'Annat',
-]
-
-const SERVICETYPER = [
-  'Periodservice',
-  'Akutservice',
-  'Garanti / reklamation',
+  'Service',
+  'Garanti/reklamation',
   'Reparation',
-  'Renovering',
+  'Fjärrkontroll',
+  'Porten öppnar/stänger inte',
   'Annat',
 ]
 
@@ -26,7 +17,7 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
 
   const [arendeTyp, setArendeTyp] = useState('felanmalan')
 
-  const [sokKund, setSokKund]             = useState('')
+  const [sokKund, setSokKund]   = useState('')
   const [valdKund, setValdKund]           = useState(null)
   const [nyKundLage, setNyKundLage]       = useState(false)
   const [nyKundNamn, setNyKundNamn]       = useState('')
@@ -36,13 +27,8 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
 
   const [valdObjekt, setValdObjekt]   = useState('')
   const [feltyp, setFeltyp]           = useState(FELTYPER[0])
-  const [servicetyp, setServicetyp]   = useState(SERVICETYPER[0])
   const [beskrivning, setBeskrivning] = useState('')
   const [prioritet, setPrioritet]     = useState('normal')
-
-  const typer   = arendeTyp === 'service' ? SERVICETYPER : FELTYPER
-  const valtTyp = arendeTyp === 'service' ? servicetyp : feltyp
-  const setTyp  = arendeTyp === 'service' ? setServicetyp : setFeltyp
 
   const filtKunder = kunder.filter(k =>
     k.namn.toLowerCase().includes(sokKund.toLowerCase())
@@ -74,7 +60,7 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
       typ:        arendeTyp,
       namn:       valdObjekt || 'Okänd port',
       kund:       valdKund?.namn     || nyKundNamn.trim(),
-      feltyp:     valtTyp,
+      feltyp:     feltyp,
       beskrivning,
       kontakt:    valdKund?.kontakt  || '',
       adress:     valdKund?.adress   || nyKundAdress.trim() || '',
@@ -93,7 +79,7 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
   const resetForm = () => {
     setSteg('form'); setSokKund(''); setValdKund(null); setNyKundLage(false)
     setNyKundNamn(''); setNyKundTelefon(''); setNyKundAdress(''); setNyKundOrt('')
-    setValdObjekt(''); setFeltyp(FELTYPER[0]); setServicetyp(SERVICETYPER[0])
+    setValdObjekt(''); setFeltyp(FELTYPER[0])
     setBeskrivning(''); setPrioritet('normal'); setArendeTyp('felanmalan')
   }
 
@@ -126,7 +112,6 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
                   {[
                     ['felanmalan', 'Felanmälan',    <AlertCircle size={15} />, 'var(--c-coral)',  'var(--c-coral-bg)',  'var(--c-coral-text)'],
                     ['kontakt',    'Kontakta kund', <Phone       size={15} />, 'var(--c-amber)',  'var(--c-amber-bg)',  'var(--c-amber-text)'],
-                    ['service',    'Serviceärende', <Wrench      size={15} />, 'var(--c-blue)',   'var(--c-blue-bg)',   'var(--c-blue-text)'],
                   ].map(([val, lab, icon, brd, bg, col]) => (
                     <button key={val} onClick={() => setArendeTyp(val)} style={{
                       flex: 1, padding: '10px 6px', borderRadius: 10, cursor: 'pointer',
@@ -143,7 +128,7 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
                 <p style={{ color: 'var(--c-text2)', fontSize: 14 }}>
                   {arendeTyp === 'kontakt'
                     ? 'Registrera ett kontaktärende – kunden ska kontaktas av tekniker eller kontoret.'
-                    : 'Fyll i formuläret nedan för att registrera ett nytt ärende.'}
+                    : 'Registrera en felanmälan – tekniker åker ut.'}
                 </p>
               </div>
 
@@ -259,27 +244,27 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
               {/* Felinformation */}
               <div className="card" style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>
-                  {arendeTyp === 'service' ? 'Serviceinformation' : arendeTyp === 'kontakt' ? 'Kontaktärende' : 'Felinformation'}
+                  {arendeTyp === 'kontakt' ? 'Kontaktärende' : 'Felinformation'}
                 </div>
 
                 {arendeTyp !== 'kontakt' && (
                   <div style={{ marginBottom: 14 }}>
-                    <label style={lbl}>{arendeTyp === 'service' ? 'Typ av service' : 'Feltyp'}</label>
-                    <select value={valtTyp} onChange={e => setTyp(e.target.value)} style={inp}>
-                      {typer.map(f => <option key={f}>{f}</option>)}
+                    <label style={lbl}>Feltyp</label>
+                    <select value={feltyp} onChange={e => setFeltyp(e.target.value)} style={inp}>
+                      {FELTYPER.map(f => <option key={f}>{f}</option>)}
                     </select>
                   </div>
                 )}
 
                 <div style={{ marginBottom: 14 }}>
                   <label style={lbl}>
-                    {arendeTyp === 'service' ? 'Beskrivning' : arendeTyp === 'kontakt' ? 'Anledning till kontakt' : 'Kundens beskrivning'}
+                    {arendeTyp === 'kontakt' ? 'Anledning till kontakt' : 'Kundens beskrivning'}
                   </label>
                   <textarea value={beskrivning} onChange={e => setBeskrivning(e.target.value)}
                     placeholder={
-                      arendeTyp === 'service'  ? 'Beskriv servicebehov…' :
-                      arendeTyp === 'kontakt'  ? 'Vad gäller ärendet? Beskriv vad kunden behöver hjälp med…' :
-                      'Vad berättar kunden? Beskriv felet så detaljerat som möjligt…'
+                      arendeTyp === 'kontakt'
+                        ? 'Vad gäller ärendet? Beskriv vad kunden behöver hjälp med…'
+                        : 'Vad berättar kunden? Beskriv felet så detaljerat som möjligt…'
                     }
                     style={{ ...inp, minHeight: 90, resize: 'vertical' }} />
                 </div>
@@ -307,7 +292,6 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '13px', fontSize: 16, borderRadius: 10 }}>
                 {sparar ? 'Skickar in…'
-                  : arendeTyp === 'service' ? 'Skicka in serviceärende'
                   : arendeTyp === 'kontakt' ? 'Skicka in kontaktärende'
                   : 'Skicka in felanmälan'}
               </button>
