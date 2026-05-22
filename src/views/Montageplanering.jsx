@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
-import logo from '../image-1779305303942.png'
 import { protokollTyper, RISKPUNKTER } from '../data/store.js'
 import KundVäljare from '../components/KundVäljare.jsx'
+import { hämtaLogoBase64 } from '../utils/pdf.js'
 
 // Samma porttyper som i Portregister
 const PORTTYPER      = Object.keys(protokollTyper)           // Vikport, Takskjutport, Lastbrygga, Grind
@@ -12,18 +12,6 @@ const STATUS_CFG = {
   ej_planerad: { label: 'Ej planerad', color: '#9ca3af', bg: '#f3f4f6', Icon: Clock },
   planerad:    { label: 'Planerad',    color: '#2563eb', bg: '#eff6ff', Icon: Package },
   utford:      { label: 'Utförd',      color: '#16a34a', bg: '#f0fdf4', Icon: Check },
-}
-
-async function hämtaLogoBase64() {
-  try {
-    const res  = await fetch(logo)
-    const blob = await res.blob()
-    return new Promise(resolve => {
-      const r = new FileReader()
-      r.onload = () => resolve(r.result)
-      r.readAsDataURL(blob)
-    })
-  } catch { return null }
 }
 
 function genereraMontagePDF({ p, logoBase64, montagemallar = {} }) {
@@ -120,10 +108,10 @@ function StatusBadge({ status }) {
 const TOMFORM = {
   porttyp: PORTTYPER[0], fabrikat: '', ordernummer: '', serienummer: '',
   montageplats: '', kund: '', preliminar_leverans: '',
-  onskat_montagedag: '', status: 'ej_planerad', notering: '',
+  onskat_montagedag: '', tekniker: '', status: 'ej_planerad', notering: '',
 }
 
-export default function Montageplanering({ kunder = [], fastigheter = [], montageorder = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering }) {
+export default function Montageplanering({ kunder = [], fastigheter = [], montageorder = [], tekniker = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering }) {
   const [vy,            setVy]            = useState('lista')
   const [valt,          setValt]          = useState(null)
   const [form,          setForm]          = useState(TOMFORM)
@@ -151,6 +139,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
         kund:                order.kund                || '',
         preliminar_leverans: order.preliminar_leverans || '',
         onskat_montagedag:   order.onskat_montagedag   || '',
+        tekniker:            order.tekniker            || '',
         status:              order.status              || 'ej_planerad',
         notering:            order.notering            || '',
       })
@@ -265,6 +254,13 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
                 <option value="ej_planerad">Ej planerad</option>
                 <option value="planerad">Planerad</option>
                 <option value="utford">Utförd</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Ansvarig tekniker</label>
+              <select value={form.tekniker} onChange={e => F('tekniker', e.target.value)} style={inp}>
+                <option value="">– Ej tilldelad –</option>
+                {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>
@@ -468,6 +464,11 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
                   <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>
                     {[order.kund, order.montageplats].filter(Boolean).join(' · ')}
                   </div>
+                  {order.tekniker && (
+                    <div style={{ fontSize: 11, color: 'var(--c-teal-text)', marginTop: 1 }}>
+                      👷 {order.tekniker}
+                    </div>
+                  )}
                   {(order.preliminar_leverans || order.onskat_montagedag) && (
                     <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
                       {order.preliminar_leverans && `📦 Leverans: ${order.preliminar_leverans}`}

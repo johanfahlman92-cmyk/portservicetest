@@ -54,6 +54,8 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
 
     const idag = new Date().toISOString().slice(0, 10)
     const nr   = idag.replace(/-/g, '').slice(2) + '-' + Math.floor(Math.random() * 90 + 10)
+    // Hitta portens ID för pålitlig länkning
+    const portObj = kundObjekt.find(o => o.namn === valdObjekt)
     await onSparaArende({
       id: 'a' + Date.now(),
       nr,
@@ -68,6 +70,7 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
       prioritet,
       tekniker:   null,
       besok:      null,
+      objekt_id:  portObj?.id || null,
     })
     setSparar(false)
     setSteg('klar')

@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp, Filter, Check, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import KundVäljare from '../components/KundVäljare.jsx'
 
-const typColor = { service: 'var(--c-teal-bg)', felanmalan: 'var(--c-coral-bg)', montering: 'var(--c-purple-bg)' }
-const typBorder= { service: 'var(--c-teal)',    felanmalan: 'var(--c-coral)',    montering: 'var(--c-purple)' }
-const typText  = { service: 'var(--c-teal-text)', felanmalan: 'var(--c-coral-text)', montering: 'var(--c-purple-text)' }
-const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Montering' }
+const typColor = { service: 'var(--c-teal-bg)', felanmalan: 'var(--c-coral-bg)', montering: 'var(--c-purple-bg)', mote: 'var(--c-purple-bg)' }
+const typBorder= { service: 'var(--c-teal)',    felanmalan: 'var(--c-coral)',    montering: 'var(--c-purple)',    mote: 'var(--c-purple)' }
+const typText  = { service: 'var(--c-teal-text)', felanmalan: 'var(--c-coral-text)', montering: 'var(--c-purple-text)', mote: 'var(--c-purple-text)' }
+const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Möte/Övrigt', mote: 'Möte/Övrigt' }
 const DAG_NAMN = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
 
 const HOUR_START  = 7
@@ -264,7 +264,7 @@ function BokningForm({ initial, dag, dagar, arenden, tekniker, kunder = [], onNy
             <select value={typ} onChange={e => setTyp(e.target.value)} style={inp}>
               <option value="service">Service</option>
               <option value="felanmalan">Felanmälan</option>
-              <option value="montering">Montering</option>
+              <option value="mote">Möte / Övrigt</option>
             </select>
           </div>
           <div style={{ ...fld, gridColumn: '1 / -1' }}>

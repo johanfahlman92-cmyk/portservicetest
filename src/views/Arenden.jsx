@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer, Archive, RotateCcw } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import Felanmalan from './Felanmalan.jsx'
-import logo from '../image-1779305303942.png'
+import { hämtaLogoBase64 } from '../utils/pdf.js'
 
 const statusLabel = { ny: 'Ny', pagAr: 'Pågår', atgardad: 'Åtgärdad' }
 const statusCls   = { ny: 'badge-red', pagAr: 'badge-amber', atgardad: 'badge-green' }
@@ -12,17 +12,7 @@ const prioCls     = { normal: 'badge-gray', hog: 'badge-amber', akut: 'badge-red
 const FÄLT = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }
 
 async function skrivUtArende(a) {
-  // Hämta logotyp som base64
-  let logoBase64 = null
-  try {
-    const res  = await fetch(logo)
-    const blob = await res.blob()
-    logoBase64 = await new Promise(resolve => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result)
-      reader.readAsDataURL(blob)
-    })
-  } catch { /* om det misslyckas visas inget logo */ }
+  const logoBase64 = await hämtaLogoBase64()
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>Felanmälan #${a.nr}</title>
@@ -81,7 +71,7 @@ async function skrivUtArende(a) {
   setTimeout(() => w.print(), 400)
 }
 
-function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt, onBack }) {
+function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt, onLaggTillBokning, onBack }) {
   const [visaTilldela,  setVisaTilldela]  = useState(false)
   const [valdTekniker,  setValdTekniker]  = useState(a.tekniker || '')
   const [sparar,        setSparar]        = useState(false)
@@ -122,6 +112,17 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   const sparaRedigering = async () => {
     setSparar(true)
     await onUppdatera(a.id, editForm)
+    // Auto-skapa kalenderbokning när besök-datum sätts eller ändras
+    if (editForm.besok && editForm.besok !== a.besok && onLaggTillBokning) {
+      await onLaggTillBokning(editForm.besok, {
+        tid:      '08:00',
+        typ:      'felanmalan',
+        namn:     a.namn,
+        kund:     a.kund,
+        tek:      editForm.tekniker ? [editForm.tekniker] : (a.tekniker ? [a.tekniker] : []),
+        arendeId: a.id,
+      })
+    }
     setSparar(false)
     setRedigerar(false)
   }
@@ -156,18 +157,32 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
 
   const sparaProtokoll = async () => {
     setSparar(true)
-    const port = objekt.find(o => o.namn === a.namn || o.id === a.objektId)
+    const idag = new Date().toISOString().slice(0, 10)
+    const tekNamn = protokollForm.tekniker || a.tekniker || ''
+    // Pålitlig lookup: objekt_id först, sedan namn+kund som fallback
+    const port = objekt.find(o => a.objekt_id ? o.id === a.objekt_id : (o.namn === a.namn && o.kund === a.kund))
     if (port && onUppdateraObjekt) {
+      // Skapa historikrad i portregistret
+      const nyHistorik = {
+        id:       'h' + Date.now(),
+        datum:    idag,
+        typ:      'service',
+        tekniker: tekNamn,
+        notering: protokollForm.utfort,
+        ärendeNr: a.nr,
+        status:   protokollForm.status,
+      }
       await onUppdateraObjekt(port.id, {
-        senaste: new Date().toISOString().slice(0, 10),
-        nasta:   protokollForm.nastaService || port.nasta,
-        status:  protokollForm.status,
+        senaste:  idag,
+        nasta:    protokollForm.nastaService || port.nasta,
+        status:   protokollForm.status,
+        historik: [...(port.historik || []), nyHistorik],
       })
     }
     await onUppdatera(a.id, {
       status:    'atgardad',
       protokoll: protokollForm.utfort,
-      tekniker:  protokollForm.tekniker || a.tekniker,
+      tekniker:  tekNamn,
     })
     setSparar(false)
     setProtokollSparad(true)
@@ -460,7 +475,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onLaggTillBokning, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
   const [valt,      setValt]      = useState(null)
   const [filter,    setFilter]    = useState('oppna')
   const [sokText,   setSokText]   = useState('')
@@ -523,7 +538,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
 
   if (valt) {
     const uppdaterat = arenden.find(a => a.id === valt.id) || valt
-    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} objekt={objekt} onUppdatera={onUppdatera} onUppdateraObjekt={onUppdateraObjekt} onBack={() => setValt(null)} />
+    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} objekt={objekt} onUppdatera={onUppdatera} onUppdateraObjekt={onUppdateraObjekt} onLaggTillBokning={onLaggTillBokning} onBack={() => setValt(null)} />
   }
 
   return (

@@ -172,7 +172,16 @@ function SnabbFelanmalan({ kunder, objekt, onSpara, onStäng }) {
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokningar = {}, onNavigera, onSparaArende }) {
+function getVeckansStart() {
+  const idag = new Date()
+  const dag  = idag.getDay()
+  const mn   = new Date(idag)
+  mn.setDate(idag.getDate() - dag + (dag === 0 ? -6 : 1))
+  mn.setHours(0, 0, 0, 0)
+  return mn
+}
+
+export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokningar = {}, montageorder = [], onNavigera, onSparaArende }) {
   const idag    = new Date()
   const veckonr = getVeckonummer(idag)
   const mThis   = idag.toISOString().slice(0, 7)
@@ -188,6 +197,26 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
 
   const veckoSchema = getVeckansBokningar(bokningar)
   const larm        = getLarm(objekt, arenden)
+
+  // Berika veckoschemat med montageorder + arenden med besök-datum
+  const veckStart = getVeckansStart()
+  const dagNamnKort = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
+  const veckoExtra = []
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(veckStart); d.setDate(veckStart.getDate() + i)
+    const ymd = d.toISOString().slice(0, 10)
+    const dagLbl = dagNamnKort[i] + ' ' + d.getDate() + '/' + (d.getMonth() + 1)
+    // Ärenden med besök-datum denna dag
+    arenden.filter(a => a.status !== 'atgardad' && a.besok === ymd).forEach(a => {
+      veckoExtra.push({ dag: dagLbl, namn: a.namn, kund: a.kund, tekniker: a.tekniker || '–', typ: a.prioritet === 'akut' ? 'akut' : 'arende', nav: 'arenden' })
+    })
+    // Montageorder med önskad montagedag
+    montageorder.filter(m => m.status !== 'utford' && m.onskat_montagedag === ymd).forEach(m => {
+      veckoExtra.push({ dag: dagLbl, namn: m.ordernummer, kund: m.kund, tekniker: m.tekniker || '–', typ: 'montage', nav: 'montageplanering' })
+    })
+  }
+  const alleVecka = [...veckoSchema.map(v => ({ ...v, nav: 'kalender' })), ...veckoExtra]
+    .sort((a, b) => a.dag.localeCompare(b.dag))
 
   // Hälsning
   const hour    = idag.getHours()
@@ -324,49 +353,58 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
 
         {/* Kommande besök */}
         <div className="card">
-          <div style={SECTION}>Kommande besök – denna vecka</div>
-          {veckoSchema.length === 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={SECTION}>Denna vecka</div>
+            <span onClick={() => onNavigera?.('planeringstavla')}
+              style={{ fontSize: 11, color: 'var(--c-teal)', cursor: 'pointer', textDecoration: 'underline' }}>
+              Planeringstavla →
+            </span>
+          </div>
+          {alleVecka.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--c-text2)', padding: '8px 0' }}>
               Inga bokningar denna vecka.{' '}
-              <span
-                onClick={() => onNavigera?.('kalender')}
-                style={{ color: 'var(--c-blue)', cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                Öppna kalender
+              <span onClick={() => onNavigera?.('planeringstavla')}
+                style={{ color: 'var(--c-blue)', cursor: 'pointer', textDecoration: 'underline' }}>
+                Öppna planeringstavla
               </span>
             </div>
           ) : (
-            veckoSchema.map((v, i) => (
-              <div key={i}
-                onClick={() => onNavigera?.('kalender')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '8px 6px', marginLeft: -6, marginRight: -6,
-                  borderRadius: 8, cursor: 'pointer',
-                  borderBottom: i < veckoSchema.length - 1 ? '1px solid var(--c-border)' : 'none',
-                  transition: 'background 0.12s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{
-                  fontSize: 10, fontWeight: 700, color: 'var(--c-text3)',
-                  minWidth: 52, lineHeight: 1.3,
-                }}>
-                  {v.dag}
+            alleVecka.slice(0, 8).map((v, i) => {
+              const färg = v.typ === 'service' ? 'var(--c-teal)' : v.typ === 'montage' ? '#2563eb' : v.typ === 'akut' ? 'var(--c-red)' : v.typ === 'arende' ? '#ea580c' : 'var(--c-purple)'
+              const lbl  = v.typ === 'service' ? 'Service' : v.typ === 'montage' ? 'Montage' : v.typ === 'akut' ? 'Akut' : v.typ === 'arende' ? 'Ärende' : typLabel[v.typ] || v.typ
+              return (
+                <div key={i}
+                  onClick={() => onNavigera?.(v.nav || 'kalender')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '7px 6px', marginLeft: -6, marginRight: -6,
+                    borderRadius: 8, cursor: 'pointer',
+                    borderBottom: i < alleVecka.slice(0, 8).length - 1 ? '1px solid var(--c-border)' : 'none',
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--c-bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', minWidth: 52, lineHeight: 1.3 }}>
+                    {v.dag}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.namn}</div>
+                    <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{v.kund}{v.tekniker && v.tekniker !== '–' ? ' · ' + v.tekniker : ''}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, fontWeight: 600, background: färg + '22', color: färg }}>{lbl}</span>
+                    <ChevronRight size={12} color="var(--c-text3)" />
+                  </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.namn}</div>
-                  <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{v.kund} · {v.tekniker}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span className={`badge ${typBadge[v.typ] || 'badge-gray'}`} style={{ fontSize: 10 }}>
-                    {typLabel[v.typ] || v.typ}
-                  </span>
-                  <ChevronRight size={12} color="var(--c-text3)" />
-                </div>
-              </div>
-            ))
+              )
+            })
+          )}
+          {alleVecka.length > 8 && (
+            <div onClick={() => onNavigera?.('planeringstavla')}
+              style={{ fontSize: 11, color: 'var(--c-text3)', textAlign: 'center', paddingTop: 8, cursor: 'pointer' }}>
+              + {alleVecka.length - 8} till — visa alla i Planeringstavla
+            </div>
           )}
         </div>
 

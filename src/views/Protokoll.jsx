@@ -2,20 +2,8 @@ import { useState, useRef } from 'react'
 import { CheckCircle, ChevronRight, Printer, CheckSquare, History, ArrowLeft,
          Search, CalendarPlus, X, Check, Wrench, AlertCircle, AlertTriangle,
          Minus, Pencil, Plus, ClipboardList } from 'lucide-react'
-import logo from '../image-1779305303942.png'
 import { protokollPunkter as defaultMallar } from '../data/store.js'
-
-async function hämtaLogoBase64() {
-  try {
-    const res  = await fetch(logo)
-    const blob = await res.blob()
-    return new Promise(resolve => {
-      const r = new FileReader()
-      r.onload = () => resolve(r.result)
-      r.readAsDataURL(blob)
-    })
-  } catch { return null }
-}
+import { hämtaLogoBase64 } from '../utils/pdf.js'
 
 const PDF_STATUS_LABEL = { OK: 'Godkänd', AF: 'Åtgärdad', NOT: 'Att notera', KA: 'Kräver åtgärd', EJ: 'Ej tillämpbar' }
 const PDF_STATUS_COLOR = { OK: '#16a34a', AF: '#2563eb', NOT: '#d97706', KA: '#dc2626', EJ: '#9ca3af' }
