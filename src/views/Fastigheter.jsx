@@ -87,15 +87,159 @@ function PortDetalj({ obj, onBack }) {
   )
 }
 
+// ── Koppla-portar-panel (modal) ───────────────────────────────────────────────
+function KopplaPortarPanel({ fastighet, alleaObjekt, koppladeIds, onSpara, onStäng }) {
+  const [valda,   setValda]   = useState(() => new Set(koppladeIds))
+  const [sök,     setSök]     = useState('')
+  const [sparar,  setSparar]  = useState(false)
+
+  const tillgängliga = alleaObjekt.filter(o => !o.arkiverad)
+  const filtrerade   = sök.trim()
+    ? tillgängliga.filter(o =>
+        o.namn?.toLowerCase().includes(sök.toLowerCase()) ||
+        o.kund?.toLowerCase().includes(sök.toLowerCase()) ||
+        o.typ?.toLowerCase().includes(sök.toLowerCase())
+      )
+    : tillgängliga
+
+  // Sortera: redan kopplade överst
+  const sorterade = [...filtrerade].sort((a, b) => {
+    const aKopplad = valda.has(a.id) ? 0 : 1
+    const bKopplad = valda.has(b.id) ? 0 : 1
+    return aKopplad - bKopplad || a.namn.localeCompare(b.namn, 'sv')
+  })
+
+  const toggle = (id) => setValda(prev => {
+    const ny = new Set(prev)
+    ny.has(id) ? ny.delete(id) : ny.add(id)
+    return ny
+  })
+
+  const spara = async () => {
+    setSparar(true)
+    const orig = new Set(koppladeIds)
+    const uppdateringar = []
+    for (const o of alleaObjekt) {
+      if (!orig.has(o.id) && valda.has(o.id)) {
+        // Ny koppling
+        uppdateringar.push({ id: o.id, changes: { fastighetId: fastighet.id, plats: fastighet.namn } })
+      } else if (orig.has(o.id) && !valda.has(o.id)) {
+        // Borttagen koppling
+        uppdateringar.push({ id: o.id, changes: { fastighetId: null } })
+      }
+    }
+    await onSpara(uppdateringar)
+    setSparar(false)
+    onStäng()
+  }
+
+  const antalValda = valda.size
+  const antalÄndringar = tillgängliga.filter(o => {
+    const orig = new Set(koppladeIds)
+    return (orig.has(o.id) && !valda.has(o.id)) || (!orig.has(o.id) && valda.has(o.id))
+  }).length
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
+      <div className="card" style={{ width: '100%', maxWidth: 480, maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+
+        {/* Rubrik */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>Koppla portar</div>
+            <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>{fastighet.namn} · {antalValda} vald{antalValda !== 1 ? 'a' : ''}</div>
+          </div>
+          <button onClick={onStäng} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text2)', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Sök */}
+        <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--c-border)', flexShrink: 0 }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
+            <input
+              type="text" placeholder="Sök port, kund, typ…" value={sök} onChange={e => setSök(e.target.value)}
+              style={{ width: '100%', padding: '6px 10px 6px 28px', fontSize: 12, border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }}
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {/* Portlista */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 12px' }}>
+          {sorterade.length === 0 && (
+            <p style={{ color: 'var(--c-text2)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Inga portar matchar sökningen.</p>
+          )}
+          {sorterade.map((o, i) => {
+            const kopplad = valda.has(o.id)
+            const förraVald = new Set(koppladeIds).has(o.id)
+            const ändrad = kopplad !== förraVald
+            return (
+              <div key={o.id}>
+                {/* Avdelare: kopplade → okopplade */}
+                {i > 0 && sorterade[i - 1] && new Set(koppladeIds).has(sorterade[i - 1].id) && !new Set(koppladeIds).has(o.id) && valda.has(sorterade[i - 1].id) && !valda.has(o.id) && (
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '8px 2px 4px' }}>
+                    Övriga portar
+                  </div>
+                )}
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', borderRadius: 8,
+                  cursor: 'pointer', background: ändrad ? 'var(--c-blue-bg)' : 'transparent',
+                  transition: 'background 0.1s',
+                }}>
+                  <input
+                    type="checkbox" checked={kopplad} onChange={() => toggle(o.id)}
+                    style={{ width: 16, height: 16, accentColor: 'var(--c-teal)', flexShrink: 0, cursor: 'pointer' }}
+                  />
+                  <div className="port-icon" style={{ background: (statusConfig[o.status]?.color || '#888') + '20', width: 30, height: 30, flexShrink: 0 }}>
+                    <DoorOpen size={14} color={statusConfig[o.status]?.color || '#888'} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: kopplad ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.namn}</div>
+                    <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{o.kund}{o.typ ? ` · ${o.typ}` : ''}</div>
+                  </div>
+                  {kopplad && !ändrad && <span style={{ fontSize: 10, color: 'var(--c-teal)', fontWeight: 600, flexShrink: 0 }}>Kopplad</span>}
+                  {ändrad && <span style={{ fontSize: 10, color: 'var(--c-blue-text)', fontWeight: 600, flexShrink: 0 }}>{kopplad ? '+ Lägg till' : '– Ta bort'}</span>}
+                </label>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--c-border)', display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={spara} disabled={sparar || antalÄndringar === 0}
+            style={{
+              flex: 1, padding: '9px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: antalÄndringar > 0 ? 'pointer' : 'not-allowed',
+              background: antalÄndringar > 0 ? 'var(--c-teal)' : 'var(--c-border)', color: antalÄndringar > 0 ? '#fff' : 'var(--c-text3)', border: 'none',
+              opacity: sparar ? 0.6 : 1,
+            }}
+          >
+            {sparar ? 'Sparar…' : antalÄndringar > 0 ? `Spara (${antalÄndringar} ändring${antalÄndringar !== 1 ? 'ar' : ''})` : 'Inga ändringar'}
+          </button>
+          <button onClick={onStäng} className="btn" style={{ flexShrink: 0 }}>Avbryt</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Fastighetdetalj ───────────────────────────────────────────────────────────
-function FastighetDetalj({ fastighet, portar, onValjPort, onBack, onArkivera, onUppdatera, onUppdateraObjekt, kunder, onNyKund }) {
+function FastighetDetalj({ fastighet, portar, alleaObjekt = [], onValjPort, onBack, onArkivera, onUppdatera, onUppdateraObjekt, kunder, onNyKund }) {
   const gs = gruppsStatus(portar)
 
-  const [redigerar, setRedigerar] = useState(false)
-  const [editNamn,  setEditNamn]  = useState(fastighet.namn)
-  const [editAdress,setEditAdress]= useState(fastighet.adress || '')
-  const [editKund,  setEditKund]  = useState(fastighet.kund  || '')
-  const [sparar,    setSparar]    = useState(false)
+  const [redigerar,    setRedigerar]    = useState(false)
+  const [editNamn,     setEditNamn]     = useState(fastighet.namn)
+  const [editAdress,   setEditAdress]   = useState(fastighet.adress || '')
+  const [editKund,     setEditKund]     = useState(fastighet.kund  || '')
+  const [sparar,       setSparar]       = useState(false)
+  const [visaKoppla,   setVisaKoppla]   = useState(false)
+
+  const sparaPortKopplingar = async (uppdateringar) => {
+    await Promise.all(uppdateringar.map(({ id, changes }) => onUppdateraObjekt(id, changes)))
+  }
 
   const startEdit = () => {
     setEditNamn(fastighet.namn)
@@ -195,17 +339,40 @@ function FastighetDetalj({ fastighet, portar, onValjPort, onBack, onArkivera, on
         )}
       </div>
 
+      {visaKoppla && (
+        <KopplaPortarPanel
+          fastighet={fastighet}
+          alleaObjekt={alleaObjekt}
+          koppladeIds={portar.map(p => p.id)}
+          onSpara={sparaPortKopplingar}
+          onStäng={() => setVisaKoppla(false)}
+        />
+      )}
+
       {portar.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '32px 20px', marginBottom: 14 }}>
           <DoorOpen size={32} color="var(--c-text3)" style={{ margin: '0 auto 10px', display: 'block' }} />
-          <div style={{ fontSize: 13, color: 'var(--c-text2)' }}>
-            Inga portar kopplade till denna fastighet.<br />
-            Lägg till portar via <strong>Portregister</strong> och välj <em>{fastighet.namn}</em> som fastighet.
+          <div style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 16 }}>
+            Inga portar kopplade till denna fastighet.
           </div>
+          <button
+            onClick={() => setVisaKoppla(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer', border: '1.5px solid var(--c-teal)', background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)' }}
+          >
+            <Plus size={15} /> Koppla portar
+          </button>
         </div>
       ) : (
         <div className="card" style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Portar</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>Portar ({portar.length})</div>
+            <button
+              onClick={() => setVisaKoppla(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, borderRadius: 7, cursor: 'pointer', border: '1px solid var(--c-teal)', background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)' }}
+            >
+              <Plus size={13} /> Koppla portar
+            </button>
+          </div>
           {portar.map(obj => (
             <div key={obj.id} className="row-item" onClick={() => onValjPort(obj)} style={{ cursor: 'pointer' }}>
               <div className="port-icon" style={{ background: (statusConfig[obj.status]?.color || '#888') + '20' }}>
@@ -538,6 +705,7 @@ export default function Fastigheter({ fastigheter = [], objekt = [], kunder = []
       <FastighetDetalj
         fastighet={fastighet || { namn: '–', adress: '', kund: '' }}
         portar={portar}
+        alleaObjekt={objekt.filter(o => !o.arkiverad)}
         onValjPort={p => setValdPort(p)}
         onBack={() => setValdFastighetId(null)}
         onArkivera={() => arkivera(fastighet)}
