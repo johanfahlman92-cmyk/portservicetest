@@ -28,16 +28,18 @@ function dbToObjekt(row) {
     intervallProcent: row.intervall_procent,
     dagerForsenad:    row.dager_forsenad,
     fastighetId:      row.fastighet_id ?? null,
+    serviceIntervall: row.service_intervall ?? 12,
   }
 }
 function objektToDB(obj) {
-  const { kundTyp, intervallProcent, dagerForsenad, fastighetId, ...rest } = obj
+  const { kundTyp, intervallProcent, dagerForsenad, fastighetId, serviceIntervall, ...rest } = obj
   return {
     ...rest,
     kund_typ:          kundTyp          ?? 'foretag',
     intervall_procent: intervallProcent ?? 0,
     dager_forsenad:    dagerForsenad    ?? 0,
     fastighet_id:      fastighetId      ?? null,
+    service_intervall: serviceIntervall ?? 12,
   }
 }
 
