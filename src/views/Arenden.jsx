@@ -93,6 +93,18 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   const [protokollForm, setProtokollForm] = useState({
     utfort: '', nastaService: '', status: 'ok', tekniker: a.tekniker || '',
   })
+  const [nastaTyp, setNastaTyp] = useState('')
+
+  const väljNastaTyp = (typ) => {
+    setNastaTyp(typ)
+    if (typ === '6m' || typ === '12m') {
+      const d = new Date()
+      d.setMonth(d.getMonth() + (typ === '6m' ? 6 : 12))
+      updProt('nastaService', d.toISOString().slice(0, 10))
+    } else if (typ === 'ingen') {
+      updProt('nastaService', '')
+    }
+  }
 
   const updEdit  = (k, v) => setEditForm(f => ({ ...f, [k]: v }))
   const updProt  = (k, v) => setProtokollForm(f => ({ ...f, [k]: v }))
@@ -294,8 +306,33 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
                     </select>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Nästa service</div>
-                    <input type="date" value={protokollForm.nastaService} onChange={e => updProt('nastaService', e.target.value)} style={FÄLT} />
+                    <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>Nästa service</div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: nastaTyp === 'eget' ? 6 : 0 }}>
+                      {[
+                        { id: '6m',   label: '6 mån' },
+                        { id: '12m',  label: '12 mån' },
+                        { id: 'eget', label: 'Eget datum' },
+                        { id: 'ingen',label: 'Ingen' },
+                      ].map(({ id, label }) => (
+                        <button key={id} type="button" onClick={() => väljNastaTyp(id)} style={{
+                          padding: '4px 10px', fontSize: 11, borderRadius: 20, cursor: 'pointer',
+                          border: `1px solid ${nastaTyp === id ? 'var(--c-blue)' : 'var(--c-border)'}`,
+                          background: nastaTyp === id ? 'var(--c-blue-bg)' : 'transparent',
+                          color: nastaTyp === id ? 'var(--c-blue-text)' : 'var(--c-text2)',
+                          fontWeight: nastaTyp === id ? 600 : 400,
+                          transition: 'all 0.12s',
+                        }}>{label}</button>
+                      ))}
+                    </div>
+                    {nastaTyp === 'eget' && (
+                      <input type="date" value={protokollForm.nastaService}
+                        onChange={e => updProt('nastaService', e.target.value)} style={FÄLT} />
+                    )}
+                    {nastaTyp && nastaTyp !== 'eget' && nastaTyp !== 'ingen' && protokollForm.nastaService && (
+                      <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 4 }}>
+                        → {protokollForm.nastaService}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
