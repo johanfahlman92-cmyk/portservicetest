@@ -42,7 +42,7 @@ const TOMFORM = {
   onskat_montagedag: '', status: 'ej_planerad', notering: '',
 }
 
-export default function Montageplanering({ kunder = [], montageorder = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering }) {
+export default function Montageplanering({ kunder = [], fastigheter = [], montageorder = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering }) {
   const [vy,            setVy]            = useState('lista')
   const [valt,          setValt]          = useState(null)
   const [form,          setForm]          = useState(TOMFORM)
@@ -192,30 +192,64 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
         {/* Plats & kund */}
         <div className="card" style={{ marginBottom: 12 }}>
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Plats & kund</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Montageplats / adress *</label>
-              <input type="text" value={form.montageplats} onChange={e => F('montageplats', e.target.value)}
-                placeholder="Adress eller platsnamn" style={inp} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Kund</label>
-              <KundVäljare
-                kunder={kunder}
-                value={form.kund}
-                onChange={v => F('kund', v)}
-                onNyKund={onNyKund}
-                style={inp}
-                placeholder="– Välj kund –"
-              />
-              {form.kund && (
-                <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6,
-                  fontSize: 12, color: 'var(--c-teal-text)', background: 'var(--c-teal-bg)',
-                  border: '1px solid var(--c-teal)', borderRadius: 6, padding: '5px 10px' }}>
-                  <Check size={13} /> Vald kund: <strong>{form.kund}</strong>
+
+          {/* Kund */}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Kund</label>
+            <KundVäljare
+              kunder={kunder}
+              value={form.kund}
+              onChange={v => { F('kund', v) }}
+              onNyKund={onNyKund}
+              style={inp}
+              placeholder="– Välj kund –"
+            />
+            {form.kund && (
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, color: 'var(--c-teal-text)', background: 'var(--c-teal-bg)',
+                border: '1px solid var(--c-teal)', borderRadius: 6, padding: '5px 10px' }}>
+                <Check size={13} /> Vald kund: <strong>{form.kund}</strong>
+              </div>
+            )}
+          </div>
+
+          {/* Kundens fastigheter (visas bara om kunden har registrerade fastigheter) */}
+          {(() => {
+            const kundensFastigheter = fastigheter.filter(f => !f.arkiverad && f.kund === form.kund)
+            if (!form.kund || kundensFastigheter.length === 0) return null
+            return (
+              <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--c-bg)', borderRadius: 8, border: '1px solid var(--c-border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--c-blue)', fontWeight: 600, marginBottom: 6 }}>
+                  📍 {form.kund} har {kundensFastigheter.length} registrerad{kundensFastigheter.length > 1 ? 'e fastigheter' : ' fastighet'}
                 </div>
-              )}
-            </div>
+                <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>
+                  Välj befintlig fastighet <span style={{ color: 'var(--c-text3)' }}>(valfritt — fyller i montageplats)</span>
+                </label>
+                <select
+                  defaultValue=""
+                  onChange={e => {
+                    const f = kundensFastigheter.find(f => f.id === e.target.value)
+                    if (f) F('montageplats', [f.namn, f.adress].filter(Boolean).join(', '))
+                  }}
+                  style={inp}>
+                  <option value="">– Ingen vald, ange adress manuellt –</option>
+                  {kundensFastigheter.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.namn}{f.adress ? ` – ${f.adress}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          })()}
+
+          {/* Montageplats */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>
+              Montageplats / adress *
+            </label>
+            <input type="text" value={form.montageplats} onChange={e => F('montageplats', e.target.value)}
+              placeholder="Adress eller platsnamn" style={inp} />
           </div>
         </div>
 
