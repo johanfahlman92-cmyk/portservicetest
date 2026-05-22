@@ -497,7 +497,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled }) {
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
 
@@ -670,6 +670,19 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
         tek: teknikerNamn ? [teknikerNamn] : [],
         arendeId: null,
       })
+    }
+
+    // Auto-markera matchande montageorder som Utförd
+    if (onUppdateraMontageorder && montageorder.length > 0) {
+      const ord = ordernummer.trim().toLowerCase()
+      const knd = kund.trim().toLowerCase()
+      const matchad = montageorder.find(m =>
+        m.status !== 'utford' && (
+          (ord && m.ordernummer?.toLowerCase() === ord) ||
+          (!ord && knd && m.kund?.toLowerCase() === knd && m.status === 'planerad')
+        )
+      )
+      if (matchad) await onUppdateraMontageorder(matchad.id, { ...matchad, status: 'utford' })
     }
 
     setSparar(false); setSparad(true)
