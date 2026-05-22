@@ -253,7 +253,7 @@ export default function App() {
     if (!user) return
     async function ladda() {
       try {
-        const [k, o, f, a, t, b, al, cfg, montCfg, mo] = await Promise.all([
+        const [k, o, f, a, t, b, al, cfg, montCfg] = await Promise.all([
           supabase.from('kunder').select('*').order('created_at'),
           supabase.from('objekt').select('*').order('created_at'),
           supabase.from('fastigheter').select('*').order('created_at'),
@@ -263,7 +263,6 @@ export default function App() {
           supabase.from('aktivitetslogg').select('*').order('created_at', { ascending: false }).limit(100),
           supabase.from('app_config').select('data').eq('id', 'protokoll_mallar').maybeSingle(),
           supabase.from('app_config').select('data').eq('id', 'montage_mallar').maybeSingle(),
-          supabase.from('montageorder').select('*').order('created_at'),
         ])
         if (k.data) setKunder(k.data)
         if (o.data) setObjekt(o.data.map(dbToObjekt))
@@ -273,12 +272,10 @@ export default function App() {
         if (al.data)  setAktivitetslogg(al.data)
         if (cfg.data)     setProtokollMallar(cfg.data.data)
         if (montCfg.data) setMontagemallar(montCfg.data.data)
-        if (mo.data)      setMontageorder(mo.data)
         if (b.data) {
           const grouped = {}
           for (const row of b.data) {
             if (!grouped[row.datum]) grouped[row.datum] = []
-            // tek lagras som JSON-array-sträng eller enstaka namn (bakåtkompatibelt)
             let tek = []
             try { tek = row.tek ? JSON.parse(row.tek) : [] } catch { tek = row.tek ? [row.tek] : [] }
             grouped[row.datum].push({ supabaseId: row.id, tid: row.tid, typ: row.typ, namn: row.namn, kund: row.kund, tek, arendeId: row.arende_id })
@@ -288,6 +285,12 @@ export default function App() {
       } catch (err) {
         console.error('Fel vid dataladdning:', err)
       }
+
+      // Montageorder laddas separat — tabellen kanske inte finns ännu
+      try {
+        const { data, error } = await supabase.from('montageorder').select('*').order('created_at')
+        if (!error && data) setMontageorder(data)
+      } catch { /* tabellen finns inte ännu — ignorera */ }
     }
     ladda()
   }, [user])
@@ -460,7 +463,14 @@ export default function App() {
   const laggTillMontageorder = async (ny) => {
     try {
       const { data, error } = await supabase.from('montageorder').insert(ny).select().single()
-      if (error) throw error
+      if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') {
+          toast('Tabellen montageorder saknas i Supabase — kör SQL-scriptet under Inställningar', 'error', 8000)
+        } else {
+          toast('Kunde inte spara montageorder: ' + error.message, 'error')
+        }
+        return
+      }
       if (data) setMontageorder(prev => [...prev, data])
     } catch (err) { toast('Kunde inte spara montageorder: ' + err.message, 'error') }
   }
