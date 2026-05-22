@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer, Archive, RotateCcw } from 'lucide-react'
+import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer, Archive, RotateCcw, Check, Wrench, AlertCircle, AlertTriangle, Minus } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import Felanmalan from './Felanmalan.jsx'
 import { hämtaLogoBase64 } from '../utils/pdf.js'
@@ -11,6 +11,14 @@ const prioLabel   = { normal: 'Normal', hog: 'Hög', akut: 'Akut' }
 const prioCls     = { normal: 'badge-gray', hog: 'badge-amber', akut: 'badge-red' }
 
 const FÄLT = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 7, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }
+
+const KONTROLL_STATUSES = [
+  { kod: 'OK',  label: 'Godkänd',       Icon: Check,         color: '#16a34a', bg: '#f0fdf4', border: '#16a34a' },
+  { kod: 'AF',  label: 'Åtgärdad',      Icon: Wrench,        color: '#2563eb', bg: '#eff6ff', border: '#2563eb' },
+  { kod: 'NOT', label: 'Att notera',    Icon: AlertCircle,   color: '#d97706', bg: '#fffbeb', border: '#d97706' },
+  { kod: 'KA',  label: 'Kräver åtgärd', Icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2', border: '#dc2626' },
+  { kod: 'EJ',  label: 'Ej tillämpbar', Icon: Minus,         color: '#9ca3af', bg: '#f9fafb', border: '#d1d5db' },
+]
 
 async function skrivUtArende(a) {
   const logoBase64 = await hämtaLogoBase64()
@@ -390,19 +398,12 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
                       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-text2)' }}>
                         Egenkontroll – {portTyp}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'var(--c-text3)' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ display: 'inline-block', width: 16, height: 16, background: 'var(--c-teal)', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>G</span> Godkänt
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ display: 'inline-block', width: 16, height: 16, background: 'var(--c-amber)', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>J</span> Justering
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ display: 'inline-block', width: 16, height: 16, background: 'var(--c-red)', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>A</span> Anmärkning
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ display: 'inline-block', padding: '0 3px', height: 16, background: '#9ca3af', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>N/A</span> Ej tillämpbart
-                        </span>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                        {KONTROLL_STATUSES.map(s => (
+                          <span key={s.kod} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, padding: '2px 6px', borderRadius: 4, background: s.bg, color: s.color, fontWeight: 600 }}>
+                            <s.Icon size={9} /> {s.label}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <div style={{ border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
@@ -418,22 +419,23 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                               <span style={{ fontSize: 12, flex: 1 }}>{punkt}</span>
                               <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                                {[['G', 'var(--c-teal)', '#fff'], ['J', 'var(--c-amber)', '#fff'], ['A', 'var(--c-red)', '#fff'], ['N/A', '#9ca3af', '#fff']].map(([btn, bg, fg]) => (
-                                  <button key={btn} type="button"
-                                    onClick={() => setCheckStatuses(prev => ({ ...prev, [punkt]: btn }))}
+                                {KONTROLL_STATUSES.map(({ kod, Icon, color, bg, border, label }) => (
+                                  <button key={kod} type="button"
+                                    onClick={() => setCheckStatuses(prev => ({ ...prev, [punkt]: kod }))}
+                                    title={label}
                                     style={{
-                                      padding: '3px 7px', height: 24, fontSize: 11, fontWeight: 700, borderRadius: 5,
-                                      border: sts === btn ? `2px solid ${bg}` : '1px solid var(--c-border)',
-                                      cursor: 'pointer',
-                                      background: sts === btn ? bg : 'var(--c-bg)',
-                                      color: sts === btn ? fg : 'var(--c-text3)',
-                                      transition: 'all 0.1s',
+                                      width: 30, height: 28, borderRadius: 6,
+                                      border: `1px solid ${sts === kod ? border : 'var(--c-border)'}`,
+                                      background: sts === kod ? bg : 'transparent',
+                                      color: sts === kod ? color : 'var(--c-text3)',
+                                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      transition: 'all 0.12s',
                                     }}
-                                  >{btn}</button>
+                                  ><Icon size={13} /></button>
                                 ))}
                               </div>
                             </div>
-                            {(sts === 'J' || sts === 'A') && (
+                            {(sts === 'NOT' || sts === 'KA' || sts === 'AF') && (
                               <input type="text" placeholder="Notering…" value={not}
                                 onChange={e => setCheckNoteringar(prev => ({ ...prev, [punkt]: e.target.value }))}
                                 style={{ ...FÄLT, marginTop: 5, fontSize: 11 }} />

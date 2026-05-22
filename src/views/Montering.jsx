@@ -160,7 +160,7 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
     const st  = egenkontroll[i] || '–'
     const not = egenNoteringar[i] || ''
     const cls = st === 'OK' ? 'ok' : st === 'EJ' ? 'ej' : 'na'
-    const etk = st === 'OK' ? '✓ OK' : st === 'EJ' ? '✗ Ej OK' : st === 'NA' ? 'N/A' : '–'
+    const etk = st === 'OK' ? 'Godkänd' : st === 'EJ' ? 'Avvikelse' : st === 'NA' ? 'Ej tillämpbar' : '–'
     return `<tr><td>${p}</td><td class="${cls}">${etk}</td><td>${not}</td></tr>`
   }).join('')
 
@@ -1194,7 +1194,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
         <div className="card">
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>
             Egenkontroll – {valdProtokoll.portTyp}
-            {!redigerar && <span style={{ marginLeft: 12, fontSize: 11, fontWeight: 400, color: 'var(--c-text3)' }}>{valdProtokoll.ok || 0} OK · {valdProtokoll.ej || 0} Ej OK · {valdProtokoll.na || 0} N/A</span>}
+            {!redigerar && <span style={{ marginLeft: 12, fontSize: 11, fontWeight: 400, color: 'var(--c-text3)' }}>{valdProtokoll.ok || 0} Godkänd · {valdProtokoll.ej || 0} Avvikelse · {valdProtokoll.na || 0} Ej tillämpbar</span>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {detaljMallar.map((p, i) => {
@@ -1212,15 +1212,15 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
                     <span style={{ fontSize: 12 }}>{p}</span>
                     {redigerar ? (
                       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                        {[['OK', 'var(--c-teal)', 'var(--c-teal-bg)', 'var(--c-teal-text)', '✓ OK'],
-                          ['EJ', 'var(--c-red)',  'var(--c-red-bg)',  'var(--c-red-text)',  '✗ Ej'],
-                          ['NA', '#888', '#e8e7e4', '#555', 'N/A']].map(([val, brd, bg, col, etk]) => (
+                        {[['OK', 'var(--c-teal)', 'var(--c-teal-bg)', 'var(--c-teal-text)', 'Godkänd'],
+                          ['EJ', 'var(--c-red)',  'var(--c-red-bg)',  'var(--c-red-text)',  'Avvikelse'],
+                          ['NA', '#888', '#e8e7e4', '#555', 'Ej tillämpbar']].map(([val, brd, bg, col, etk]) => (
                           <button key={val} onClick={() => setEditEgen(i, val)} style={{ padding: '3px 8px', fontSize: 11, borderRadius: 5, cursor: 'pointer', border: `1.5px solid ${st === val ? brd : 'var(--c-border)'}`, background: st === val ? bg : 'transparent', color: st === val ? col : 'var(--c-text2)', fontWeight: st === val ? 600 : 400 }}>{etk}</button>
                         ))}
                       </div>
                     ) : (
                       <span style={{ fontSize: 11, fontWeight: 600, flexShrink: 0, color: st === 'OK' ? 'var(--c-teal)' : st === 'EJ' ? 'var(--c-red)' : 'var(--c-text3)' }}>
-                        {st === 'OK' ? '✓ OK' : st === 'EJ' ? '✗ Ej OK' : st === 'NA' ? 'N/A' : '–'}
+                        {st === 'OK' ? 'Godkänd' : st === 'EJ' ? 'Avvikelse' : st === 'NA' ? 'Ej tillämpbar' : '–'}
                       </span>
                     )}
                   </div>
@@ -1549,13 +1549,13 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ fontWeight: 600, fontSize: 14 }}>Egenkontroll – {portTyp}</div>
             <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-              <span style={{ color: 'var(--c-teal)', fontWeight: 600 }}>✓ OK: {okCount}</span>
-              <span style={{ color: 'var(--c-red)',  fontWeight: 600 }}>✗ Ej: {ejCount}</span>
-              <span style={{ color: 'var(--c-text2)' }}>N/A: {naCount}</span>
+              <span style={{ color: 'var(--c-teal)', fontWeight: 600 }}>Godkänd: {okCount}</span>
+              <span style={{ color: 'var(--c-red)',  fontWeight: 600 }}>Avvikelse: {ejCount}</span>
+              <span style={{ color: 'var(--c-text2)' }}>Ej tillämpbar: {naCount}</span>
             </div>
           </div>
           <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 14 }}>
-            Kontrollera varje punkt. Markera OK, Ej OK eller N/A.
+            Kontrollera varje punkt. Markera Godkänd, Avvikelse eller Ej tillämpbar.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {punkter.map((p, i) => {
@@ -1572,9 +1572,9 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 13 }}>{p}</span>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                      {[['OK', 'var(--c-teal)', 'var(--c-teal-bg)', 'var(--c-teal-text)', '✓ OK'],
-                        ['EJ', 'var(--c-red)',  'var(--c-red-bg)',  'var(--c-red-text)',  '✗ Ej'],
-                        ['NA', '#888',          '#e8e7e4',          '#555',               'N/A' ],
+                      {[['OK', 'var(--c-teal)', 'var(--c-teal-bg)', 'var(--c-teal-text)', 'Godkänd'],
+                        ['EJ', 'var(--c-red)',  'var(--c-red-bg)',  'var(--c-red-text)',  'Avvikelse'],
+                        ['NA', '#888',          '#e8e7e4',          '#555',               'Ej tillämpbar'],
                       ].map(([val, brd, bg, col, etk]) => (
                         <button key={val} onClick={() => setEgen(i, val)} style={{
                           padding: '4px 9px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
