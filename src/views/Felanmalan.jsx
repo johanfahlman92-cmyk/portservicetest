@@ -20,7 +20,7 @@ const SERVICETYPER = [
   'Annat',
 ]
 
-export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, onLoggaUt, onNyKund }) {
+export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, onLoggaUt, onNyKund, standaloneMode = true }) {
   const [steg, setSteg]       = useState('form')
   const [sparar, setSparar]   = useState(false)
 
@@ -100,18 +100,8 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
   const inp = { width: '100%', padding: '10px 12px', fontSize: 15, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)' }
   const lbl = { fontSize: 13, color: 'var(--c-text2)', display: 'block', marginBottom: 6, fontWeight: 500 }
 
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--c-bg)', display: 'flex', flexDirection: 'column' }}>
-
-      <div style={{ background: '#1a1917', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <img src={logo} alt="NMV Portservice" style={{ height: 38 }} />
-        <button onClick={onLoggaUt} style={{ background: 'none', border: '1px solid #444', color: '#9a9890', borderRadius: 7, padding: '6px 12px', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <LogOut size={14} /> Logga ut
-        </button>
-      </div>
-
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px' }}>
-        <div style={{ width: '100%', maxWidth: 560 }}>
+  const innehall = (
+    <div style={{ width: '100%', maxWidth: standaloneMode ? 560 : '100%' }}>
 
           {steg === 'klar' ? (
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
@@ -305,7 +295,21 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
               </button>
             </>
           )}
-        </div>
+    </div>
+  )
+
+  if (!standaloneMode) return innehall
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--c-bg)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#1C3461', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <img src={logo} alt="NMV Portservice" style={{ height: 38 }} />
+        <button onClick={onLoggaUt} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', borderRadius: 7, padding: '6px 12px', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <LogOut size={14} /> Logga ut
+        </button>
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px' }}>
+        {innehall}
       </div>
     </div>
   )

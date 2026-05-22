@@ -1,4 +1,4 @@
-import { Home, Calendar, Database, AlertCircle, FileText, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings } from 'lucide-react'
+import { Home, Calendar, Database, AlertCircle, FileText, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings, ClipboardList } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 
 const NAV_BG      = '#1C3461'
@@ -15,6 +15,7 @@ const navItems = [
   { id: 'fastigheter',   label: 'Fastigheter',   icon: Building2 },
   { id: 'register',      label: 'Portregister',  icon: Database },
   { id: 'arenden',       label: 'Ärenden',       icon: AlertCircle },
+  { id: 'felanmalan',   label: 'Felanmälan',    icon: ClipboardList },
   { id: 'protokoll',     label: 'Protokoll',     icon: FileText },
   { id: 'montering',     label: 'Montering',     icon: Wrench   },
   { id: 'kalender',      label: 'Kalender',      icon: Calendar },

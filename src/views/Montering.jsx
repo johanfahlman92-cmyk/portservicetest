@@ -437,6 +437,31 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setSparad(true)
   }
 
+  const skrivUtDetaljPDF = async () => {
+    if (!valdProtokoll) return
+    const logoBase64 = await hämtaLogoBase64()
+    const html = genereraHTML({
+      portNamn:         valdProtokoll.objektNamn,
+      kund:             valdProtokoll.kund,
+      adress:           valdProtokoll.adress,
+      portTyp:          valdProtokoll.portTyp,
+      datum:            valdProtokoll.datum,
+      teknikerNamn:     valdProtokoll.tekniker,
+      serviceIntervall: String(valdProtokoll.serviceIntervall || '12'),
+      risker:           valdProtokoll.risker || {},
+      egenRisker:       valdProtokoll.egenRisker || [],
+      egenkontroll:     valdProtokoll.egenkontroll || {},
+      egenNoteringar:   valdProtokoll.egenNoteringar || {},
+      signaturbild:     valdProtokoll.signatur || null,
+      logoBase64,
+      effektivaMallar,
+    })
+    const win = window.open('', '_blank', 'width=860,height=1100')
+    win.document.write(html)
+    win.document.close()
+    setTimeout(() => win.print(), 400)
+  }
+
   const hämtaLogoBase64 = async () => {
     try {
       const res  = await fetch(logo)
@@ -554,9 +579,14 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               </button>
             </div>
           ) : (
-            <button onClick={() => setRedigerar(true)} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Edit2 size={13} /> Redigera
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={skrivUtDetaljPDF} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Printer size={13} /> Skriv ut
+              </button>
+              <button onClick={() => setRedigerar(true)} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Edit2 size={13} /> Redigera
+              </button>
+            </div>
           )}
         </div>
 

@@ -99,16 +99,21 @@ export default function KundPortal({ user, onLoggaUt }) {
   )
 
   const displayNamn = kund?.namn || kundNamn || user.email
-  const öppnaArenden = arenden.filter(a => a.status !== 'atgardad')
+  const öppnaArenden  = arenden.filter(a => a.status !== 'atgardad')
   const stängdaArenden = arenden.filter(a => a.status === 'atgardad')
-  const nästaService = portar.flatMap(p => p.nasta ? [p.nasta] : []).sort()[0]
+  const nästaService  = portar.flatMap(p => p.nasta ? [p.nasta] : []).sort()[0]
+
+  const serviceHistorik = portar
+    .flatMap(p => (p.historik || []).map(h => ({ ...h, portNamn: p.namn })))
+    .filter(h => h.typ === 'protokoll' || h.typ === 'montering')
+    .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--c-bg)', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
       <header style={{
-        background: '#1a1917', padding: '0 24px', height: 56,
+        background: '#1C3461', padding: '0 24px', height: 56,
         display: 'flex', alignItems: 'center', gap: 12,
         borderBottom: '1px solid var(--c-border)', flexShrink: 0,
       }}>
@@ -140,10 +145,11 @@ export default function KundPortal({ user, onLoggaUt }) {
         </div>
 
         {/* KPI-kort */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
           {[
             { label: 'Portar', value: portar.length, icon: DoorOpen, color: 'var(--c-blue)' },
             { label: 'Aktiva ärenden', value: öppnaArenden.length, icon: AlertCircle, color: öppnaArenden.length > 0 ? 'var(--c-red)' : 'var(--c-teal)' },
+            { label: 'Utförda uppdrag', value: serviceHistorik.length, icon: Wrench, color: 'var(--c-purple)' },
             { label: 'Nästa service', value: nästaService || '–', icon: Clock, color: '#a78bfa', small: !!nästaService },
           ].map(({ label, value, icon: Icon, color, small }) => (
             <div key={label} style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: '16px 18px' }}>
@@ -339,7 +345,50 @@ export default function KundPortal({ user, onLoggaUt }) {
           )}
         </div>
 
-        {/* Ärendehistorik */}
+        {/* Utfört arbete – servicehistorik */}
+        {serviceHistorik.length > 0 && (
+          <div style={{ marginTop: 20, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Wrench size={15} color="var(--c-blue)" />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Utfört arbete ({serviceHistorik.length})</span>
+            </div>
+            {serviceHistorik.slice(0, 15).map((h, i) => (
+              <div key={i} style={{
+                padding: '11px 20px',
+                borderBottom: i < Math.min(serviceHistorik.length, 15) - 1 ? '1px solid var(--c-border)' : 'none',
+                display: 'flex', alignItems: 'center', gap: 12,
+              }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                  background: h.typ === 'montering' ? 'var(--c-purple-bg)' : 'var(--c-blue-bg)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Wrench size={14} color={h.typ === 'montering' ? 'var(--c-purple)' : 'var(--c-blue)'} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--c-text)' }}>{h.portNamn}</div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
+                    {h.typ === 'montering' ? 'Montering' : 'Service'} · {h.tekniker || '–'} · {h.datum}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                  {h.ok > 0 && (
+                    <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 8, background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)', fontWeight: 600 }}>
+                      ✓ {h.ok}
+                    </span>
+                  )}
+                  {h.ej > 0 && (
+                    <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 8, background: 'var(--c-red-bg)', color: 'var(--c-red-text)', fontWeight: 600 }}>
+                      ✗ {h.ej}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Åtgärdade ärenden */}
         {stängdaArenden.length > 0 && (
           <div style={{ marginTop: 20, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)' }}>
