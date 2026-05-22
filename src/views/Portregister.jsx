@@ -436,10 +436,13 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
         }
       </div>
 
-      {/* Monteringspost */}
+      {/* Monteringspost — äldre data (ny data lagras i Montageplanering) */}
       {monteringEntry && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <div className="section-title">Montering</div>
+        <div className="card" style={{ marginBottom: 12, borderColor: 'var(--c-border)', opacity: 0.8 }}>
+          <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Montering
+            <span style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 400 }}>(äldre data — montageprotokoll finns i Montageplanering)</span>
+          </div>
           <div style={{ display: 'flex', gap: 14, padding: '6px 0', fontSize: 12 }}>
             <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.datum}</span>
             <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.tekniker || '–'}</span>

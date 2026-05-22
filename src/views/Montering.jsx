@@ -4,6 +4,7 @@ import { CheckCircle, Printer, ChevronRight, Upload, FileText, X as XIcon, Alert
 import logo from '../image-1779305303942.png'
 import KundVäljare from '../components/KundVäljare.jsx'
 import { supabase } from '../lib/supabase.js'
+import { RISKPUNKTER as RISKPUNKTER_SHARED } from '../data/store.js'
 
 // ── Signaturpad ───────────────────────────────────────────────────────────────
 function SignaturPad({ onChange }) {
@@ -44,17 +45,8 @@ function SignaturPad({ onChange }) {
   )
 }
 
-// ── Riskbedömning – punkter ───────────────────────────────────────────────────
-const RISKPUNKTER = [
-  'Korrekt och godkänd personlig skyddsutrustning för ändamålsenligt arbete. Vid arbete från hög höjd (2,1 meter från mark till fot), kontrollera om andra verktyg än stege kan användas som t.ex. aluminiumställning, skylift etc. Från stege görs justeringar alt mindre/kortare arbeten.',
-  'Avspärrning av arbetsplats för att eliminera risk för påkörning av fordonstrafik. Om möjligt, parkera montagefordon framför porthål som fysiskt skydd.',
-  'Stäng av arbetsströmbrytare, bryt och lås med hänglås.',
-  'Kontroll av så kallade "dolda krafter" och säkring av dessa.',
-  'Genomgång av lokala säkerhetsbestämmelser gällande brandskydd och generell säkerhet. Heta arbeten?',
-  'Kontrollera att portomfattning är korrekt för installationens ändamål.',
-  'Kontroll av portens tänkta arbetsområde (kläm-/klippningsrisker).',
-  'Inlämning av riskbedömning till BAS-U alt. platsansvarig.',
-]
+// ── Riskbedömning – punkter (importeras från store.js) ───────────────────────
+const RISKPUNKTER = RISKPUNKTER_SHARED
 
 const RISKSTATUS = [
   { id: 'ok',          label: '✓ OK',            color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  txt: 'var(--c-teal-text)' },
@@ -497,7 +489,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder }) {
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
 
@@ -630,8 +622,10 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const spara = async () => {
     if (!kanSpara) return
     setSparar(true)
-    const nyttInslag = {
-      datum, tekniker: teknikerNamn, typ: 'montering',
+
+    // Montageprotokolldata — sparas i montageorder, INTE i objekt.historik
+    const protokollData = {
+      datum, tekniker: teknikerNamn,
       portTyp, serviceIntervall: parseInt(serviceIntervall) || 0,
       adress, kund,
       ordernummer: ordernummer.trim() || null,
@@ -647,14 +641,48 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       signatur: signaturbild || null,
       dokument: [...dokument],
     }
-    await onLaggTillObjekt({
+
+    // Skapa porten med tom servicehistorik — montagedata hör hemma i Montageplanering
+    const nyskapadPort = await onLaggTillObjekt({
       id: 'o' + Date.now(), namn: portNamn.trim(), kund: kund.trim(),
       typ: portTyp, adress: adress.trim(), status: 'ok',
       kundTyp: 'foretag', intervallProcent: 0, dagerForsenad: 0,
       ordernummer: ordernummer.trim() || null,
       serienummer: serienummer.trim() || null,
-      historik: [nyttInslag],
+      serviceIntervall: parseInt(serviceIntervall) || 0,
+      historik: [],
     })
+
+    // Spara protokollet till montageorder (hitta matchande eller skapa ny)
+    const ord = ordernummer.trim().toLowerCase()
+    const knd = kund.trim().toLowerCase()
+    const matchad = montageorder.find(m =>
+      m.status !== 'utford' && (
+        (ord && m.ordernummer?.toLowerCase() === ord) ||
+        (!ord && knd && m.kund?.toLowerCase() === knd && m.status === 'planerad')
+      )
+    )
+    if (matchad && onUppdateraMontageorder) {
+      await onUppdateraMontageorder(matchad.id, {
+        ...matchad,
+        status:        'utford',
+        protokoll_data: protokollData,
+        objekt_id:     nyskapadPort?.id || null,
+      })
+    } else if (onLaggTillMontageorder) {
+      // Inget befintligt order — skapa ett automatiskt och markera som utfört
+      await onLaggTillMontageorder({
+        porttyp:        portTyp,
+        fabrikat:       '',
+        ordernummer:    ordernummer.trim() || null,
+        serienummer:    serienummer.trim() || null,
+        montageplats:   adress.trim(),
+        kund:           kund.trim(),
+        status:         'utford',
+        protokoll_data: protokollData,
+        objekt_id:      nyskapadPort?.id || null,
+      })
+    }
 
     // Automatisk kalenderbokning för nästa service
     if (serviceIntervall !== '0' && onLaggTillBokning) {
@@ -663,26 +691,9 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       d.setMonth(d.getMonth() + intervallMån)
       const nastaServiceDatum = d.toISOString().slice(0, 10)
       await onLaggTillBokning(nastaServiceDatum, {
-        typ: 'service',
-        namn: portNamn.trim(),
-        kund: kund.trim(),
-        tid: '08:00',
-        tek: teknikerNamn ? [teknikerNamn] : [],
-        arendeId: null,
+        typ: 'service', namn: portNamn.trim(), kund: kund.trim(),
+        tid: '08:00', tek: teknikerNamn ? [teknikerNamn] : [], arendeId: null,
       })
-    }
-
-    // Auto-markera matchande montageorder som Utförd
-    if (onUppdateraMontageorder && montageorder.length > 0) {
-      const ord = ordernummer.trim().toLowerCase()
-      const knd = kund.trim().toLowerCase()
-      const matchad = montageorder.find(m =>
-        m.status !== 'utford' && (
-          (ord && m.ordernummer?.toLowerCase() === ord) ||
-          (!ord && knd && m.kund?.toLowerCase() === knd && m.status === 'planerad')
-        )
-      )
-      if (matchad) await onUppdateraMontageorder(matchad.id, { ...matchad, status: 'utford' })
     }
 
     setSparar(false); setSparad(true)

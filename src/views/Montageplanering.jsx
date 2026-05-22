@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
 import logo from '../image-1779305303942.png'
-import { protokollTyper } from '../data/store.js'
+import { protokollTyper, RISKPUNKTER } from '../data/store.js'
 import KundVäljare from '../components/KundVäljare.jsx'
 
 // Samma porttyper som i Portregister
@@ -24,6 +24,87 @@ async function hämtaLogoBase64() {
       r.readAsDataURL(blob)
     })
   } catch { return null }
+}
+
+function genereraMontagePDF({ p, logoBase64, montagemallar = {} }) {
+  const riskRows = RISKPUNKTER.map((punkt, i) => {
+    const st  = p.riskKontroll?.[i]
+    const not = p.riskNoteringar?.[i] || ''
+    const cls = st === 'ok' ? 'risk-ok' : st === 'atgard' ? 'risk-atgard' : st === 'ej_aktuellt' ? 'risk-ej' : ''
+    const etk = st === 'ok' ? '✓ OK' : st === 'atgard' ? '⚠ Åtgärd krävs' : st === 'ej_aktuellt' ? '– Ej aktuellt' : '–'
+    return `<tr><td style="text-align:justify">${punkt}</td><td class="${cls}">${etk}</td><td>${not}</td></tr>`
+  }).join('')
+
+  const egenRiskRows = (p.egenRisker || []).map(r => {
+    const cls = r.status === 'ok' ? 'risk-ok' : r.status === 'atgard' ? 'risk-atgard' : 'risk-ej'
+    const etk = r.status === 'ok' ? '✓ OK' : r.status === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'
+    return `<tr style="background:#fffbf0"><td><strong>${r.label||'–'}</strong><br><span style="color:#888">${r.beskrivning||''}</span></td><td class="${cls}">${etk}</td><td>${r.åtgärd||''}</td></tr>`
+  }).join('')
+
+  const mallar = Object.keys(montagemallar).length > 0 ? montagemallar : {
+    Vikport: ['Portblad och skenor utan skador','Fjädersystem kalibrerat','Säkerhetsbroms testad','Nödöppning testad','Motor monterad och kalibrerad','Fotocell testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
+    Takskjutport: ['Skensystem rakt och säkrat','Balansfjädrar kontrollerade','Portblad utan skador','Hjul och lager smorda','Nödöppning testad','Motormontering kontrollerad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
+    Lastbrygga: ['Hydraulsystem utan läckage','Plattform utan skador','Styrsystem testat','Säkerhetskant testad','Elektrisk installation kontrollerad','Nödstoppsfunktion testad','CE-märkning monterad','Bruksanvisning överlämnad'],
+    Grind: ['Stolpar stabilt monterade','Räls och styrning rak','Grindblad utan skador','Motor monterad','Fotocell kontrollerad','Nödöppning testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
+  }
+  const punkter = mallar[p.portTyp] || []
+  const egenRows = punkter.map((punkt, i) => {
+    if (punkt.startsWith('## ')) return `<tr style="background:#f3f2ef"><td colspan="3" style="font-weight:700;font-size:11px;color:#1D9E75;padding:7px 8px">${punkt.slice(3).toUpperCase()}</td></tr>`
+    const st  = p.egenkontroll?.[i] || '–'
+    const not = p.egenNoteringar?.[i] || ''
+    const cls = st === 'OK' ? 'ok' : st === 'EJ' ? 'ej' : 'na'
+    const etk = st === 'OK' ? '✓ OK' : st === 'EJ' ? '✗ Ej OK' : st === 'NA' ? 'N/A' : '–'
+    return `<tr><td style="text-align:justify">${punkt}</td><td class="${cls}">${etk}</td><td>${not}</td></tr>`
+  }).join('')
+
+  const godkjHtml = p.godkannande
+    ? `<div style="display:inline-flex;align-items:center;gap:10px;padding:10px 18px;border-radius:8px;margin-top:12px;
+        background:${p.godkannande === 'godkand' ? '#d1fae5' : '#fee2e2'};
+        border:2px solid ${p.godkannande === 'godkand' ? '#1D9E75' : '#b83333'}">
+        <span style="font-size:20px">${p.godkannande === 'godkand' ? '✓' : '✗'}</span>
+        <div style="font-weight:700;color:${p.godkannande === 'godkand' ? '#1D9E75' : '#b83333'}">
+          ${p.godkannande === 'godkand' ? 'Godkänd – arbetsplatsen kan påbörjas' : 'Ej godkänd – ansvarig informerad'}
+        </div></div>` : ''
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Monteringsprotokoll</title>
+<style>
+body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;margin:32px 40px}
+h1{font-size:20px;margin-bottom:6px}
+h2{font-size:13px;margin-top:22px;margin-bottom:8px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:14px;font-size:11px;color:#555}
+.meta b{color:#1a1917}
+table{width:100%;border-collapse:collapse;margin-bottom:14px}
+th{background:#f3f2ef;padding:6px 8px;text-align:left;font-size:11px;font-weight:600}
+td{padding:6px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;vertical-align:top}
+.ok{color:#1D9E75;font-weight:600}.ej{color:#b83333;font-weight:600}.na{color:#888}
+.risk-ok{color:#1D9E75;font-weight:600}.risk-atgard{color:#b87000;font-weight:600}.risk-ej{color:#888;font-weight:600}
+.sig-box{border:1px solid #ccc;border-radius:6px;padding:8px;display:inline-block;margin-top:6px}
+@media print{body{margin:16px}}
+</style></head><body>
+${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
+<h1>Monteringsprotokoll</h1>
+<div class="meta">
+  <div><b>Porttyp:</b> ${p.portTyp || '–'}</div>
+  <div><b>Kund:</b> ${p.kund || '–'}</div>
+  <div><b>Adress:</b> ${p.adress || '–'}</div>
+  <div><b>Datum:</b> ${p.datum || '–'}</div>
+  <div><b>Tekniker:</b> ${p.tekniker || '–'}</div>
+  ${p.ordernummer ? `<div><b>Ordernummer:</b> ${p.ordernummer}</div>` : ''}
+  ${p.serienummer ? `<div><b>Serienummer:</b> ${p.serienummer}</div>` : ''}
+</div>
+<h2>Riskbedömning</h2>
+<table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Åtgärd / notering</th></tr></thead>
+<tbody>${riskRows}${egenRiskRows}</tbody></table>
+${godkjHtml}
+<div style="page-break-before:always;break-before:page"></div>
+<h2 style="margin-top:0">Egenkontroll – ${p.portTyp || ''}</h2>
+<table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Notering</th></tr></thead>
+<tbody>${egenRows}</tbody></table>
+${p.signatur ? `<h2>Signatur tekniker</h2>
+<div class="sig-box"><img src="${p.signatur}" style="max-width:300px;max-height:90px"/></div>
+<p style="font-size:11px;color:#555;margin-top:6px">${p.tekniker||''},&nbsp;${p.datum}</p>` : ''}
+</body></html>`
 }
 
 function StatusBadge({ status }) {
@@ -427,6 +508,37 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
                       </div>
                     )}
                   </div>
+
+                  {/* Montageprotokoll (om sparat) */}
+                  {order.protokoll_data && (
+                    <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--c-teal-bg)', borderRadius: 8, border: '1px solid var(--c-teal)' }}>
+                      <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--c-teal-text)', marginBottom: 6 }}>
+                        📋 Montageprotokoll sparat
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>
+                        {order.protokoll_data.datum && <span>{order.protokoll_data.datum} · </span>}
+                        {order.protokoll_data.tekniker && <span>{order.protokoll_data.tekniker} · </span>}
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {order.protokoll_data.ok ?? 0} OK</span>
+                        {(order.protokoll_data.ej ?? 0) > 0 && <span style={{ color: '#b83333', fontWeight: 600 }}> · ✗ {order.protokoll_data.ej} Ej OK</span>}
+                        {(order.protokoll_data.na ?? 0) > 0 && <span style={{ color: '#888' }}> · {order.protokoll_data.na} N/A</span>}
+                      </div>
+                      {order.protokoll_data.dokument?.length > 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 6 }}>
+                          📎 {order.protokoll_data.dokument.length} dokument bifogad{order.protokoll_data.dokument.length > 1 ? 'e' : 't'}
+                        </div>
+                      )}
+                      <button className="btn" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                        onClick={async () => {
+                          const logoBase64 = await hämtaLogoBase64()
+                          const html = genereraMontagePDF({ p: order.protokoll_data, logoBase64 })
+                          const win = window.open('', '_blank', 'width=860,height=1100')
+                          win.document.write(html); win.document.close()
+                          setTimeout(() => win.print(), 400)
+                        }}>
+                        <Printer size={11} /> Skriv ut montageprotokoll
+                      </button>
+                    </div>
+                  )}
 
                   {/* Snabb-statusbyte */}
                   <div style={{ marginBottom: 10 }}>

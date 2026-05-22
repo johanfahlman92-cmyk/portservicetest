@@ -1,5 +1,17 @@
 export const objekt = []
 
+// Delade riskbedömningspunkter (används i Montering + Montageplanering PDF)
+export const RISKPUNKTER = [
+  'Korrekt och godkänd personlig skyddsutrustning för ändamålsenligt arbete. Vid arbete från hög höjd (2,1 meter från mark till fot), kontrollera om andra verktyg än stege kan användas som t.ex. aluminiumställning, skylift etc. Från stege görs justeringar alt mindre/kortare arbeten.',
+  'Avspärrning av arbetsplats för att eliminera risk för påkörning av fordonstrafik. Om möjligt, parkera montagefordon framför porthål som fysiskt skydd.',
+  'Stäng av arbetsströmbrytare, bryt och lås med hänglås.',
+  'Kontroll av så kallade "dolda krafter" och säkring av dessa.',
+  'Genomgång av lokala säkerhetsbestämmelser gällande brandskydd och generell säkerhet. Heta arbeten?',
+  'Kontrollera att portomfattning är korrekt för installationens ändamål.',
+  'Kontroll av portens tänkta arbetsområde (kläm-/klippningsrisker).',
+  'Inlämning av riskbedömning till BAS-U alt. platsansvarig.',
+]
+
 export const arenden = []
 
 export const tekniker = []
