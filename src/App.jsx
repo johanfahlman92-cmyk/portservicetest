@@ -180,7 +180,9 @@ function useErMobil() {
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const erMobil = useErMobil()
-  const [page, setPage]               = useState('dashboard')
+  // Hash-navigation: läs startsida från URL:en (t.ex. #arenden → 'arenden')
+  const getHashPage = () => window.location.hash.slice(1) || 'dashboard'
+  const [page, setPage]               = useState(getHashPage)
   const [user, setUser]               = useState(null)
   const [authLaddas, setAuthLaddas]   = useState(true)
   const [sidomenyÖppen, setSidomenyÖppen] = useState(() => window.innerWidth >= 768)
@@ -539,8 +541,15 @@ export default function App() {
     await supabase.from('app_config').upsert({ id: 'montage_mallar', data: mallar, uppdaterad: new Date().toISOString() })
   }
 
+  // Lyssna på bakåt/framåt-knappen i webbläsaren
+  useEffect(() => {
+    const onHashChange = () => setPage(getHashPage())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
   const navigera = (p) => {
-    setPage(p)
+    window.location.hash = p   // uppdaterar URL → triggar hashchange → setPage
     if (erMobil) setSidomenyÖppen(false)
   }
 
