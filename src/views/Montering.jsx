@@ -1176,7 +1176,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       <div className="card">
         <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Ny port</div>
         <div>
-          <label style={lbl}>Portnamn / beteckning *</label>
+          <label style={lbl}>Placering *</label>
           <input type="text" value={portNamn} onChange={e => setPortNamn(e.target.value)}
             placeholder="t.ex. Vikport Lager A" style={inp} autoFocus />
         </div>
@@ -1314,7 +1314,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               {montageorderId ? 'Spara & Nästa' : 'Nästa'}: Riskbedömning <ChevronRight size={14} />
             </button>
           </div>
-          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 4 }}>Fyll i portnamn för att fortsätta.</p>}
+          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 4 }}>Fyll i placering för att fortsätta.</p>}
         </div>
       )}
 
@@ -1506,7 +1506,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               <CheckCircle size={14} /> {sparar ? 'Sparar…' : 'Slutför & Spara'}
             </button>
           </div>
-          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 6 }}>Fyll i portnamn för att spara.</p>}
+          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 6 }}>Fyll i placering för att spara.</p>}
           {portNamn.trim() && !signaturbild && <p style={{ fontSize: 12, color: 'var(--c-red)', textAlign: 'right', marginTop: 6 }}>Signatur krävs för att spara protokollet.</p>}
         </div>
       )}
