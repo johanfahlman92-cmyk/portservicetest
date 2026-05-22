@@ -19,6 +19,43 @@ function getTop(tid) {
   return Math.max(0, Math.min(top, (HOURS.length - 1) * HOUR_HEIGHT))
 }
 
+function tidTillMinuter(tid) {
+  const [h, m] = (tid || '08:00').split(':').map(Number)
+  return h * 60 + m
+}
+
+// Beräkna kolumnlayout för överlappande händelser
+function layoutBokningar(items, filtTekniker) {
+  const synliga = items.map((item, origIdx) => {
+    const tekArr = Array.isArray(item.tek) ? item.tek : (item.tek ? [item.tek] : [])
+    if (filtTekniker && !tekArr.includes(filtTekniker)) return null
+    const startMin = tidTillMinuter(item.tid || '08:00')
+    return { item, origIdx, tekArr, startMin, endMin: startMin + 60 }
+  }).filter(Boolean)
+
+  // Sortera efter starttid
+  synliga.sort((a, b) => a.startMin - b.startMin)
+
+  // Tilldela kolumner
+  const kolEndar = [] // slutminut per kolumn
+  for (const ev of synliga) {
+    let col = kolEndar.findIndex(slut => slut <= ev.startMin)
+    if (col === -1) col = kolEndar.length
+    ev.col = col
+    kolEndar[col] = ev.endMin
+  }
+
+  // Räkna totalCols per händelse (max col+1 bland alla som överlappar)
+  for (const ev of synliga) {
+    const överlappande = synliga.filter(o =>
+      o.startMin < ev.endMin && o.endMin > ev.startMin
+    )
+    ev.totalCols = Math.max(...överlappande.map(o => o.col + 1))
+  }
+
+  return synliga
+}
+
 function getMåndag(offset) {
   const idag = new Date()
   const dag  = idag.getDay()
@@ -75,7 +112,7 @@ function TeknikerVäljare({ tekniker, value = [], onChange }) {
 }
 
 // ── Händelsepopup ─────────────────────────────────────
-function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onStäng }) {
+function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTillObjekt, onStäng }) {
   const { item, dagNamn, nyckel } = val
   const tekArr = Array.isArray(item.tek) ? item.tek : (item.tek ? [item.tek] : [])
 
@@ -122,6 +159,19 @@ function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onStäng
               }}
             >
               <ExternalLink size={14} /> Gå till ärende
+            </button>
+          )}
+          {onGåTillObjekt && (
+            <button
+              onClick={onGåTillObjekt}
+              style={{
+                width: '100%', padding: '10px 14px', borderRadius: 8,
+                background: 'var(--c-teal)', color: '#fff', border: 'none',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}
+            >
+              <ExternalLink size={14} /> Gå till port
             </button>
           )}
           <button
@@ -293,8 +343,8 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
 
 // ── Huvudkomponent ─────────────────────────────────────
 export default function Kalender({
-  arenden = [], tekniker = [], bokningar = {}, kunder = [],
-  onLaggTillBokning, onTaBortBokning, onNyKund, onNavigera, onNavigeraArende,
+  arenden = [], tekniker = [], bokningar = {}, kunder = [], objekt = [],
+  onLaggTillBokning, onTaBortBokning, onNyKund, onNavigera, onNavigeraArende, onNavigeraObjekt,
 }) {
   const [veckoOffset,  setVeckoOffset]  = useState(0)
   const [formDag,      setFormDag]      = useState(null)
@@ -432,36 +482,39 @@ export default function Kalender({
 
           {dagar.map(dag => {
             const items = bokningar[dag.nyckel] || []
+            const lagd  = layoutBokningar(items, filtTekniker)
             return (
               <div key={dag.nyckel} style={{ flex: 1, position: 'relative', borderLeft: '1px solid var(--c-border)' }}>
                 {HOURS.map((h, hi) => (
                   <div key={h} style={{ height: HOUR_HEIGHT, borderTop: hi === 0 ? 'none' : '1px solid var(--c-border)', boxSizing: 'border-box' }} />
                 ))}
-                {items.map((item, origIdx) => {
-                  const tekArr = Array.isArray(item.tek) ? item.tek : (item.tek ? [item.tek] : [])
-                  if (filtTekniker && !tekArr.includes(filtTekniker)) return null
+                {lagd.map(({ item, origIdx, tekArr, col, totalCols }) => {
+                  const bredd  = 100 / totalCols
+                  const vänster = col * bredd
                   return (
                     <div key={origIdx}
                       onClick={() => setVisaDetalj({ item: { ...item, tek: tekArr }, dagNamn: dag.namn, nyckel: dag.nyckel, origIdx })}
                       style={{
                         position: 'absolute',
                         top: getTop(item.tid) + 2,
-                        left: 3, right: 3,
+                        left:  `calc(${vänster}% + 2px)`,
+                        width: `calc(${bredd}%  - 4px)`,
                         minHeight: HOUR_HEIGHT - 6,
                         background: typColor[item.typ] || 'var(--c-blue-bg)',
                         borderLeft: `3px solid ${typBorder[item.typ] || 'var(--c-blue)'}`,
                         borderRadius: '0 6px 6px 0',
-                        padding: '3px 6px',
+                        padding: '3px 5px',
                         cursor: 'pointer',
                         overflow: 'hidden',
                         zIndex: 2,
+                        boxSizing: 'border-box',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                       }}
                     >
                       <div style={{ fontSize: 10, color: typText[item.typ], fontWeight: 700, marginBottom: 1 }}>{item.tid} · {typLabel[item.typ] || item.typ}</div>
-                      <div style={{ fontSize: 11, fontWeight: 500, lineHeight: 1.2, paddingRight: 14 }}>{item.namn}</div>
-                      {item.kund && <div style={{ fontSize: 10, color: 'var(--c-text2)' }}>{item.kund}</div>}
-                      {tekArr.length > 0 && (
+                      <div style={{ fontSize: 11, fontWeight: 500, lineHeight: 1.2 }}>{item.namn}</div>
+                      {item.kund && totalCols < 3 && <div style={{ fontSize: 10, color: 'var(--c-text2)' }}>{item.kund}</div>}
+                      {tekArr.length > 0 && totalCols < 3 && (
                         <div style={{ fontSize: 10, color: 'var(--c-text2)', marginTop: 1 }}>
                           {tekArr.join(', ')}
                         </div>
@@ -523,6 +576,12 @@ export default function Kalender({
             if (onNavigeraArende && visaDetalj.item.arendeId) onNavigeraArende(visaDetalj.item.arendeId)
             else onNavigera?.('arenden')
           }}
+          onGåTillObjekt={(() => {
+            if (!onNavigeraObjekt || visaDetalj.item.arendeId) return undefined
+            const port = objekt.find(o => !o.arkiverad && o.namn === visaDetalj.item.namn)
+            if (!port) return undefined
+            return () => { setVisaDetalj(null); onNavigeraObjekt(port.id) }
+          })()}
         />
       )}
     </div>

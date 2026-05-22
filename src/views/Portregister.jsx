@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy } from 'lucide-react'
 import { statusConfig, protokollTyper, protokollPunkter } from '../data/store.js'
 import logo from '../image-1779305303942.png'
@@ -586,13 +586,20 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, initialObjektId, onInitialObjektHandled }) {
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)
   const [visaForm,       setVisaForm]       = useState(false)
   const [visaArkiv,      setVisaArkiv]      = useState(false)
   const [dupliceraForval, setDupliceraForval] = useState(null)
+
+  useEffect(() => {
+    if (initialObjektId && objekt.length > 0) {
+      const o = objekt.find(x => x.id === initialObjektId)
+      if (o) { setVald(o); onInitialObjektHandled?.() }
+    }
+  }, [initialObjektId, objekt])
 
   const aktivaPortar = objekt.filter(o => !o.arkiverad)
   const arkiverade   = objekt.filter(o =>  o.arkiverad)
