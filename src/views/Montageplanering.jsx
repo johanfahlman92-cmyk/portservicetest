@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { Plus, Check, Clock, Package, Pencil, Printer, Search, Truck, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, UserPlus } from 'lucide-react'
 import logo from '../image-1779305303942.png'
+import { protokollTyper } from '../data/store.js'
 
-const PORTTYPER = ['Vikport', 'Skjutport', 'Sektionsport', 'Rullport', 'Svängport', 'Grindport', 'Annan']
+// Samma porttyper som i Portregister
+const PORTTYPER      = Object.keys(protokollTyper)           // Vikport, Takskjutport, Lastbrygga, Grind
+const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
 
 const STATUS_CFG = {
   ej_planerad: { label: 'Ej planerad', color: '#9ca3af', bg: '#f3f4f6', Icon: Clock },
@@ -33,43 +36,58 @@ function StatusBadge({ status }) {
 }
 
 const TOMFORM = {
-  porttyp: 'Vikport', ordernummer: '', serienummer: '',
+  porttyp: PORTTYPER[0], fabrikat: '', ordernummer: '', serienummer: '',
   montageplats: '', kund: '', preliminar_leverans: '',
   onskat_montagedag: '', status: 'ej_planerad', notering: '',
 }
 
-export default function Montageplanering({ kunder = [], montageorder = [], onLaggTill, onUppdatera, onTaBort }) {
-  const [vy,           setVy]           = useState('lista')
-  const [valt,         setValt]         = useState(null)
-  const [form,         setForm]         = useState(TOMFORM)
-  const [sparar,       setSparar]       = useState(false)
-  const [sokText,      setSokText]      = useState('')
-  const [filterStatus, setFilterStatus] = useState('alla')
-  const [expandId,     setExpandId]     = useState(null)
+export default function Montageplanering({ kunder = [], montageorder = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering }) {
+  const [vy,            setVy]            = useState('lista')
+  const [valt,          setValt]          = useState(null)
+  const [form,          setForm]          = useState(TOMFORM)
+  const [annatFabrikat, setAnnatFabrikat] = useState('')
+  const [sparar,        setSparar]        = useState(false)
+  const [sokText,       setSokText]       = useState('')
+  const [filterStatus,  setFilterStatus]  = useState('alla')
+  const [expandId,      setExpandId]      = useState(null)
+  const [nyttKundNamn,  setNyttKundNamn]  = useState('')
+  const [visaNyKund,    setVisaNyKund]    = useState(false)
+  const [spararKund,    setSpararKund]    = useState(false)
 
   const F = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
+  const effektivtFabrikat = form.fabrikat === 'Annat' ? annatFabrikat : form.fabrikat
+
   const öppnaForm = (order = null) => {
     setValt(order)
-    setForm(order ? {
-      porttyp:            order.porttyp           || 'Vikport',
-      ordernummer:        order.ordernummer        || '',
-      serienummer:        order.serienummer        || '',
-      montageplats:       order.montageplats       || '',
-      kund:               order.kund               || '',
-      preliminar_leverans: order.preliminar_leverans || '',
-      onskat_montagedag:  order.onskat_montagedag  || '',
-      status:             order.status             || 'ej_planerad',
-      notering:           order.notering           || '',
-    } : { ...TOMFORM })
+    if (order) {
+      const ärAnnat = order.fabrikat && !FASTA_FABRIKAT.includes(order.fabrikat)
+      setAnnatFabrikat(ärAnnat ? order.fabrikat : '')
+      setForm({
+        porttyp:             order.porttyp             || PORTTYPER[0],
+        fabrikat:            ärAnnat ? 'Annat' : (order.fabrikat || ''),
+        ordernummer:         order.ordernummer         || '',
+        serienummer:         order.serienummer         || '',
+        montageplats:        order.montageplats        || '',
+        kund:                order.kund                || '',
+        preliminar_leverans: order.preliminar_leverans || '',
+        onskat_montagedag:   order.onskat_montagedag   || '',
+        status:              order.status              || 'ej_planerad',
+        notering:            order.notering            || '',
+      })
+    } else {
+      setAnnatFabrikat('')
+      setForm({ ...TOMFORM })
+    }
     setVy('ny')
   }
 
   const spara = async () => {
     if (!form.ordernummer.trim() || !form.montageplats.trim()) return
     setSparar(true)
-    if (valt) await onUppdatera(valt.id, form)
-    else       await onLaggTill(form)
+    const payload = { ...form, fabrikat: effektivtFabrikat.trim() }
+    if (valt) await onUppdatera(valt.id, payload)
+    else       await onLaggTill(payload)
     setSparar(false)
     setVy('lista'); setValt(null)
   }
@@ -78,6 +96,16 @@ export default function Montageplanering({ kunder = [], montageorder = [], onLag
     if (!valt) return
     await onTaBort(valt.id)
     setVy('lista'); setValt(null)
+  }
+
+  const läggTillNyKund = async () => {
+    if (!nyttKundNamn.trim()) return
+    setSpararKund(true)
+    await onNyKund?.(nyttKundNamn.trim())
+    F('kund', nyttKundNamn.trim())
+    setNyttKundNamn('')
+    setVisaNyKund(false)
+    setSpararKund(false)
   }
 
   const skrivUt = async (order) => {
@@ -93,7 +121,6 @@ h2{font-size:13px;margin-top:22px;margin-bottom:8px;border-bottom:2px solid #1D9
 .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;margin-bottom:18px;font-size:11px;color:#555}
 .meta b{color:#1a1917}
 p{text-align:justify;line-height:1.6;font-size:12px}
-.badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
 @media print{body{margin:16px}}
 </style></head><body>
 ${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
@@ -102,6 +129,7 @@ ${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin
   <div><b>Ordernummer:</b> ${order.ordernummer}</div>
   ${order.serienummer ? `<div><b>Serienummer:</b> ${order.serienummer}</div>` : '<div></div>'}
   <div><b>Porttyp:</b> ${order.porttyp}</div>
+  ${order.fabrikat ? `<div><b>Fabrikat:</b> ${order.fabrikat}</div>` : '<div></div>'}
   <div><b>Status:</b> ${st.label}</div>
   <div><b>Montageplats:</b> ${order.montageplats}</div>
   <div><b>Kund:</b> ${order.kund || '–'}</div>
@@ -118,6 +146,7 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
   if (vy === 'ny') {
     const inp = { width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }
     const kanSpara = form.ordernummer.trim() && form.montageplats.trim()
+
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -136,6 +165,20 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
               <select value={form.porttyp} onChange={e => F('porttyp', e.target.value)} style={inp}>
                 {PORTTYPER.map(t => <option key={t}>{t}</option>)}
               </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Fabrikat *</label>
+              <select value={form.fabrikat} onChange={e => F('fabrikat', e.target.value)}
+                style={{ ...inp, borderColor: !form.fabrikat ? 'var(--c-border)' : undefined }}>
+                <option value="">– Välj fabrikat –</option>
+                {FASTA_FABRIKAT.map(f => <option key={f} value={f}>{f}</option>)}
+                <option value="Annat">Annat / okänt</option>
+              </select>
+              {form.fabrikat === 'Annat' && (
+                <input type="text" placeholder="Ange fabrikat / modell" value={annatFabrikat}
+                  onChange={e => setAnnatFabrikat(e.target.value)}
+                  style={{ ...inp, marginTop: 6 }} />
+              )}
             </div>
             <div>
               <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Ordernummer *</label>
@@ -169,16 +212,37 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>Kund</label>
-              <input list="montage-kund-lista" type="text" value={form.kund} onChange={e => F('kund', e.target.value)}
-                placeholder="Välj eller skriv" style={inp} />
-              <datalist id="montage-kund-lista">
-                {kunder.map(k => <option key={k.id} value={k.namn} />)}
-              </datalist>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input list="montage-kund-lista" type="text" value={form.kund} onChange={e => F('kund', e.target.value)}
+                  placeholder="Välj eller skriv" style={{ ...inp, flex: 1 }} />
+                <datalist id="montage-kund-lista">
+                  {kunder.map(k => <option key={k.id} value={k.namn} />)}
+                </datalist>
+                {onNyKund && (
+                  <button className="btn" title="Lägg till ny kund" onClick={() => setVisaNyKund(v => !v)}
+                    style={{ flexShrink: 0, padding: '0 10px' }}>
+                    <UserPlus size={14} />
+                  </button>
+                )}
+              </div>
+              {visaNyKund && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  <input type="text" placeholder="Nytt kundnamn…" value={nyttKundNamn}
+                    onChange={e => setNyttKundNamn(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && läggTillNyKund()}
+                    style={{ ...inp, flex: 1 }} autoFocus />
+                  <button className="btn btn-teal" onClick={läggTillNyKund} disabled={spararKund || !nyttKundNamn.trim()}
+                    style={{ flexShrink: 0 }}>
+                    {spararKund ? '…' : 'Lägg till'}
+                  </button>
+                  <button className="btn" onClick={() => { setVisaNyKund(false); setNyttKundNamn('') }}>✕</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Datum */}
+        {/* Planering */}
         <div className="card" style={{ marginBottom: 12 }}>
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Planering</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -226,9 +290,9 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
           || o.kund?.toLowerCase().includes(q)
           || o.montageplats?.toLowerCase().includes(q)
           || o.porttyp?.toLowerCase().includes(q)
+          || o.fabrikat?.toLowerCase().includes(q)
     })
     .sort((a, b) => {
-      // Sortera: ej_planerad/planerad → äldst datum först; utford → nyast sist
       if (a.status === 'utford' && b.status !== 'utford') return 1
       if (b.status === 'utford' && a.status !== 'utford') return -1
       const da = a.onskat_montagedag || a.preliminar_leverans || a.created_at || ''
@@ -281,7 +345,7 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
       {/* Sök */}
       <div style={{ position: 'relative', marginBottom: 12 }}>
         <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
-        <input type="text" placeholder="Sök ordernummer, kund, plats…" value={sokText} onChange={e => setSokText(e.target.value)}
+        <input type="text" placeholder="Sök ordernummer, kund, plats, fabrikat…" value={sokText} onChange={e => setSokText(e.target.value)}
           style={{ width: '100%', padding: '7px 10px 7px 32px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)', boxSizing: 'border-box' }} />
       </div>
 
@@ -289,22 +353,25 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
       <div className="card">
         {filtrerade.length === 0 && (
           <p style={{ fontSize: 13, color: 'var(--c-text3)', textAlign: 'center', padding: '16px 0' }}>
-            {montageorder.length === 0 ? 'Inga montageordrar ännu. Klicka "Ny montageorder" för att börja.' : 'Inga montageordrar matchar sökningen.'}
+            {montageorder.length === 0
+              ? 'Inga montageordrar ännu. Klicka "Ny montageorder" för att börja.'
+              : 'Inga montageordrar matchar sökningen.'}
           </p>
         )}
         {filtrerade.map(order => {
-          const st = STATUS_CFG[order.status] || STATUS_CFG.ej_planerad
           const expanded = expandId === order.id
           return (
             <div key={order.id} style={{ borderBottom: '1px solid var(--c-border)', padding: '10px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 
                 {/* Klickbar rad */}
-                <div style={{ flex: 1, cursor: 'pointer', minWidth: 0 }} onClick={() => setExpandId(expanded ? null : order.id)}>
+                <div style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}
+                  onClick={() => setExpandId(expanded ? null : order.id)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{order.ordernummer}</span>
                     <StatusBadge status={order.status} />
-                    {order.porttyp && <span style={{ fontSize: 11, color: 'var(--c-text2)' }}>{order.porttyp}</span>}
+                    <span style={{ fontSize: 11, color: 'var(--c-text2)' }}>{order.porttyp}</span>
+                    {order.fabrikat && <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>{order.fabrikat}</span>}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 2 }}>
                     {[order.kund, order.montageplats].filter(Boolean).join(' · ')}
@@ -313,7 +380,7 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
                     <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
                       {order.preliminar_leverans && `📦 Leverans: ${order.preliminar_leverans}`}
                       {order.preliminar_leverans && order.onskat_montagedag && '  '}
-                      {order.onskat_montagedag  && `🔧 Montage: ${order.onskat_montagedag}`}
+                      {order.onskat_montagedag   && `🔧 Montage: ${order.onskat_montagedag}`}
                     </div>
                   )}
                 </div>
@@ -337,20 +404,23 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
 
               {/* Expanderad vy */}
               {expanded && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
-                  {order.serienummer && <div><span style={{ color: 'var(--c-text3)' }}>Serienummer:</span> {order.serienummer}</div>}
-                  {order.preliminar_leverans && <div><span style={{ color: 'var(--c-text3)' }}>Prel. leverans:</span> {order.preliminar_leverans}</div>}
-                  {order.onskat_montagedag  && <div><span style={{ color: 'var(--c-text3)' }}>Önskad montagedag:</span> {order.onskat_montagedag}</div>}
-                  {order.notering && (
-                    <div style={{ gridColumn: '1 / -1', marginTop: 4, padding: '8px 10px', background: 'var(--c-bg)', borderRadius: 6, fontSize: 12, color: 'var(--c-text2)', fontStyle: 'italic' }}>
-                      {order.notering}
-                    </div>
-                  )}
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-border)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12, marginBottom: 12 }}>
+                    {order.serienummer         && <div><span style={{ color: 'var(--c-text3)' }}>Serienummer: </span>{order.serienummer}</div>}
+                    {order.fabrikat            && <div><span style={{ color: 'var(--c-text3)' }}>Fabrikat: </span>{order.fabrikat}</div>}
+                    {order.preliminar_leverans && <div><span style={{ color: 'var(--c-text3)' }}>Prel. leverans: </span>{order.preliminar_leverans}</div>}
+                    {order.onskat_montagedag   && <div><span style={{ color: 'var(--c-text3)' }}>Önskad montagedag: </span>{order.onskat_montagedag}</div>}
+                    {order.notering && (
+                      <div style={{ gridColumn: '1 / -1', padding: '8px 10px', background: 'var(--c-bg)', borderRadius: 6, color: 'var(--c-text2)', fontStyle: 'italic' }}>
+                        {order.notering}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Snabb-statusbyte */}
-                  <div style={{ gridColumn: '1 / -1', marginTop: 8 }}>
+                  <div style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 4 }}>Ändra status:</div>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {Object.entries(STATUS_CFG).map(([k, s]) => (
                         <button key={k} onClick={() => onUppdatera(order.id, { ...order, status: k })}
                           style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
@@ -363,6 +433,15 @@ ${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
                       ))}
                     </div>
                   </div>
+
+                  {/* Starta montering */}
+                  {onNavigeraMontering && order.status !== 'utford' && (
+                    <button className="btn btn-teal"
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+                      onClick={() => onNavigeraMontering(order)}>
+                      <ArrowRight size={13} /> Starta montering
+                    </button>
+                  )}
                 </div>
               )}
             </div>

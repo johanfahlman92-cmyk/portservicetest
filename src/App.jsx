@@ -539,6 +539,12 @@ export default function App() {
     navigera('arenden')
   }
 
+  const [förifylldMontageorder, setFörifylldMontageorder] = useState(null)
+  const navigeraMontering = (order) => {
+    setFörifylldMontageorder(order)
+    navigera('montering')
+  }
+
   // Laddning
   if (authLaddas) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1917' }}>
@@ -577,8 +583,8 @@ export default function App() {
     kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} objekt={objekt} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigera={navigera} onNavigeraArende={navigeraArende} onNavigeraObjekt={navigeraObjekt} />,
     kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objekt} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} />,
     'nytt-arende': () => { navigera('arenden'); return null },
-    montering:        () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} />,
-    montageplanering: () => <Montageplanering kunder={kunder} montageorder={montageorder} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} />,
+    montering:        () => <Montering objekt={objekt} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} förifylldMontageorder={förifylldMontageorder} onFörifylldHandled={() => setFörifylldMontageorder(null)} />,
+    montageplanering: () => <Montageplanering kunder={kunder} montageorder={montageorder} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} onNyKund={snabbLaggTillKund} onNavigeraMontering={navigeraMontering} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objekt} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
     installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} /> : null,
   }

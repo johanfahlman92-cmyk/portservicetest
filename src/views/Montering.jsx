@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { CheckCircle, Printer, ChevronRight, Upload, FileText, X as XIcon, AlertTriangle,
          ChevronLeft, Edit2, Save, List, PlusCircle, Check } from 'lucide-react'
 import logo from '../image-1779305303942.png'
@@ -497,7 +497,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning }) {
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
 
@@ -541,6 +541,20 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [serienummer,      setSerienummer]      = useState('')
   const [sparad,           setSparad]           = useState(false)
   const [sparar,           setSparar]           = useState(false)
+
+  // ── Förifyll från montageplanering ──
+  useEffect(() => {
+    if (!förifylldMontageorder) return
+    const o = förifylldMontageorder
+    setPortNamn(o.montageplats || '')
+    setAdress(o.montageplats || '')
+    setKund(o.kund || '')
+    setOrdernummer(o.ordernummer || '')
+    setSerienummer(o.serienummer || '')
+    setVy('ny')
+    setAktFlik('info')
+    onFörifylldHandled?.()
+  }, [förifylldMontageorder])
 
   const punkter  = effektivaMallar[portTyp] || []
   const okCount  = punkter.filter((p, i) => !p.startsWith('## ') && egenkontroll[i] === 'OK').length
