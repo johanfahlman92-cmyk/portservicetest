@@ -119,7 +119,7 @@ const serviceIntervallLabel = (v) =>
 // ── PDF ───────────────────────────────────────────────────────────────────────
 function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
                         serviceIntervall, risker, egenRisker = [], egenkontroll, egenNoteringar,
-                        signaturbild, logoBase64, effektivaMallar }) {
+                        signaturbild, logoBase64, effektivaMallar, ansvariga = [] }) {
   const punkter = (effektivaMallar || EGENKONTROLL)[portTyp] || []
   const riskRows = [
     ...FAROR.map(f => {
@@ -127,13 +127,13 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
       const niv = (r.nivå || 'Låg').toLowerCase()
       return `<tr><td>${f.label}</td><td>${f.beskrivning}</td>
         <td class="risk-${niv}">${r.nivå||'Låg'}</td>
-        <td>${r.åtgärd||'–'}</td><td>${r.ansvarig||'–'}</td></tr>`
+        <td>${r.åtgärd||'–'}</td></tr>`
     }),
     ...egenRisker.map(r => {
       const niv = (r.nivå || 'Låg').toLowerCase()
       return `<tr style="background:#fffbf0"><td><strong>${r.label||'–'}</strong></td><td>${r.beskrivning||'–'}</td>
         <td class="risk-${niv}">${r.nivå||'Låg'}</td>
-        <td>${r.åtgärd||'–'}</td><td>${r.ansvarig||'–'}</td></tr>`
+        <td>${r.åtgärd||'–'}</td></tr>`
     }),
   ].join('')
   const egenRows = punkter.map((p, i) => {
@@ -177,8 +177,9 @@ ${logoBase64 ? `<img src="${logoBase64}" style="float:right;height:40px;margin-t
   <div><b>Serviceintervall:</b> ${serviceIntervallLabel(serviceIntervall)}</div>
 </div>
 <h2>Riskbedömning – EN13241</h2>
+${ansvariga.length > 0 ? `<p style="font-size:11px;margin:0 0 8px;color:#333"><strong>Ansvariga:</strong> ${ansvariga.map(a => `${a.namn}${a.roll ? ` (${a.roll})` : ''}`).join(' · ')}</p>` : ''}
 <table>
-  <thead><tr><th>Farotyp</th><th>Beskrivning</th><th>Risknivå</th><th>Åtgärd</th><th>Ansvarig</th></tr></thead>
+  <thead><tr><th>Farotyp</th><th>Beskrivning</th><th>Risknivå</th><th>Åtgärd</th></tr></thead>
   <tbody>${riskRows}</tbody>
 </table>
 <h2>Egenkontroll – ${portTyp}</h2>
@@ -288,6 +289,100 @@ function DokumentZon({ dokument = [], onChange }) {
   )
 }
 
+// ── Ansvariga-panel ───────────────────────────────────────────────────────────
+function AnsvarigaPanel({ ansvariga = [], tekniker = [], onChange, redigerar = true }) {
+  const [nyNamn, setNyNamn] = useState('')
+  const [nyRoll, setNyRoll] = useState('')
+
+  const laggTill = (namn, roll = '') => {
+    const n = namn.trim()
+    if (!n || ansvariga.some(a => a.namn === n)) return
+    onChange([...ansvariga, { id: 'a' + Date.now(), namn: n, roll: roll.trim() }])
+    setNyNamn(''); setNyRoll('')
+  }
+
+  const taBort = (id) => onChange(ansvariga.filter(a => a.id !== id))
+
+  const internaKvar = tekniker.filter(t => !ansvariga.some(a => a.namn === t))
+
+  const chipStyle = (redigBar) => ({
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    padding: '3px 10px', borderRadius: 20,
+    background: 'var(--c-blue-bg)', border: '1px solid var(--c-blue)',
+    fontSize: 12, color: 'var(--c-text)',
+  })
+
+  return (
+    <div style={{ padding: '12px 14px', background: 'var(--c-bg)', borderRadius: 9, border: '1px solid var(--c-border)', marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text2)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+        Ansvariga
+      </div>
+
+      {/* Befintliga chips */}
+      {ansvariga.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {ansvariga.map(a => (
+            <span key={a.id} style={chipStyle()}>
+              <span style={{ fontWeight: 500 }}>{a.namn}</span>
+              {a.roll && <span style={{ color: 'var(--c-text3)', fontSize: 11 }}>{a.roll}</span>}
+              {redigerar && (
+                <button onClick={() => taBort(a.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text3)', padding: '0 0 0 2px', lineHeight: 1, fontSize: 15 }}>×</button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {redigerar && (
+        <>
+          {/* Intern personal – chip-knappar */}
+          {internaKvar.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 5 }}>Lägg till intern personal</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {internaKvar.map(t => (
+                  <button key={t} onClick={() => laggTill(t)}
+                    style={{ padding: '3px 11px', borderRadius: 15, fontSize: 12, border: '1px dashed var(--c-border)', background: 'transparent', color: 'var(--c-text2)', cursor: 'pointer', transition: 'all 0.12s' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--c-blue)'; e.currentTarget.style.color = 'var(--c-blue)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--c-border)'; e.currentTarget.style.color = 'var(--c-text2)' }}
+                  >
+                    + {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Extern fritext */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              value={nyNamn} onChange={e => setNyNamn(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && laggTill(nyNamn, nyRoll)}
+              placeholder="Extern: Förnamn Efternamn"
+              style={{ flex: 2, minWidth: 140, padding: '6px 9px', fontSize: 12, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none' }}
+            />
+            <input
+              value={nyRoll} onChange={e => setNyRoll(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && laggTill(nyNamn, nyRoll)}
+              placeholder="Företag / roll (valfritt)"
+              style={{ flex: 2, minWidth: 120, padding: '6px 9px', fontSize: 12, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none' }}
+            />
+            <button onClick={() => laggTill(nyNamn, nyRoll)} disabled={!nyNamn.trim()}
+              style={{ padding: '6px 14px', background: nyNamn.trim() ? 'var(--c-teal)' : 'var(--c-border)', color: nyNamn.trim() ? '#fff' : 'var(--c-text3)', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: nyNamn.trim() ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
+              + Lägg till
+            </button>
+          </div>
+        </>
+      )}
+
+      {!redigerar && ansvariga.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--c-text3)' }}>Inga ansvariga registrerade.</div>
+      )}
+    </div>
+  )
+}
+
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
 export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
@@ -305,6 +400,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [editEgenRisker,     setEditEgenRisker]     = useState([])
   const [editEgenkontroll,   setEditEgenkontroll]   = useState({})
   const [editEgenNoteringar, setEditEgenNoteringar] = useState({})
+  const [editAnsvariga,      setEditAnsvariga]      = useState([])
   const [sparaDetalj,        setSparaDetalj]        = useState(false)
   const [sparatDetalj,       setSparatDetalj]       = useState(false)
 
@@ -321,6 +417,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [egenRisker,       setEgenRisker]       = useState([])
   const [egenkontroll,     setEgenkontroll]     = useState({})
   const [egenNoteringar,   setEgenNoteringar]   = useState({})
+  const [ansvariga,        setAnsvariga]        = useState([])
   const [visaSignatur,     setVisaSignatur]     = useState(false)
   const [signaturbild,     setSignaturbild]     = useState(null)
   const [dokument,         setDokument]         = useState([])
@@ -350,6 +447,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setEditEgenRisker(JSON.parse(JSON.stringify(protokoll.egenRisker || [])))
     setEditEgenkontroll({ ...(protokoll.egenkontroll || {}) })
     setEditEgenNoteringar({ ...(protokoll.egenNoteringar || {}) })
+    setEditAnsvariga(JSON.parse(JSON.stringify(protokoll.ansvariga || [])))
     setRedigerar(false)
     setSparatDetalj(false)
     setVy('detalj')
@@ -374,6 +472,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       egenRisker: editEgenRisker,
       egenkontroll: editEgenkontroll,
       egenNoteringar: editEgenNoteringar,
+      ansvariga: editAnsvariga,
       ok: okC, ej: ejC, na: naC,
     }
     nyHistorik[valdProtokoll.historikIdx] = uppdaterad
@@ -415,6 +514,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       egenRisker:     [...egenRisker],
       egenkontroll:   { ...egenkontroll },
       egenNoteringar: { ...egenNoteringar },
+      ansvariga:      [...ansvariga],
       ok: okCount, ej: ejCount, na: naCount,
       signatur: signaturbild || null,
       dokument: [...dokument],
@@ -455,6 +555,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       signaturbild:     valdProtokoll.signatur || null,
       logoBase64,
       effektivaMallar,
+      ansvariga:        valdProtokoll.ansvariga || [],
     })
     const win = window.open('', '_blank', 'width=860,height=1100')
     win.document.write(html)
@@ -478,7 +579,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     const logoBase64 = await hämtaLogoBase64()
     const html = genereraHTML({ portNamn, kund, adress, portTyp, datum,
                                 teknikerNamn, serviceIntervall, risker, egenRisker, egenkontroll,
-                                egenNoteringar, signaturbild, logoBase64, effektivaMallar })
+                                egenNoteringar, signaturbild, logoBase64, effektivaMallar, ansvariga })
     const win = window.open('', '_blank', 'width=860,height=1100')
     win.document.write(html)
     win.document.close()
@@ -490,7 +591,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setPortNamn(''); setAdress(''); setKund(''); setTeknikerNamn('')
     setPortTyp(PORTTYPER[0]); setServiceIntervall('12')
     setRisker(tomsRisk()); setEgenRisker([]); setEgenkontroll({}); setEgenNoteringar({})
-    setSignaturbild(null); setVisaSignatur(false); setDokument([])
+    setAnsvariga([]); setSignaturbild(null); setVisaSignatur(false); setDokument([])
   }
 
   // ── Styles ──
@@ -624,7 +725,13 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
 
         {/* Riskbedömning */}
         <div className="card">
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Riskbedömning – EN13241</div>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Riskbedömning – EN13241</div>
+          <AnsvarigaPanel
+            ansvariga={redigerar ? editAnsvariga : (valdProtokoll.ansvariga || [])}
+            tekniker={tekniker}
+            onChange={setEditAnsvariga}
+            redigerar={redigerar}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {FAROR.map(f => {
               const r = aktRisker[f.id] || { nivå: 'Låg', åtgärd: '', ansvarig: '' }
@@ -653,15 +760,9 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
                     )}
                   </div>
                   {redigerar ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
-                      <input value={r.åtgärd || ''} onChange={e => setEditRisk(f.id, 'åtgärd', e.target.value)} placeholder="Åtgärd…" style={{ ...inp2, fontSize: 12, padding: '6px 9px' }} />
-                      <input value={r.ansvarig || ''} onChange={e => setEditRisk(f.id, 'ansvarig', e.target.value)} placeholder="Ansvarig" style={{ ...inp2, fontSize: 12, padding: '6px 9px' }} />
-                    </div>
-                  ) : (r.åtgärd || r.ansvarig) ? (
-                    <div style={{ fontSize: 12, color: 'var(--c-text2)' }}>
-                      {r.åtgärd && <span>{r.åtgärd}</span>}
-                      {r.ansvarig && <span style={{ color: 'var(--c-text3)', marginLeft: 8 }}>· {r.ansvarig}</span>}
-                    </div>
+                    <input value={r.åtgärd || ''} onChange={e => setEditRisk(f.id, 'åtgärd', e.target.value)} placeholder="Åtgärd…" style={{ ...inp2, fontSize: 12, padding: '6px 9px', width: '100%', boxSizing: 'border-box' }} />
+                  ) : r.åtgärd ? (
+                    <div style={{ fontSize: 12, color: 'var(--c-text2)' }}>{r.åtgärd}</div>
                   ) : null}
                 </div>
               )
@@ -705,15 +806,9 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
                   )}
                 </div>
                 {redigerar ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
-                    <input value={r.åtgärd || ''} onChange={e => uppdateraEditEgenRisk(r.id, 'åtgärd', e.target.value)} placeholder="Åtgärd…" style={{ ...inp2, fontSize: 12, padding: '6px 9px' }} />
-                    <input value={r.ansvarig || ''} onChange={e => uppdateraEditEgenRisk(r.id, 'ansvarig', e.target.value)} placeholder="Ansvarig" style={{ ...inp2, fontSize: 12, padding: '6px 9px' }} />
-                  </div>
-                ) : (r.åtgärd || r.ansvarig) ? (
-                  <div style={{ fontSize: 12, color: 'var(--c-text2)' }}>
-                    {r.åtgärd && <span>{r.åtgärd}</span>}
-                    {r.ansvarig && <span style={{ color: 'var(--c-text3)', marginLeft: 8 }}>· {r.ansvarig}</span>}
-                  </div>
+                  <input value={r.åtgärd || ''} onChange={e => uppdateraEditEgenRisk(r.id, 'åtgärd', e.target.value)} placeholder="Åtgärd…" style={{ ...inp2, fontSize: 12, padding: '6px 9px', width: '100%', boxSizing: 'border-box' }} />
+                ) : r.åtgärd ? (
+                  <div style={{ fontSize: 12, color: 'var(--c-text2)' }}>{r.åtgärd}</div>
                 ) : null}
               </div>
             ))}
@@ -938,9 +1033,10 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       {aktFlik === 'risk' && (
         <div className="card">
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Riskbedömning – EN13241</div>
-          <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 16 }}>
-            Bedöm varje farokategori, beskriv vidtagna åtgärder och ansvarig person.
+          <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 12 }}>
+            Bedöm varje farokategori och beskriv vidtagna åtgärder.
           </p>
+          <AnsvarigaPanel ansvariga={ansvariga} tekniker={tekniker} onChange={setAnsvariga} redigerar={true} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {FAROR.map(f => {
               const r = risker[f.id]
@@ -971,21 +1067,12 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
                       })}
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ ...lbl, marginBottom: 3 }}>Åtgärd</label>
-                      <input type="text" value={r.åtgärd}
-                        onChange={e => setRisk(f.id, 'åtgärd', e.target.value)}
-                        placeholder="Beskriv åtgärd…"
-                        style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
-                    </div>
-                    <div>
-                      <label style={{ ...lbl, marginBottom: 3 }}>Ansvarig</label>
-                      <input type="text" value={r.ansvarig}
-                        onChange={e => setRisk(f.id, 'ansvarig', e.target.value)}
-                        placeholder="Namn"
-                        style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
-                    </div>
+                  <div>
+                    <label style={{ ...lbl, marginBottom: 3 }}>Åtgärd</label>
+                    <input type="text" value={r.åtgärd}
+                      onChange={e => setRisk(f.id, 'åtgärd', e.target.value)}
+                      placeholder="Beskriv åtgärd…"
+                      style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
                   </div>
                 </div>
               )
@@ -1020,10 +1107,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
                       return <button key={niv} onClick={() => uppdateraEgenRisk(r.id, 'nivå', niv)} style={{ padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: `1.5px solid ${aktiv ? bg : 'var(--c-border)'}`, background: bg, color: aktiv ? '#fff' : 'var(--c-text2)', fontWeight: aktiv ? 600 : 400 }}>{niv}</button>
                     })}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
-                    <input value={r.åtgärd} onChange={e => uppdateraEgenRisk(r.id, 'åtgärd', e.target.value)} placeholder="Åtgärd…" style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
-                    <input value={r.ansvarig} onChange={e => uppdateraEgenRisk(r.id, 'ansvarig', e.target.value)} placeholder="Ansvarig" style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
-                  </div>
+                  <input value={r.åtgärd} onChange={e => uppdateraEgenRisk(r.id, 'åtgärd', e.target.value)} placeholder="Åtgärd…" style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
                 </div>
               ))}
             </div>

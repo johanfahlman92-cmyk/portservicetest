@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { UserPlus, Trash2, Shield, User, RefreshCw, Copy,
          ChevronDown, ChevronUp, Plus, GripVertical, Check, ClipboardList } from 'lucide-react'
@@ -27,7 +27,16 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
   const [andringar,  setAndringar]  = useState(false)
   const [bekraftaBortTyp, setBekraftaBortTyp] = useState(null)
 
-  const markAndrad = () => { setAndringar(true); setSparat(false) }
+  const andringarRef = useRef(false)
+  const markAndrad = () => { setAndringar(true); setSparat(false); andringarRef.current = true }
+
+  // Synka lokala om mallar-propen uppdateras (t.ex. efter async Supabase-laddning)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!andringarRef.current) {
+      setLokala(JSON.parse(JSON.stringify(mallar)))
+    }
+  }, [mallar])
 
   const laggTillTyp = () => {
     const namn = nyTypNamn.trim()
@@ -86,6 +95,7 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
     await onSpara(lokala)
     setSparar(false)
     setAndringar(false)
+    andringarRef.current = false
     setSparat(true)
     setTimeout(() => setSparat(false), 2500)
   }
