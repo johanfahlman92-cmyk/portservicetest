@@ -151,16 +151,17 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort }) {
 }
 
 // ── Snabb-bokningsmodal ───────────────────────────────────────────────────────
-function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onStäng }) {
+function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraArende, onStäng }) {
   const idag = new Date().toISOString().slice(0, 10)
-  const [datum,     setDatum]     = useState(obj.nasta && obj.nasta >= idag ? obj.nasta : idag)
-  const [tid,       setTid]       = useState('08:00')
-  const [tek,       setTek]       = useState(tekniker[0] || '')
-  const [prioritet, setPrioritet] = useState('normal')
-  const [notering,  setNotering]  = useState('')
-  const [sparar,    setSparar]    = useState(false)
-  const [klar,      setKlar]      = useState(false)
-  const [arendeNr,  setArendeNr]  = useState('')
+  const [datum,          setDatum]          = useState(obj.nasta && obj.nasta >= idag ? obj.nasta : idag)
+  const [tid,            setTid]            = useState('08:00')
+  const [tek,            setTek]            = useState(tekniker[0] || '')
+  const [prioritet,      setPrioritet]      = useState('normal')
+  const [notering,       setNotering]       = useState('')
+  const [sparar,         setSparar]         = useState(false)
+  const [klar,           setKlar]           = useState(false)
+  const [arendeNr,       setArendeNr]       = useState('')
+  const [skapatArendeId, setSkapatArendeId] = useState(null)
 
   const boka = async () => {
     setSparar(true)
@@ -170,7 +171,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onStäng }) {
     setArendeNr(nr)
 
     // Skapa ärende
-    let skapatArendeId = null
+    let arendeId = null
     if (onLaggTillArende) {
       const arende = await onLaggTillArende({
         id:          'a' + Date.now(),
@@ -188,7 +189,8 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onStäng }) {
         tekniker:    tek || null,
         objekt_id:   obj.id || null,
       })
-      skapatArendeId = arende?.id || null
+      arendeId = arende?.id || null
+      setSkapatArendeId(arendeId)
     }
 
     // Skapa kalenderbokning
@@ -197,7 +199,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onStäng }) {
       namn: obj.namn,
       kund: obj.kund || '',
       tek,
-      arendeId: skapatArendeId,
+      arendeId,
     })
 
     setSparar(false)
@@ -219,11 +221,17 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onStäng }) {
               {obj.namn} · {datum} kl. {tid}{tek ? ` · ${tek}` : ''}
             </div>
             {arendeNr && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12,
-                padding: '5px 12px', borderRadius: 6, marginBottom: 16,
-                background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)', border: '1px solid var(--c-teal)' }}>
-                <CheckCircle size={12} /> Ärende #{arendeNr} skapat
-              </div>
+              <button
+                onClick={() => { onStäng(); onNavigeraArende?.(skapatArendeId) }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12,
+                  padding: '5px 12px', borderRadius: 6, marginBottom: 16, cursor: 'pointer',
+                  background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)', border: '1px solid var(--c-teal)',
+                  fontWeight: 600, transition: 'opacity 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              >
+                <CheckCircle size={12} /> Ärende #{arendeNr} skapat — öppna →
+              </button>
             )}
             <button className="btn" onClick={onStäng} style={{ width: '100%' }}>Stäng</button>
           </div>
@@ -306,7 +314,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onStäng }) {
 }
 
 // ── Portdetaljer ──────────────────────────────────────────────────────────────
-function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillArende, onDupliceraPort, onNyArende, montageorder = [] }) {
+function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillArende, onNavigeraArende, onDupliceraPort, onNyArende, montageorder = [] }) {
   const [valdProtokoll,    setValdProtokoll]    = useState(null)
   const [visaSnabbBokning, setVisaSnabbBokning] = useState(false)
   const [redigeraNasta,    setRedigeraNasta]    = useState(false)
@@ -405,6 +413,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           tekniker={tekniker}
           onSpara={onLaggTillBokning}
           onLaggTillArende={onLaggTillArende}
+          onNavigeraArende={onNavigeraArende}
           onStäng={() => setVisaSnabbBokning(false)}
         />
       )}
@@ -843,7 +852,7 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, initialObjektId, onInitialObjektHandled, onNyArende }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, onNavigeraArende, initialObjektId, onInitialObjektHandled, onNyArende }) {
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)
@@ -895,6 +904,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
       }}
       onNyArende={onNyArende}
       onLaggTillArende={onLaggTillArende}
+      onNavigeraArende={onNavigeraArende}
       montageorder={montageorder}
     />
   )
