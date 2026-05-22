@@ -3,6 +3,7 @@ import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil
 import DokumentZon from '../components/DokumentZon.jsx'
 import Felanmalan from './Felanmalan.jsx'
 import { hämtaLogoBase64 } from '../utils/pdf.js'
+import { protokollPunkter as defaultProtokollMallar } from '../data/store.js'
 
 const statusLabel = { ny: 'Ny', pagAr: 'Pågår', atgardad: 'Åtgärdad' }
 const statusCls   = { ny: 'badge-red', pagAr: 'badge-amber', atgardad: 'badge-green' }
@@ -71,19 +72,28 @@ async function skrivUtArende(a) {
   setTimeout(() => w.print(), 400)
 }
 
-function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt, onLaggTillBokning, onBack }) {
+function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdatera, onUppdateraObjekt, onLaggTillBokning, onBack }) {
   const [visaTilldela,  setVisaTilldela]  = useState(false)
   const [valdTekniker,  setValdTekniker]  = useState(a.tekniker || '')
   const [sparar,        setSparar]        = useState(false)
   const [dokument,      setDokument]      = useState(a.dokument || [])
   const [redigerar,     setRedigerar]     = useState(false)
   const [editForm,      setEditForm]      = useState({})
-  const [visaProtokoll, setVisaProtokoll] = useState(false)
+  const [visaProtokoll, setVisaProtokoll] = useState(a.typ === 'service')
   const [protokollSparad, setProtokollSparad] = useState(false)
   const [protokollForm, setProtokollForm] = useState({
     utfort: '', nastaService: '', status: 'ok', tekniker: a.tekniker || '',
   })
-  const [nastaTyp, setNastaTyp] = useState('')
+  const [nastaTyp,        setNastaTyp]        = useState('')
+  const [checkStatuses,   setCheckStatuses]   = useState({})
+  const [checkNoteringar, setCheckNoteringar] = useState({})
+
+  // Port och protokollpunkter (används för egenkontroll vid service)
+  const port = objekt.find(o => a.objekt_id ? o.id === a.objekt_id : (o.namn === a.namn && o.kund === a.kund))
+  const portTyp = port?.typ || ''
+  const aktivaMallar = Object.keys(protokollMallar).length > 0 ? protokollMallar : defaultProtokollMallar
+  const protokollLista = a.typ === 'service' ? (aktivaMallar[portTyp] || []) : []
+  const alleaChecksFyllda = protokollLista.length === 0 || protokollLista.every(p => !!checkStatuses[p])
 
   const väljNastaTyp = (typ) => {
     setNastaTyp(typ)
@@ -159,18 +169,19 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
     setSparar(true)
     const idag = new Date().toISOString().slice(0, 10)
     const tekNamn = protokollForm.tekniker || a.tekniker || ''
-    // Pålitlig lookup: objekt_id först, sedan namn+kund som fallback
-    const port = objekt.find(o => a.objekt_id ? o.id === a.objekt_id : (o.namn === a.namn && o.kund === a.kund))
     if (port && onUppdateraObjekt) {
       // Skapa historikrad i portregistret
       const nyHistorik = {
-        id:       'h' + Date.now(),
-        datum:    idag,
-        typ:      'service',
-        tekniker: tekNamn,
-        notering: protokollForm.utfort,
-        ärendeNr: a.nr,
-        status:   protokollForm.status,
+        id:         'h' + Date.now(),
+        datum:      idag,
+        typ:        'service',
+        tekniker:   tekNamn,
+        notering:   protokollForm.utfort,
+        ärendeNr:   a.nr,
+        status:     protokollForm.status,
+        portTyp:    portTyp,
+        statuses:   checkStatuses,
+        noteringar: checkNoteringar,
       }
       await onUppdateraObjekt(port.id, {
         senaste:  idag,
@@ -372,6 +383,70 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
                     )}
                   </div>
                 </div>
+                {/* ── Egenkontroll (service-ärenden med känd porttyp) ── */}
+                {protokollLista.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-text2)' }}>
+                        Egenkontroll – {portTyp}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'var(--c-text3)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ display: 'inline-block', width: 16, height: 16, background: 'var(--c-teal)', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>G</span> Godkänt
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ display: 'inline-block', width: 16, height: 16, background: 'var(--c-amber)', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>J</span> Justering
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ display: 'inline-block', width: 16, height: 16, background: 'var(--c-red)', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '16px' }}>A</span> Anmärkning
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
+                      {protokollLista.map((punkt, i) => {
+                        const sts = checkStatuses[punkt]
+                        const not = checkNoteringar[punkt] || ''
+                        return (
+                          <div key={punkt} style={{
+                            padding: '7px 10px',
+                            borderBottom: i < protokollLista.length - 1 ? '1px solid var(--c-border)' : 'none',
+                            background: i % 2 === 0 ? 'transparent' : 'var(--c-surface)',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                              <span style={{ fontSize: 12, flex: 1 }}>{punkt}</span>
+                              <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                                {[['G', 'var(--c-teal)'], ['J', 'var(--c-amber)'], ['A', 'var(--c-red)']].map(([btn, bg]) => (
+                                  <button key={btn} type="button"
+                                    onClick={() => setCheckStatuses(prev => ({ ...prev, [punkt]: btn }))}
+                                    style={{
+                                      width: 28, height: 24, fontSize: 11, fontWeight: 700, borderRadius: 5,
+                                      border: sts === btn ? `2px solid ${bg}` : '1px solid var(--c-border)',
+                                      cursor: 'pointer',
+                                      background: sts === btn ? bg : 'var(--c-bg)',
+                                      color: sts === btn ? '#fff' : 'var(--c-text3)',
+                                      transition: 'all 0.1s',
+                                    }}
+                                  >{btn}</button>
+                                ))}
+                              </div>
+                            </div>
+                            {(sts === 'J' || sts === 'A') && (
+                              <input type="text" placeholder="Notering…" value={not}
+                                onChange={e => setCheckNoteringar(prev => ({ ...prev, [punkt]: e.target.value }))}
+                                style={{ ...FÄLT, marginTop: 5, fontSize: 11 }} />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ fontSize: 11, marginTop: 4, color: alleaChecksFyllda ? 'var(--c-teal)' : 'var(--c-text3)' }}>
+                      {alleaChecksFyllda
+                        ? '✓ Alla punkter ifyllda'
+                        : `${protokollLista.filter(p => checkStatuses[p]).length} / ${protokollLista.length} punkter ifyllda`}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Utfört arbete *</div>
                   <textarea value={protokollForm.utfort} onChange={e => updProt('utfort', e.target.value)}
@@ -392,8 +467,8 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
                   </div>
                 </div>
                 <button
-                  onClick={sparaProtokoll} disabled={sparar || !protokollForm.utfort}
-                  style={{ padding: '9px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: protokollForm.utfort ? 'pointer' : 'not-allowed', opacity: protokollForm.utfort ? 1 : 0.5 }}
+                  onClick={sparaProtokoll} disabled={sparar || !protokollForm.utfort || !alleaChecksFyllda}
+                  style={{ padding: '9px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: (protokollForm.utfort && alleaChecksFyllda) ? 'pointer' : 'not-allowed', opacity: (protokollForm.utfort && alleaChecksFyllda) ? 1 : 0.5 }}
                 >
                   {sparar ? 'Sparar…' : 'Spara protokoll & stäng ärende'}
                 </button>
@@ -475,7 +550,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onLaggTillBokning, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], protokollMallar = {}, onUppdatera, onUppdateraObjekt, onLaggTill, onLaggTillBokning, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
   const [valt,      setValt]      = useState(null)
   const [filter,    setFilter]    = useState('oppna')
   const [sokText,   setSokText]   = useState('')
@@ -538,7 +613,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
 
   if (valt) {
     const uppdaterat = arenden.find(a => a.id === valt.id) || valt
-    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} objekt={objekt} onUppdatera={onUppdatera} onUppdateraObjekt={onUppdateraObjekt} onLaggTillBokning={onLaggTillBokning} onBack={() => setValt(null)} />
+    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} objekt={objekt} protokollMallar={protokollMallar} onUppdatera={onUppdatera} onUppdateraObjekt={onUppdateraObjekt} onLaggTillBokning={onLaggTillBokning} onBack={() => setValt(null)} />
   }
 
   return (
