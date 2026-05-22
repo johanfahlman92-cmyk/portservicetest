@@ -24,6 +24,27 @@ export const protokollTyper = {
 
 // Egenkontroll-mallar för monteringsprotokoll (kan åsidosättas via Supabase app_config)
 export const monteringPunkter = {
+  'Eldriven port': [
+    '## Montering & installation',
+    'Att drivutrustningen är monterad enligt tillverkarens anvisningar',
+    'Att inga risker eller hinder befinner sig i portens riskzoner och arbetsområde vid körning',
+    'Att fingerskydd är korrekt monterat (om sådant finns)',
+    'Att elinstallation och arbetsbrytare är rätt monterade',
+    '## Funktionskontroll',
+    'Att porten kan frikopplas / funktion på nödöppningsutrustning',
+    'Att portens gränsläge är rätt justerat och rotationsriktningen är rätt',
+    'Funktion på nödstopp',
+    'Funktion på klämskydd (om sådant finns)',
+    'Funktion på fotocell',
+    'Funktion på motviktssystem (om sådant finns)',
+    'Funktion på manöverdon t.ex. tryckknappslådor',
+    'Funktion på övriga funktionsmoduler',
+    'Drift & skötselfunktion',
+    'Att begränsad gångtid är rätt inställd',
+    '## Slutkontroll',
+    'Att varningssymboler och övriga dekaler inklusive CE-märkning är monterade',
+    'Att kablage är fackmannamässigt dragna',
+  ],
   Vikport: [
     '## Mekanik',
     'Portblad och skenor utan skador eller deformationer',
