@@ -128,6 +128,7 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
                         egenRisker = [], egenkontroll, egenNoteringar,
                         signaturbild, logoBase64, effektivaMallar,
                         ansvariga = [], godkannande = null,
+                        ordernummer = null, serienummer = null,
                         // bakåtkompatibilitet – gamla protokoll med FAROR-baserade risker
                         risker = null }) {
   const punkter = (effektivaMallar || EGENKONTROLL)[portTyp] || []
@@ -217,6 +218,8 @@ ${logoBase64 ? `<img src="${logoBase64}" style="float:right;height:40px;margin-t
   <div><b>Datum:</b> ${datum}</div>
   <div><b>Tekniker:</b> ${teknikerNamn||'–'}</div>
   <div><b>Serviceintervall:</b> ${serviceIntervallLabel(serviceIntervall)}</div>
+  ${ordernummer ? `<div><b>Ordernummer:</b> ${ordernummer}</div>` : ''}
+  ${serienummer ? `<div><b>Serienummer:</b> ${serienummer}</div>` : ''}
 </div>
 ${ansvariga.length > 0 ? `<p style="font-size:11px;margin:0 0 8px;color:#333"><strong>Ansvariga:</strong> ${ansvariga.map(a => `${a.namn}${a.roll ? ` (${a.roll})` : ''}`).join(' · ')}</p>` : ''}
 <h2>Riskbedömning</h2>
@@ -493,7 +496,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund }) {
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
 
@@ -531,9 +534,10 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [egenNoteringar,   setEgenNoteringar]   = useState({})
   const [ansvariga,        setAnsvariga]        = useState([])
   const [godkannande,      setGodkannande]      = useState(null)
-  const [visaSignatur,     setVisaSignatur]     = useState(false)
   const [signaturbild,     setSignaturbild]     = useState(null)
   const [dokument,         setDokument]         = useState([])
+  const [ordernummer,      setOrdernummer]      = useState('')
+  const [serienummer,      setSerienummer]      = useState('')
   const [sparad,           setSparad]           = useState(false)
   const [sparar,           setSparar]           = useState(false)
 
@@ -605,7 +609,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const uppdateraEditEgenRisk  = (id, fält, val) => setEditEgenRisker(prev => prev.map(r => r.id === id ? { ...r, [fält]: val } : r))
   const taBortEditEgenRisk     = (id) => setEditEgenRisker(prev => prev.filter(r => r.id !== id))
 
-  const kanSpara = portNamn.trim().length > 0
+  const kanSpara = portNamn.trim().length > 0 && !!signaturbild
   const setEgen  = (idx, val) => setEgenkontroll(prev => ({ ...prev, [idx]: val }))
 
   const spara = async () => {
@@ -615,6 +619,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       datum, tekniker: teknikerNamn, typ: 'montering',
       portTyp, serviceIntervall: parseInt(serviceIntervall) || 0,
       adress, kund,
+      ordernummer: ordernummer.trim() || null,
+      serienummer: serienummer.trim() || null,
       riskKontroll:   { ...riskKontroll },
       riskNoteringar: { ...riskNoteringar },
       egenRisker:     [...egenRisker],
@@ -630,8 +636,28 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       id: 'o' + Date.now(), namn: portNamn.trim(), kund: kund.trim(),
       typ: portTyp, adress: adress.trim(), status: 'ok',
       kundTyp: 'foretag', intervallProcent: 0, dagerForsenad: 0,
+      ordernummer: ordernummer.trim() || null,
+      serienummer: serienummer.trim() || null,
+      dokument: [...dokument],
       historik: [nyttInslag],
     })
+
+    // Automatisk kalenderbokning för nästa service
+    if (serviceIntervall !== '0' && onLaggTillBokning) {
+      const intervallMån = parseInt(serviceIntervall) || 12
+      const d = new Date(datum)
+      d.setMonth(d.getMonth() + intervallMån)
+      const nastaServiceDatum = d.toISOString().slice(0, 10)
+      await onLaggTillBokning(nastaServiceDatum, {
+        typ: 'service',
+        namn: portNamn.trim(),
+        kund: kund.trim(),
+        tid: '08:00',
+        tek: teknikerNamn ? [teknikerNamn] : [],
+        arendeId: null,
+      })
+    }
+
     setSparar(false); setSparad(true)
   }
 
@@ -652,6 +678,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       logoBase64, effektivaMallar,
       ansvariga: valdProtokoll.ansvariga || [],
       godkannande: valdProtokoll.godkannande || null,
+      ordernummer: valdProtokoll.ordernummer || null,
+      serienummer: valdProtokoll.serienummer || null,
       risker: valdProtokoll.risker || null, // bakåtkompatibilitet
     })
     const win = window.open('', '_blank', 'width=860,height=1100')
@@ -677,6 +705,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       portNamn, kund, adress, portTyp, datum, teknikerNamn, serviceIntervall,
       riskKontroll, riskNoteringar, egenRisker, egenkontroll, egenNoteringar,
       signaturbild, logoBase64, effektivaMallar, ansvariga, godkannande,
+      ordernummer, serienummer,
     })
     const win = window.open('', '_blank', 'width=860,height=1100')
     win.document.write(html); win.document.close()
@@ -690,7 +719,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setRiskKontroll({}); setRiskNoteringar({}); setEgenRisker([])
     setEgenkontroll({}); setEgenNoteringar({})
     setAnsvariga([]); setGodkannande(null)
-    setSignaturbild(null); setVisaSignatur(false); setDokument([])
+    setSignaturbild(null); setDokument([])
+    setOrdernummer(''); setSerienummer('')
   }
 
   const inp  = { width: '100%', padding: '9px 12px', fontSize: 14, boxSizing: 'border-box', border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)' }
@@ -805,6 +835,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               {[['Kund', valdProtokoll.kund], ['Adress', valdProtokoll.adress], ['Porttyp', valdProtokoll.portTyp],
                 ['Datum', valdProtokoll.datum], ['Tekniker', valdProtokoll.tekniker],
                 ['Serviceintervall', valdProtokoll.serviceIntervall ? `var ${valdProtokoll.serviceIntervall}:e mån` : '–'],
+                ...(valdProtokoll.ordernummer ? [['Ordernummer', valdProtokoll.ordernummer]] : []),
+                ...(valdProtokoll.serienummer ? [['Serienummer', valdProtokoll.serienummer]] : []),
               ].map(([l, val]) => (
                 <div key={l}>
                   <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 600, textTransform: 'uppercase' }}>{l}</div>
@@ -988,6 +1020,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
         <p style={{ color: 'var(--c-text2)', fontSize: 14, marginBottom: 24 }}>
           Protokollet har sparats i portens historik.<br />
           <span style={{ color: 'var(--c-teal)' }}>Porten har lagts till i portregistret.</span>
+          {serviceIntervall !== '0' && (<><br /><span style={{ color: 'var(--c-blue)' }}>Kalenderbokning för nästa service skapad automatiskt.</span></>)}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={nyttProtokoll}>Nytt protokoll</button>
@@ -1085,6 +1118,16 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               <option value="">– Välj tekniker –</option>
               {tekniker.map(t => <option key={t}>{t}</option>)}
             </select>
+          </div>
+          <div className="grid2">
+            <div>
+              <label style={lbl}>Ordernummer</label>
+              <input type="text" value={ordernummer} onChange={e => setOrdernummer(e.target.value)} placeholder="t.ex. 2024-00451" style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>Serienummer</label>
+              <input type="text" value={serienummer} onChange={e => setSerienummer(e.target.value)} placeholder="t.ex. SN-4872-A" style={inp} />
+            </div>
           </div>
           <div>
             <label style={lbl}>Serviceintervall (från monteringsdatum)</label>
@@ -1241,16 +1284,15 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
           </div>
 
           <div style={{ marginTop: 20, borderTop: '1px solid var(--c-border)', paddingTop: 16 }}>
-            <label style={{ fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, marginBottom: visaSignatur ? 10 : 0 }}>
-              <input type="checkbox" checked={visaSignatur} onChange={e => setVisaSignatur(e.target.checked)} />
-              Tekniker signatur
-            </label>
-            {visaSignatur && (
-              <>
-                <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 8 }}>Rita signaturen nedan.</p>
-                <SignaturPad onChange={setSignaturbild} />
-              </>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>Tekniker signatur *</div>
+              {signaturbild
+                ? <span style={{ fontSize: 11, color: 'var(--c-teal)', fontWeight: 600 }}>✓ Signerad</span>
+                : <span style={{ fontSize: 11, color: 'var(--c-red)' }}>Obligatorisk för att spara</span>
+              }
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 10, marginTop: 0 }}>Rita signaturen i fältet nedan.</p>
+            <SignaturPad onChange={setSignaturbild} />
           </div>
 
           <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -1261,7 +1303,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               {sparar ? 'Sparar…' : 'Spara protokoll'}
             </button>
           </div>
-          {!kanSpara && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 6 }}>Fyll i portnamn för att spara.</p>}
+          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 6 }}>Fyll i portnamn för att spara.</p>}
+          {portNamn.trim() && !signaturbild && <p style={{ fontSize: 12, color: 'var(--c-red)', textAlign: 'right', marginTop: 6 }}>Signatur krävs för att spara protokollet.</p>}
         </div>
       )}
 
