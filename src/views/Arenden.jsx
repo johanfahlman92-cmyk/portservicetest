@@ -273,7 +273,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>
-              <FileText size={14} color="var(--c-blue)" /> Skapa serviceprotokoll
+              <FileText size={14} color="var(--c-blue)" /> Rapportera & stäng ärende
             </div>
             <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>{visaProtokoll ? '▲' : '▼'}</span>
           </button>
