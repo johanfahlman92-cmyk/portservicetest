@@ -612,7 +612,7 @@ export default function App() {
           flex: 1,
           padding: erMobil ? '16px' : '28px 32px',
           overflowY: 'auto',
-          maxWidth: erMobil ? '100%' : 900,
+          maxWidth: erMobil ? '100%' : page === 'kalender' ? 1600 : 900,
           width: '100%',
         }}>
           {(views[page] || views.dashboard)()}
