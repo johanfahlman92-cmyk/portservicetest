@@ -533,6 +533,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [serienummer,      setSerienummer]      = useState('')
   const [sparad,           setSparad]           = useState(false)
   const [sparar,           setSparar]           = useState(false)
+  const [montageorderId,   setMontageorderId]   = useState(null)
+  const [riskVarning,      setRiskVarning]      = useState(false)   // visa varning om risk ej fylld
 
   // ── Förifyll från montageplanering ──
   useEffect(() => {
@@ -543,8 +545,20 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setKund(o.kund || '')
     setOrdernummer(o.ordernummer || '')
     setSerienummer(o.serienummer || '')
+    setMontageorderId(o.id || null)
+    // Återuppta rätt steg baserat på sparat protokoll
+    const sparat = o.protokoll_data?.steg || 0
+    if (sparat >= 2) {
+      setRiskKontroll(o.protokoll_data?.riskKontroll || {})
+      setRiskNoteringar(o.protokoll_data?.riskNoteringar || {})
+      setEgenRisker(o.protokoll_data?.egenRisker || [])
+      setAktFlik('egenkontroll')
+    } else if (sparat >= 1) {
+      setAktFlik('risk')
+    } else {
+      setAktFlik('info')
+    }
     setVy('ny')
-    setAktFlik('info')
     onFörifylldHandled?.()
   }, [förifylldMontageorder])
 
@@ -759,6 +773,57 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setAnsvariga([]); setGodkannande(null)
     setSignaturbild(null); setDokument([])
     setOrdernummer(''); setSerienummer('')
+    setMontageorderId(null); setRiskVarning(false)
+  }
+
+  // ── Mellansparningar ─────────────────────────────────────────────────────────
+  const sparaSteg1 = async () => {
+    // Om vi har ett känt montageorder-id, uppdatera det med steg-1-data
+    if (montageorderId && onUppdateraMontageorder) {
+      const ord = montageorder.find(m => m.id === montageorderId)
+      if (ord) {
+        await onUppdateraMontageorder(montageorderId, {
+          montageplats: adress.trim() || portNamn.trim(),
+          kund: kund.trim(),
+          ordernummer: ordernummer.trim() || null,
+          serienummer: serienummer.trim() || null,
+          status: ord.status === 'ej_planerad' ? 'planerad' : ord.status,
+          protokoll_data: {
+            ...(ord.protokoll_data || {}),
+            steg: 1,
+            portTyp, datum, teknikerNamn,
+            adress: adress.trim(), kund: kund.trim(),
+            serviceIntervall: parseInt(serviceIntervall) || 0,
+          },
+        })
+      }
+    }
+    setAktFlik('risk')
+  }
+
+  const sparaSteg2 = () => {
+    const harRisk = Object.keys(riskKontroll).length > 0
+    if (!harRisk && !riskVarning) {
+      setRiskVarning(true)
+      return
+    }
+    setRiskVarning(false)
+    // Mellansparning av riskdata om vi har ett order-id
+    if (montageorderId && onUppdateraMontageorder) {
+      const ord = montageorder.find(m => m.id === montageorderId)
+      if (ord) {
+        onUppdateraMontageorder(montageorderId, {
+          protokoll_data: {
+            ...(ord.protokoll_data || {}),
+            steg: 2,
+            riskKontroll: { ...riskKontroll },
+            riskNoteringar: { ...riskNoteringar },
+            egenRisker: [...egenRisker],
+          },
+        })
+      }
+    }
+    setAktFlik('egenkontroll')
   }
 
   const inp  = { width: '100%', padding: '9px 12px', fontSize: 14, boxSizing: 'border-box', border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)' }
@@ -1070,12 +1135,13 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     </div>
   )
 
-  const flikar = [
-    { id: 'info',         label: 'Montageinformation' },
-    { id: 'risk',         label: 'Riskbedömning' },
-    { id: 'egenkontroll', label: 'Egenkontroll' },
-    { id: 'dokument',     label: `Dokument${dokument.length ? ` (${dokument.length})` : ''}` },
+  const STEG = [
+    { id: 'info',         nr: 1, label: 'Portuppgifter',  sub: 'Grundinformation' },
+    { id: 'risk',         nr: 2, label: 'Riskbedömning',  sub: 'Före arbete' },
+    { id: 'egenkontroll', nr: 3, label: 'Egenkontroll',   sub: 'Efter montage' },
   ]
+  const aktivtStegNr = STEG.find(s => s.id === aktFlik)?.nr || 1
+  const stegKlar = (nr) => nr < aktivtStegNr
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1111,18 +1177,42 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
         </p>
       </div>
 
-      {/* Flikar */}
-      <div style={{ display: 'flex', gap: 2 }}>
-        {flikar.map(f => (
-          <button key={f.id} onClick={() => setAktFlik(f.id)} style={{
-            padding: '8px 16px', fontSize: 13, border: 'none', cursor: 'pointer',
-            borderRadius: '8px 8px 0 0',
-            background: aktFlik === f.id ? 'var(--c-surface)' : 'transparent',
-            color:      aktFlik === f.id ? 'var(--c-text)'    : 'var(--c-text2)',
-            fontWeight: aktFlik === f.id ? 600 : 400,
-            borderBottom: aktFlik === f.id ? '2px solid var(--c-teal)' : '2px solid transparent',
-          }}>{f.label}</button>
-        ))}
+      {/* Stegindikator */}
+      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--c-surface)', borderRadius: 12, border: '1px solid var(--c-border)', padding: '14px 20px' }}>
+        {STEG.map((s, idx) => {
+          const klar   = stegKlar(s.nr)
+          const aktiv  = aktFlik === s.id
+          const klickbar = klar || aktiv
+          return (
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', flex: idx < STEG.length - 1 ? 1 : 0 }}>
+              <button
+                onClick={() => klickbar && setAktFlik(s.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: klickbar ? 'pointer' : 'default', padding: '4px 8px', borderRadius: 8, transition: 'background 0.12s' }}
+                onMouseEnter={e => klickbar && !aktiv && (e.currentTarget.style.background = 'var(--c-bg)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 700, fontSize: 14,
+                  background: klar ? 'var(--c-teal)' : aktiv ? 'var(--c-blue)' : 'var(--c-bg)',
+                  color:      klar ? '#fff'           : aktiv ? '#fff'          : 'var(--c-text3)',
+                  border:     klar ? 'none'           : aktiv ? 'none'          : '2px solid var(--c-border)',
+                }}>
+                  {klar ? <Check size={15} /> : s.nr}
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: 12, fontWeight: aktiv ? 700 : 500, color: aktiv ? 'var(--c-text)' : klar ? 'var(--c-teal)' : 'var(--c-text2)' }}>{s.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--c-text3)' }}>{s.sub}</div>
+                </div>
+              </button>
+              {idx < STEG.length - 1 && (
+                <div style={{ flex: 1, height: 2, margin: '0 8px', borderRadius: 1,
+                  background: stegKlar(s.nr + 1) || aktFlik === STEG[idx + 1].id ? 'var(--c-teal)' : 'var(--c-border)' }} />
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* ── TAB: Montageinformation ── */}
@@ -1188,10 +1278,11 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setAktFlik('risk')}>
-              Nästa: Riskbedömning <ChevronRight size={14} />
+            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={sparaSteg1} disabled={!portNamn.trim()}>
+              {montageorderId ? 'Spara & Nästa' : 'Nästa'}: Riskbedömning <ChevronRight size={14} />
             </button>
           </div>
+          {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 4 }}>Fyll i portnamn för att fortsätta.</p>}
         </div>
       )}
 
@@ -1260,11 +1351,34 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
 
           <AvslutandeBedömning godkannande={godkannande} onChange={setGodkannande} redigerar={true} />
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setAktFlik('egenkontroll')}>
-              Nästa: Egenkontroll <ChevronRight size={14} />
-            </button>
-          </div>
+          {/* Varning om riskbedömning ej fylld */}
+          {riskVarning && (
+            <div style={{ margin: '14px 0 0', background: 'var(--c-amber-bg)', border: '1px solid var(--c-amber)', borderRadius: 10, padding: '12px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <AlertTriangle size={16} color="var(--c-amber)" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-amber-text)' }}>Riskbedömningen är inte ifylld</span>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--c-amber-text)', margin: '0 0 12px' }}>
+                Det rekommenderas starkt att gå igenom riskbedömningen innan arbete påbörjas. Vill du fortsätta ändå?
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary" onClick={sparaSteg2} style={{ fontSize: 12 }}>
+                  Fortsätt utan riskbedömning
+                </button>
+                <button className="btn" onClick={() => setRiskVarning(false)} style={{ fontSize: 12 }}>
+                  Fyll i riskbedömning
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!riskVarning && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={sparaSteg2}>
+                {montageorderId ? 'Spara & Nästa' : 'Nästa'}: Egenkontroll <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1333,35 +1447,28 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
             <SignaturPad onChange={setSignaturbild} />
           </div>
 
+          {/* Dokument (integrerat i steg 3) */}
+          <div style={{ marginTop: 20, borderTop: '1px solid var(--c-border)', paddingTop: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+              📎 Bifogade dokument
+              {dokument.length > 0 && <span style={{ fontSize: 11, color: 'var(--c-teal)', marginLeft: 8 }}>({dokument.length} st)</span>}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 10 }}>
+              Bifoga manualer, ritningar, CE-intyg, foton m.m. (valfritt).
+            </p>
+            <DokumentZon dokument={dokument} onChange={setDokument} />
+          </div>
+
           <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={skrivUtPDF}>
               <Printer size={14} /> Förhandsgranska PDF
             </button>
-            <button className="btn btn-primary" disabled={sparar || !kanSpara} onClick={spara}>
-              {sparar ? 'Sparar…' : 'Spara protokoll'}
+            <button className="btn btn-primary" disabled={sparar || !kanSpara} onClick={spara} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle size={14} /> {sparar ? 'Sparar…' : 'Slutför & Spara'}
             </button>
           </div>
           {!portNamn.trim() && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: 6 }}>Fyll i portnamn för att spara.</p>}
           {portNamn.trim() && !signaturbild && <p style={{ fontSize: 12, color: 'var(--c-red)', textAlign: 'right', marginTop: 6 }}>Signatur krävs för att spara protokollet.</p>}
-        </div>
-      )}
-
-      {/* ── TAB: Dokument ── */}
-      {aktFlik === 'dokument' && (
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Bifogade dokument</div>
-            <p style={{ fontSize: 12, color: 'var(--c-text2)' }}>
-              Bifoga relevanta dokument – manualer, ritningar, CE-intyg, foton m.m.
-            </p>
-          </div>
-          <DokumentZon dokument={dokument} onChange={setDokument} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" disabled={sparar || !kanSpara} onClick={spara}>
-              {sparar ? 'Sparar…' : 'Spara protokoll'}
-            </button>
-          </div>
-          {!kanSpara && <p style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'right', marginTop: -8 }}>Fyll i portnamn för att spara.</p>}
         </div>
       )}
     </div>
