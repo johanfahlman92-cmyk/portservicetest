@@ -11,21 +11,21 @@ const FELTYPER = [
   'Annat',
 ]
 
-export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, onLoggaUt, onNyKund, standaloneMode = true }) {
+export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, onLoggaUt, onNyKund, standaloneMode = true, initialPortNamn = '', initialKund = '' }) {
   const [steg, setSteg]       = useState('form')
   const [sparar, setSparar]   = useState(false)
 
   const [arendeTyp, setArendeTyp] = useState('felanmalan')
 
-  const [sokKund, setSokKund]   = useState('')
-  const [valdKund, setValdKund]           = useState(null)
+  const [sokKund, setSokKund]   = useState(initialKund)
+  const [valdKund, setValdKund]           = useState(() => initialKund ? (kunder.find(k => k.namn === initialKund) || null) : null)
   const [nyKundLage, setNyKundLage]       = useState(false)
   const [nyKundNamn, setNyKundNamn]       = useState('')
   const [nyKundTelefon, setNyKundTelefon] = useState('')
   const [nyKundAdress, setNyKundAdress]   = useState('')
   const [nyKundOrt, setNyKundOrt]         = useState('')
 
-  const [valdObjekt, setValdObjekt]   = useState('')
+  const [valdObjekt, setValdObjekt]   = useState(initialPortNamn)
   const [feltyp, setFeltyp]           = useState(FELTYPER[0])
   const [beskrivning, setBeskrivning] = useState('')
   const [prioritet, setPrioritet]     = useState('normal')

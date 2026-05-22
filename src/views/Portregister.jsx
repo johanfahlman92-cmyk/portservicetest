@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy } from 'lucide-react'
+import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle } from 'lucide-react'
+import DokumentZon from '../components/DokumentZon.jsx'
 import { statusConfig, protokollTyper, protokollPunkter } from '../data/store.js'
 import logo from '../image-1779305303942.png'
 
@@ -250,9 +251,30 @@ function SnabbBokning({ obj, tekniker, onSpara, onStäng }) {
 }
 
 // ── Portdetaljer ──────────────────────────────────────────────────────────────
-function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onDupliceraPort }) {
-  const [valdProtokoll,  setValdProtokoll]  = useState(null)
+function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onDupliceraPort, onNyArende }) {
+  const [valdProtokoll,    setValdProtokoll]    = useState(null)
   const [visaSnabbBokning, setVisaSnabbBokning] = useState(false)
+  const [redigeraNasta,    setRedigeraNasta]    = useState(false)
+  const [nastaDatum,       setNastaDatum]       = useState(obj.nasta || '')
+  const [spararNasta,      setSpararNasta]      = useState(false)
+  const [dokument,         setDokument]         = useState(obj.dokument || [])
+
+  const sparaNasta = async () => {
+    setSpararNasta(true)
+    await onUppdateraObjekt(obj.id, { nasta: nastaDatum })
+    setSpararNasta(false)
+    setRedigeraNasta(false)
+  }
+
+  const sparaDokument = async (nyaDok) => {
+    setDokument(nyaDok)
+    await onUppdateraObjekt(obj.id, { dokument: nyaDok })
+  }
+
+  // Samla dokument från monteringshistorik
+  const monteringDok = (obj.historik || [])
+    .filter(h => h.typ === 'montering' && h.dokument?.length)
+    .flatMap(h => h.dokument)
 
   const serviceProtokoll = (obj.historik || []).filter(h => h.typ !== 'montering')
   const monteringEntry   = (obj.historik || []).find(h => h.typ === 'montering')
@@ -285,7 +307,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <button className="btn" onClick={onBack}>← Tillbaka</button>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             onClick={() => onDupliceraPort?.(obj)}
             title="Duplicera port"
@@ -295,6 +317,16 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           >
             <Copy size={13} /> Duplicera
           </button>
+          {onNyArende && (
+            <button
+              onClick={() => onNyArende(obj)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7,
+                padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
+                border: '1.5px solid var(--c-red)', background: 'var(--c-red-bg)', color: 'var(--c-red-text)' }}
+            >
+              <AlertCircle size={15} /> Ny felanmälan
+            </button>
+          )}
           <button
             onClick={() => setVisaSnabbBokning(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 7,
@@ -343,21 +375,42 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="section-title">Serviceintervall</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>
-          <span>{obj.senaste || '–'}</span><span>{obj.nasta}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div className="section-title" style={{ margin: 0 }}>Serviceintervall</div>
+          {!redigeraNasta && (
+            <button onClick={() => setRedigeraNasta(true)} className="btn"
+              style={{ fontSize: 11, padding: '3px 9px', display: 'flex', alignItems: 'center', gap: 4 }}>
+              ✏ Ändra nästa
+            </button>
+          )}
         </div>
-        <div className="progress-bar" style={{ height: 8 }}>
-          <div className="progress-fill" style={{
-            width: `${Math.min(obj.intervallProcent, 100)}%`,
-            background: obj.intervallProcent > 100 ? 'var(--c-red)' : obj.intervallProcent > 70 ? 'var(--c-amber)' : 'var(--c-teal)'
-          }} />
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 6 }}>
-          {obj.status === 'forsenad'
-            ? `Försenad ${obj.dagerForsenad} dagar`
-            : `${obj.intervallProcent}% av intervallet förbrukat`}
-        </div>
+        {redigeraNasta ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <input type="date" value={nastaDatum} onChange={e => setNastaDatum(e.target.value)}
+              style={{ flex: 1, padding: '6px 9px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)' }} />
+            <button className="btn btn-primary" onClick={sparaNasta} disabled={spararNasta} style={{ fontSize: 12 }}>
+              {spararNasta ? 'Sparar…' : 'Spara'}
+            </button>
+            <button className="btn" onClick={() => setRedigeraNasta(false)} style={{ fontSize: 12 }}>Avbryt</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>
+              <span>{obj.senaste || '–'}</span><span>{obj.nasta || '–'}</span>
+            </div>
+            <div className="progress-bar" style={{ height: 8 }}>
+              <div className="progress-fill" style={{
+                width: `${Math.min(obj.intervallProcent, 100)}%`,
+                background: obj.intervallProcent > 100 ? 'var(--c-red)' : obj.intervallProcent > 70 ? 'var(--c-amber)' : 'var(--c-teal)'
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 6 }}>
+              {obj.status === 'forsenad'
+                ? `Försenad ${obj.dagerForsenad} dagar`
+                : `${obj.intervallProcent}% av intervallet förbrukat`}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Serviceprotokoll */}
@@ -396,6 +449,30 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           </div>
         </div>
       )}
+
+      {/* Dokument */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <Paperclip size={14} color="var(--c-blue)" />
+          Dokument {(dokument.length + monteringDok.length) > 0 && `(${dokument.length + monteringDok.length})`}
+        </div>
+        {/* Dokument från montering (läsonly) */}
+        {monteringDok.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 6 }}>Från montering</div>
+            {monteringDok.map((d, i) => (
+              <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7,
+                  background: 'var(--c-bg)', border: '1px solid var(--c-border)', marginBottom: 5,
+                  textDecoration: 'none', color: 'var(--c-text)', fontSize: 12 }}>
+                <Paperclip size={13} color="var(--c-text3)" />
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.namn}</span>
+              </a>
+            ))}
+          </div>
+        )}
+        <DokumentZon dokument={dokument} onChange={sparaDokument} />
+      </div>
 
       {/* Arkivera */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
@@ -478,41 +555,62 @@ function ArkivLista({ arkiverade, onÅterställ, onTaBortPermanent, onBack }) {
 // ── Ny port-formulär ──────────────────────────────────────────────────────────
 const portTyper = Object.keys(protokollTyper)
 
+const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
+
 function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null }) {
   const initFastighetId = forval?.fastighetId || fastigheter[0]?.id || ''
-  const [valdFastighetId, setValdFastighetId] = useState(initFastighetId)
-  const [sparar,          setSparar]          = useState(false)
+  const [valdFastighetId,  setValdFastighetId]  = useState(initFastighetId)
+  const [sparar,           setSparar]           = useState(false)
+  const [annatFabrikat,    setAnnatFabrikat]    = useState(
+    forval?.fabrikat && !FASTA_FABRIKAT.includes(forval.fabrikat) ? forval.fabrikat : ''
+  )
+  const [serviceIntervall, setServiceIntervall] = useState('12')
   const [form, setForm] = useState({
     typ:         forval?.typ         || portTyper[0],
     namn:        forval ? `Kopia av ${forval.namn}` : '',
     kund:        forval?.kund        || kunder[0]?.namn || '',
-    fabrikat:    forval?.fabrikat    || '',
+    fabrikat:    forval?.fabrikat && FASTA_FABRIKAT.includes(forval.fabrikat) ? forval.fabrikat : (forval?.fabrikat ? 'Annat' : ''),
     ar:          forval?.ar          || new Date().getFullYear(),
     adress:      forval?.adress      || '',
     ordernummer: forval?.ordernummer || '',
-    serienummer: '',   // serienummer kopieras aldrig
+    serienummer: '',
   })
   const [fel, setFel] = useState(false)
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const valdFastighet = fastigheter.find(f => f.id === valdFastighetId)
+  const effektivtFabrikat = form.fabrikat === 'Annat' ? annatFabrikat : form.fabrikat
 
   const submit = async () => {
-    if (!form.namn.trim() || !form.fabrikat.trim() || !form.adress.trim()) { setFel(true); return }
+    if (!form.namn.trim() || !effektivtFabrikat.trim()) { setFel(true); return }
     setSparar(true)
-    const nasta = new Date(); nasta.setMonth(nasta.getMonth() + 6)
+    let nasta = ''
+    if (serviceIntervall !== '0') {
+      const d = new Date(); d.setMonth(d.getMonth() + parseInt(serviceIntervall))
+      nasta = d.toISOString().slice(0, 10)
+    }
     onSpara({
       id: 'p' + Date.now(),
-      plats:      valdFastighet?.namn || '',
+      plats:       valdFastighet?.namn || '',
       fastighetId: valdFastighetId || null,
-      typ: form.typ,
-      namn: form.namn.trim(), kund: form.kund, kundTyp: 'foretag',
-      fabrikat: form.fabrikat.trim(), ar: parseInt(form.ar) || new Date().getFullYear(),
-      adress: form.adress.trim(),
-      ordernummer: form.ordernummer.trim(), serienummer: form.serienummer.trim(),
-      senaste: '', nasta: nasta.toISOString().slice(0, 10),
-      intervallProcent: 0, status: 'ny', protokoll: form.typ,
-      punkter: protokollTyper[form.typ].punkter, historik: [], arkiverad: false,
+      typ:         form.typ,
+      namn:        form.namn.trim(),
+      kund:        form.kund,
+      kundTyp:     'foretag',
+      fabrikat:    effektivtFabrikat.trim(),
+      ar:          parseInt(form.ar) || new Date().getFullYear(),
+      adress:      form.adress.trim(),
+      ordernummer: form.ordernummer.trim(),
+      serienummer: form.serienummer.trim(),
+      serviceIntervall: parseInt(serviceIntervall) || 0,
+      senaste: '',
+      nasta,
+      intervallProcent: 0,
+      status: 'ny',
+      protokoll: form.typ,
+      punkter: protokollTyper[form.typ].punkter,
+      historik: [],
+      arkiverad: false,
     })
     setSparar(false)
   }
@@ -543,6 +641,7 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+        {/* Porttyp + Kund */}
         <div style={fld}><label style={lbl}>Porttyp *</label>
           <select value={form.typ} onChange={e => set('typ', e.target.value)} style={inp}>
             {portTyper.map(t => <option key={t}>{t}</option>)}
@@ -552,26 +651,69 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
             <option value="">– Välj kund –</option>
             {kunder.map(k => <option key={k.id} value={k.namn}>{k.namn}</option>)}
           </select></div>
-        <div style={{ ...fld, gridColumn: '1/-1' }}><label style={lbl}>Namn / beteckning *</label>
+
+        {/* Placering (primärt namn/identifikator) */}
+        <div style={{ ...fld, gridColumn: '1/-1' }}>
+          <label style={lbl}>Placering * <span style={{ color: 'var(--c-text3)', fontWeight: 400 }}>(t.ex. Lager A – Port 2)</span></label>
           <input type="text" placeholder="t.ex. Vikport lager B – Port 2" value={form.namn}
             onChange={e => set('namn', e.target.value)}
-            style={{ ...inp, borderColor: fel && !form.namn.trim() ? 'var(--c-red)' : undefined }} /></div>
-        <div style={fld}><label style={lbl}>Fabrikat / modell *</label>
-          <input type="text" placeholder="Hörmann H3000" value={form.fabrikat}
-            onChange={e => set('fabrikat', e.target.value)}
-            style={{ ...inp, borderColor: fel && !form.fabrikat.trim() ? 'var(--c-red)' : undefined }} /></div>
+            style={{ ...inp, borderColor: fel && !form.namn.trim() ? 'var(--c-red)' : undefined }} />
+        </div>
+
+        {/* Fabrikat */}
+        <div style={fld}>
+          <label style={lbl}>Fabrikat *</label>
+          <select value={form.fabrikat} onChange={e => set('fabrikat', e.target.value)}
+            style={{ ...inp, borderColor: fel && !effektivtFabrikat.trim() ? 'var(--c-red)' : undefined }}>
+            <option value="">– Välj fabrikat –</option>
+            {FASTA_FABRIKAT.map(f => <option key={f} value={f}>{f}</option>)}
+            <option value="Annat">Annat / okänt</option>
+          </select>
+          {form.fabrikat === 'Annat' && (
+            <input type="text" placeholder="Ange fabrikat / modell" value={annatFabrikat}
+              onChange={e => setAnnatFabrikat(e.target.value)}
+              style={{ ...inp, marginTop: 6, borderColor: fel && !annatFabrikat.trim() ? 'var(--c-red)' : undefined }} />
+          )}
+        </div>
         <div style={fld}><label style={lbl}>Installationsår</label>
           <input type="number" value={form.ar} onChange={e => set('ar', e.target.value)} style={inp} /></div>
+
+        {/* Ordernummer + Serienummer */}
         <div style={fld}><label style={lbl}>Ordernummer</label>
           <input type="text" placeholder="t.ex. ORD-2024-001" value={form.ordernummer}
             onChange={e => set('ordernummer', e.target.value)} style={inp} /></div>
         <div style={fld}><label style={lbl}>Serienummer</label>
           <input type="text" placeholder="t.ex. SN-123456" value={form.serienummer}
             onChange={e => set('serienummer', e.target.value)} style={inp} /></div>
-        <div style={{ ...fld, gridColumn: '1/-1' }}><label style={lbl}>Placering / adress *</label>
+
+        {/* Adress */}
+        <div style={{ ...fld, gridColumn: '1/-1' }}>
+          <label style={lbl}>Adress</label>
           <input type="text" placeholder="Industrivägen 12, Luleå" value={form.adress}
-            onChange={e => set('adress', e.target.value)}
-            style={{ ...inp, borderColor: fel && !form.adress.trim() ? 'var(--c-red)' : undefined }} /></div>
+            onChange={e => set('adress', e.target.value)} style={inp} />
+        </div>
+      </div>
+
+      {/* Serviceintervall */}
+      <div style={fld}>
+        <label style={lbl}>Serviceintervall</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            ['12', '1 gång/år',     'Service var 12:e månad'],
+            ['6',  '2 ggr/år',      'Service var 6:e månad'],
+            ['0',  'Ingen service', 'Ingen schemalagd service'],
+          ].map(([val, lab, sub]) => (
+            <button key={val} type="button" onClick={() => setServiceIntervall(val)} style={{
+              flex: 1, minWidth: 100, padding: '9px 10px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+              border: `2px solid ${serviceIntervall === val ? 'var(--c-teal)' : 'var(--c-border)'}`,
+              background: serviceIntervall === val ? 'var(--c-teal-bg)' : 'var(--c-surface)',
+              color: serviceIntervall === val ? 'var(--c-teal-text)' : 'var(--c-text)',
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{lab}</div>
+              <div style={{ fontSize: 11, color: 'var(--c-text2)', marginTop: 1 }}>{sub}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {fel && <div style={{ fontSize: 12, color: 'var(--c-red)', marginBottom: 10 }}>Fyll i alla obligatoriska fält (*).</div>}
@@ -586,7 +728,7 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, initialObjektId, onInitialObjektHandled }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, initialObjektId, onInitialObjektHandled, onNyArende }) {
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)
@@ -636,6 +778,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
         setVald(null)
         setVisaForm(true)
       }}
+      onNyArende={onNyArende}
     />
   )
 

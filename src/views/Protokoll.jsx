@@ -279,6 +279,7 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
 
   // Bokningsstate (visas efter sparat)
   const [visaBokaModal, setVisaBokaModal] = useState(false)
+  const [hoppaBokning,  setHoppaBokning]  = useState(false)
   const [bokaDatum,     setBokaDatum]     = useState('')
   const [bokaTid,       setBokaTid]       = useState('08:00')
   const [bokaTekniker,  setBokaTekniker]  = useState('')
@@ -510,7 +511,7 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
           <div style={{ fontSize: 12, color: 'var(--c-teal-text)' }}>{sparatMsg.namn}</div>
         </div>
 
-        {onLaggTillBokning && (
+        {onLaggTillBokning && !hoppaBokning && (
           <div className="card" style={{ marginBottom: 16 }}>
             {bokaKlar ? (
               <div style={{ textAlign: 'center', padding: '12px 0' }}>
@@ -552,14 +553,14 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
                   <button className="btn btn-teal" onClick={() => setVisaBokaModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                     <CalendarPlus size={13} /> Ja, boka
                   </button>
-                  <button className="btn" style={{ fontSize: 12 }} onClick={() => {}}>Hoppa över</button>
+                  <button className="btn" style={{ fontSize: 12 }} onClick={() => setHoppaBokning(true)}>Hoppa över</button>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        <button className="btn" onClick={() => { setVy('lista'); setSparatMsg(null) }}>← Nytt protokoll</button>
+        <button className="btn" onClick={() => { setVy('lista'); setSparatMsg(null); setHoppaBokning(false); setBokaKlar(false); setVisaBokaModal(false) }}>← Nytt protokoll</button>
       </div>
     )
   }
@@ -569,12 +570,12 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <img src={logo} alt="" style={{ height: 60, display: 'block', flexShrink: 0 }} />
           <button className="btn" onClick={() => setVy('lista')}>← Välj annan port</button>
           <div>
             <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Nytt protokoll</h1>
             <p style={{ fontSize: 12, color: 'var(--c-text2)', margin: '2px 0 0' }}>{valdObjekt.namn} · {valdObjekt.kund}</p>
           </div>
-          <img src={logo} alt="" style={{ height: 36, marginLeft: 'auto' }} />
         </div>
         <ProtokollForm objekt={valdObjekt} tekniker={tekniker} mallar={protokollPunkter} onSpara={sparaProtokoll} />
       </div>

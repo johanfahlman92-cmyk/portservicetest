@@ -208,7 +208,7 @@ td{padding:6px 8px;border-bottom:1px solid #e8e7e4;font-size:11px}
 .sig-box{border:1px solid #ccc;border-radius:6px;padding:8px;display:inline-block;margin-top:6px}
 @media print{body{margin:0}}
 </style></head><body>
-${logoBase64 ? `<img src="${logoBase64}" style="float:right;height:40px;margin-top:-4px" alt="NMV Portservice" />` : ''}
+${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
 <h1>Monteringsprotokoll</h1>
 <div class="meta">
   <div><b>Objekt:</b> ${objektNamn}</div>

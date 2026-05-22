@@ -48,7 +48,7 @@ async function skrivUtArende(a) {
   </style></head><body>
   <div class="top">
     <div>
-      ${logoBase64 ? `<img src="${logoBase64}" style="height:44px;display:block" alt="NMV Portservice" />` : '<div style="font-size:20px;font-weight:800">NMV Portservice</div>'}
+      ${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block" alt="NMV Portservice" />` : '<div style="font-size:20px;font-weight:800">NMV Portservice</div>'}
       <div class="company-sub">Felanmälan</div>
     </div>
     <div><div class="nr">#${a.nr}</div><div class="nr-sub">${a.datum || ''}</div></div>
@@ -460,7 +460,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], onUppdatera, onUppdateraObjekt
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], onUppdatera, onUppdateraObjekt, onLaggTill, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
   const [valt,      setValt]      = useState(null)
   const [filter,    setFilter]    = useState('oppna')
   const [sokText,   setSokText]   = useState('')
@@ -478,6 +478,15 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
       }
     }
   }, [initialArendeId, arenden])
+
+  // Auto-öppna nytt ärende-formulär med port förifylld
+  useEffect(() => {
+    if (prefilladPort) {
+      setVisaForm(true)
+      setValt(null)
+      onPrefilladPortHandled?.()
+    }
+  }, [prefilladPort])
 
   const toggleVald = (id) => setValda(prev => {
     const ny = new Set(prev)
@@ -567,6 +576,8 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
             }}
             onNyKund={onNyKund}
             standaloneMode={false}
+            initialPortNamn={prefilladPort?.namn || ''}
+            initialKund={prefilladPort?.kund || ''}
           />
         </div>
       )}
