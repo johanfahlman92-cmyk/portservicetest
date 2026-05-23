@@ -413,9 +413,9 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                 <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>
                   {order.protokoll_data.datum && <span>{order.protokoll_data.datum} · </span>}
                   {order.protokoll_data.tekniker && <span>{order.protokoll_data.tekniker} · </span>}
-                  <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {order.protokoll_data.ok ?? 0} OK</span>
-                  {(order.protokoll_data.ej ?? 0) > 0 && <span style={{ color: '#b83333', fontWeight: 600 }}> · ✗ {order.protokoll_data.ej} Ej OK</span>}
-                  {(order.protokoll_data.na ?? 0) > 0 && <span style={{ color: '#888' }}> · {order.protokoll_data.na} N/A</span>}
+                  <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {order.protokoll_data.ok ?? 0} Godkänd</span>
+                  {(order.protokoll_data.ej ?? 0) > 0 && <span style={{ color: '#b83333', fontWeight: 600 }}> · ✗ {order.protokoll_data.ej} Avvikelse</span>}
+                  {(order.protokoll_data.na ?? 0) > 0 && <span style={{ color: '#888' }}> · {order.protokoll_data.na} Ej tillämpbar</span>}
                 </div>
                 <button className="btn" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
                   onClick={async () => {

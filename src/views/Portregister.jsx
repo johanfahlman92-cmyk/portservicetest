@@ -15,7 +15,7 @@ const filterOpts = [
 // ── Statusdefinitioner för serviceprotokoll (G/J/A) ─────────────────────────
 const PROT_STATUSES = [
   { kod: 'G', label: 'Godkänd',     color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  border: 'var(--c-teal)',  Icon: Check  },
-  { kod: 'J', label: 'Att notera',  color: 'var(--c-amber)', bg: 'var(--c-amber-bg)', border: 'var(--c-amber)', Icon: Wrench },
+  { kod: 'J', label: 'Notera',      color: 'var(--c-amber)', bg: 'var(--c-amber-bg)', border: 'var(--c-amber)', Icon: Wrench },
   { kod: 'A', label: 'Avvikelse',   color: 'var(--c-red)',   bg: 'var(--c-red-bg)',   border: 'var(--c-red)',   Icon: Minus  },
 ]
 const PROT_STATUS_MAP = Object.fromEntries(PROT_STATUSES.map(s => [s.kod, s]))
@@ -57,7 +57,7 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
 
   const skrivUtPDF = async () => {
     const logoBase64 = await hämtaLogo()
-    const STATUS_LABEL = { G: '✓ Godkänd', J: '⚠ Att notera', A: '✗ Avvikelse' }
+    const STATUS_LABEL = { G: '✓ Godkänd', J: '⚠ Notera', A: '✗ Avvikelse' }
     const STATUS_CLS   = { G: 's-g',       J: 's-j',          A: 's-a'         }
     let numCount = 0
     const rader = punkter.map((p, i) => {
@@ -80,7 +80,7 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
         { lbl: 'Porttyp',   val: entry.portTyp  || portTyp           },
         { lbl: 'Tekniker',  val: entry.tekniker                      },
         { lbl: 'Datum',     val: entry.datum                         },
-        { lbl: 'Resultat',  val: `${gCount}G · ${jCount}J · ${aCount}A` },
+        { lbl: 'Resultat',  val: `${gCount} Godkänd · ${jCount} Notera · ${aCount} Avvikelse` },
         { lbl: 'Serviceintervall', val: entry.serviceIntervall || '–' },
       ])}
       <div class="slbl">Kontrollpunkter</div>
@@ -150,10 +150,10 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
           </div>
           <div>
             <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Resultat</div>
-            <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', gap: 6 }}>
-              <span style={{ color: 'var(--c-teal)' }}>{gCount}G</span>
-              <span style={{ color: 'var(--c-amber)' }}>{jCount}J</span>
-              <span style={{ color: 'var(--c-red)' }}>{aCount}A</span>
+            <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', gap: 8 }}>
+              <span style={{ color: 'var(--c-teal)' }}>{gCount} Godkänd</span>
+              {jCount > 0 && <span style={{ color: 'var(--c-amber)' }}>{jCount} Notera</span>}
+              {aCount > 0 && <span style={{ color: 'var(--c-red)' }}>{aCount} Avvikelse</span>}
             </div>
           </div>
         </div>
@@ -195,18 +195,17 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, flexShrink: 0 }}>{numCount}.</span>
                     <span style={{ flex: 1, fontSize: 13 }}>{p}</span>
-                    <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                      {PROT_STATUSES.map(({ kod, Icon, color, bg, border, label }) => (
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {PROT_STATUSES.map(({ kod, color, bg, border, label }) => (
                         <button key={kod} onClick={() => setStatuses(prev => ({ ...prev, [i]: s === kod ? undefined : kod }))}
-                          title={label} style={{
-                            width: 30, height: 28, borderRadius: 6,
+                          style={{
+                            padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
                             border: `1px solid ${s === kod ? border : 'var(--c-border)'}`,
                             background: s === kod ? bg : 'transparent',
                             color: s === kod ? color : 'var(--c-text3)',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.12s',
+                            cursor: 'pointer', transition: 'all 0.12s', whiteSpace: 'nowrap',
                           }}>
-                          <Icon size={13} />
+                          {label}
                         </button>
                       ))}
                     </div>
@@ -692,9 +691,9 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 10, fontSize: 12, flexWrap: 'wrap' }}>
-                <span style={{ color: 'var(--c-teal)', fontWeight: 600 }}>✓ {monteringProtoData.ok ?? 0} OK</span>
-                {(monteringProtoData.ej ?? 0) > 0 && <span style={{ color: 'var(--c-red)', fontWeight: 600 }}>✗ {monteringProtoData.ej} Ej OK</span>}
-                {(monteringProtoData.na ?? 0) > 0 && <span style={{ color: '#888' }}>{monteringProtoData.na} N/A</span>}
+                <span style={{ color: 'var(--c-teal)', fontWeight: 600 }}>✓ {monteringProtoData.ok ?? 0} Godkänd</span>
+                {(monteringProtoData.ej ?? 0) > 0 && <span style={{ color: 'var(--c-red)', fontWeight: 600 }}>✗ {monteringProtoData.ej} Avvikelse</span>}
+                {(monteringProtoData.na ?? 0) > 0 && <span style={{ color: '#888' }}>{monteringProtoData.na} Ej tillämpbar</span>}
                 {monteringProtoData.godkannande && (
                   <span style={{ fontWeight: 600, color: monteringProtoData.godkannande === 'godkand' ? 'var(--c-teal)' : 'var(--c-red)' }}>
                     {monteringProtoData.godkannande === 'godkand' ? '✓ Godkänd' : '✗ Ej godkänd'}
@@ -709,7 +708,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
             <div style={{ display: 'flex', gap: 14, padding: '4px 0', fontSize: 12 }}>
               <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.datum}</span>
               <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.tekniker || '–'}</span>
-              <span style={{ color: 'var(--c-teal)', fontWeight: 500 }}>{monteringEntry.ok ?? 0} OK · {monteringEntry.ej ?? 0} Ej OK</span>
+              <span style={{ color: 'var(--c-teal)', fontWeight: 500 }}>{monteringEntry.ok ?? 0} Godkänd · {monteringEntry.ej ?? 0} Avvikelse</span>
             </div>
           )}
         </div>

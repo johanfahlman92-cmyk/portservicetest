@@ -73,7 +73,7 @@ function PortDetalj({ obj, onBack }) {
                   <div>
                     <div className="tl-title">{h.typ === 'montering' ? 'Montering' : 'Service utförd'}</div>
                     <div className="tl-sub">
-                      {h.typ === 'montering' ? `${h.ok ?? 0} OK · ${h.ej ?? 0} Ej OK` : `${h.g}G · ${h.j}J · ${h.a}A`}
+                      {h.typ === 'montering' ? `${h.ok ?? 0} Godkänd · ${h.ej ?? 0} Avvikelse` : `${h.g} Godkänd · ${h.j} Notera · ${h.a} Avvikelse`}
                       {h.notering && <> · <em>{h.notering}</em></>}
                     </div>
                     <div className="tl-time">{h.datum} · {h.tekniker}</div>
