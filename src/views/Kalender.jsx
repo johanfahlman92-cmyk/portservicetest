@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp, Filter, Check, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import KundVäljare from '../components/KundVäljare.jsx'
 
-const typColor = { service: 'var(--c-teal-bg)', felanmalan: 'var(--c-coral-bg)', montering: 'var(--c-purple-bg)', mote: 'var(--c-purple-bg)' }
-const typBorder= { service: 'var(--c-teal)',    felanmalan: 'var(--c-coral)',    montering: 'var(--c-purple)',    mote: 'var(--c-purple)' }
-const typText  = { service: 'var(--c-teal-text)', felanmalan: 'var(--c-coral-text)', montering: 'var(--c-purple-text)', mote: 'var(--c-purple-text)' }
-const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Möte/Övrigt', mote: 'Möte/Övrigt' }
+const typColor = { service: 'var(--c-teal-bg)', felanmalan: 'var(--c-coral-bg)', montering: 'var(--c-purple-bg)', mote: 'var(--c-purple-bg)', serviceorder: '#dbeafe', montageorder: '#f3e8ff' }
+const typBorder= { service: 'var(--c-teal)',    felanmalan: 'var(--c-coral)',    montering: 'var(--c-purple)',    mote: 'var(--c-purple)',    serviceorder: '#2563eb',  montageorder: '#9333ea'  }
+const typText  = { service: 'var(--c-teal-text)', felanmalan: 'var(--c-coral-text)', montering: 'var(--c-purple-text)', mote: 'var(--c-purple-text)', serviceorder: '#1e40af', montageorder: '#6b21a8' }
+const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Möte/Övrigt', mote: 'Möte/Övrigt', serviceorder: 'Serviceorder', montageorder: 'Montageorder' }
 const DAG_NAMN = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
 
 const HOUR_START  = 7
@@ -112,8 +112,8 @@ function TeknikerVäljare({ tekniker, value = [], onChange }) {
 }
 
 // ── Händelsepopup ─────────────────────────────────────
-function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTillObjekt, onStäng }) {
-  const { item, dagNamn, nyckel } = val
+function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTillObjekt, onGåTillServiceorder, onGåTillMontage, onStäng }) {
+  const { item, dagNamn, nyckel, isVirtual } = val
   const tekArr = Array.isArray(item.tek) ? item.tek : (item.tek ? [item.tek] : [])
 
   return (
@@ -137,10 +137,15 @@ function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTil
 
         {/* Badges */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-          <span className={`badge ${
-            item.typ === 'service' ? 'badge-teal' :
-            item.typ === 'felanmalan' ? 'badge-coral' : 'badge-purple'
-          }`}>{typLabel[item.typ] || item.typ}</span>
+          <span style={{
+            fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600,
+            background: typColor[item.typ] || 'var(--c-blue-bg)',
+            color: typText[item.typ] || 'var(--c-blue)',
+            border: `1px solid ${typBorder[item.typ] || 'var(--c-blue)'}44`,
+          }}>{typLabel[item.typ] || item.typ}</span>
+          {isVirtual && item._status && (
+            <span className="badge badge-gray">{item._status}</span>
+          )}
           {tekArr.length > 0 && (
             <span className="badge badge-gray">{tekArr.join(', ')}</span>
           )}
@@ -148,7 +153,33 @@ function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTil
 
         {/* Knappar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {item.arendeId && (
+          {onGåTillServiceorder && (
+            <button
+              onClick={onGåTillServiceorder}
+              style={{
+                width: '100%', padding: '10px 14px', borderRadius: 8,
+                background: '#2563eb', color: '#fff', border: 'none',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}
+            >
+              <ExternalLink size={14} /> Gå till serviceorder
+            </button>
+          )}
+          {onGåTillMontage && (
+            <button
+              onClick={onGåTillMontage}
+              style={{
+                width: '100%', padding: '10px 14px', borderRadius: 8,
+                background: '#9333ea', color: '#fff', border: 'none',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}
+            >
+              <ExternalLink size={14} /> Gå till montageorder
+            </button>
+          )}
+          {!isVirtual && item.arendeId && (
             <button
               onClick={onGåTillÄrende}
               style={{
@@ -161,7 +192,7 @@ function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTil
               <ExternalLink size={14} /> Gå till ärende
             </button>
           )}
-          {onGåTillObjekt && (
+          {onGåTillObjekt && !isVirtual && (
             <button
               onClick={onGåTillObjekt}
               style={{
@@ -174,24 +205,28 @@ function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTil
               <ExternalLink size={14} /> Gå till port
             </button>
           )}
-          <button
-            onClick={onRedigera}
-            className="btn"
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
-          >
-            <Pencil size={13} /> Redigera bokning
-          </button>
-          <button
-            onClick={onTaBort}
-            style={{
-              width: '100%', padding: '8px 14px', borderRadius: 8,
-              background: 'none', border: '1px solid var(--c-border)',
-              color: 'var(--c-red)', cursor: 'pointer', fontSize: 13,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            }}
-          >
-            <Trash2 size={13} /> Ta bort bokning
-          </button>
+          {!isVirtual && (
+            <button
+              onClick={onRedigera}
+              className="btn"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+            >
+              <Pencil size={13} /> Redigera bokning
+            </button>
+          )}
+          {!isVirtual && (
+            <button
+              onClick={onTaBort}
+              style={{
+                width: '100%', padding: '8px 14px', borderRadius: 8,
+                background: 'none', border: '1px solid var(--c-border)',
+                color: 'var(--c-red)', cursor: 'pointer', fontSize: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}
+            >
+              <Trash2 size={13} /> Ta bort bokning
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -344,7 +379,9 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
 // ── Huvudkomponent ─────────────────────────────────────
 export default function Kalender({
   arenden = [], tekniker = [], bokningar = {}, kunder = [], objekt = [],
+  serviceorder = [], montageorder = [],
   onLaggTillBokning, onTaBortBokning, onNyKund, onNavigera, onNavigeraArende, onNavigeraObjekt,
+  onNavigeraServiceorder, onNavigeraMontage,
 }) {
   const [veckoOffset,  setVeckoOffset]  = useState(0)
   const [formDag,      setFormDag]      = useState(null)
@@ -362,6 +399,36 @@ export default function Kalender({
     d.setDate(måndag.getDate() + i)
     return { namn: DAG_NAMN[i], datum: d, nyckel: d.toISOString().slice(0, 10) }
   })
+
+  // Virtuella händelser från serviceorder och montageorder
+  const virtualDag = useMemo(() => {
+    const result = {}
+    for (const so of serviceorder) {
+      if (!so.datum || so.status === 'utford') continue
+      const d = so.datum
+      if (!result[d]) result[d] = []
+      const tekArr = Array.isArray(so.tekniker) ? so.tekniker : (so.tekniker ? [so.tekniker] : [])
+      result[d].push({
+        tid: '08:00', typ: 'serviceorder',
+        namn: so.fastighet_namn || so.nr || 'Serviceorder',
+        kund: so.kund || '', tek: tekArr,
+        _virtual: true, _sourceId: so.id, _nr: so.nr, _status: so.status,
+      })
+    }
+    for (const mo of montageorder) {
+      const d = mo.onskat_montagedag
+      if (!d) continue
+      if (!result[d]) result[d] = []
+      const tekArr = Array.isArray(mo.tekniker) ? mo.tekniker : (mo.tekniker ? [mo.tekniker] : [])
+      result[d].push({
+        tid: '09:00', typ: 'montageorder',
+        namn: mo.kund || mo.nr || 'Montageorder',
+        kund: mo.kund || '', tek: tekArr,
+        _virtual: true, _sourceId: mo.id, _nr: mo.nr, _status: mo.status,
+      })
+    }
+    return result
+  }, [serviceorder, montageorder])
 
   const allaBokFlatMap = Object.values(bokningar).flat()
   const bokadeIds      = new Set(allaBokFlatMap.map(b => b.arendeId).filter(Boolean))
@@ -481,7 +548,7 @@ export default function Kalender({
           </div>
 
           {dagar.map(dag => {
-            const items = bokningar[dag.nyckel] || []
+            const items = [...(bokningar[dag.nyckel] || []), ...(virtualDag[dag.nyckel] || [])]
             const lagd  = layoutBokningar(items, filtTekniker)
             return (
               <div key={dag.nyckel} style={{ flex: 1, position: 'relative', borderLeft: '1px solid var(--c-border)' }}>
@@ -493,7 +560,7 @@ export default function Kalender({
                   const vänster = col * bredd
                   return (
                     <div key={origIdx}
-                      onClick={() => setVisaDetalj({ item: { ...item, tek: tekArr }, dagNamn: dag.namn, nyckel: dag.nyckel, origIdx })}
+                      onClick={() => setVisaDetalj({ item: { ...item, tek: tekArr }, dagNamn: dag.namn, nyckel: dag.nyckel, origIdx: item._virtual ? null : origIdx, isVirtual: !!item._virtual })}
                       style={{
                         position: 'absolute',
                         top: getTop(item.tid) + 2,
@@ -564,12 +631,16 @@ export default function Kalender({
           val={visaDetalj}
           onStäng={() => setVisaDetalj(null)}
           onRedigera={() => {
-            setRedigerar({ ...visaDetalj.item, datum: visaDetalj.nyckel, origIdx: visaDetalj.origIdx })
-            setVisaDetalj(null)
+            if (!visaDetalj.isVirtual) {
+              setRedigerar({ ...visaDetalj.item, datum: visaDetalj.nyckel, origIdx: visaDetalj.origIdx })
+              setVisaDetalj(null)
+            }
           }}
           onTaBort={() => {
-            onTaBortBokning(visaDetalj.nyckel, visaDetalj.origIdx)
-            setVisaDetalj(null)
+            if (!visaDetalj.isVirtual) {
+              onTaBortBokning(visaDetalj.nyckel, visaDetalj.origIdx)
+              setVisaDetalj(null)
+            }
           }}
           onGåTillÄrende={() => {
             setVisaDetalj(null)
@@ -577,11 +648,21 @@ export default function Kalender({
             else onNavigera?.('arenden')
           }}
           onGåTillObjekt={(() => {
-            if (!onNavigeraObjekt || visaDetalj.item.arendeId) return undefined
+            if (visaDetalj.isVirtual || !onNavigeraObjekt || visaDetalj.item.arendeId) return undefined
             const port = objekt.find(o => !o.arkiverad && o.namn === visaDetalj.item.namn)
             if (!port) return undefined
             return () => { setVisaDetalj(null); onNavigeraObjekt(port.id) }
           })()}
+          onGåTillServiceorder={
+            visaDetalj.isVirtual && visaDetalj.item.typ === 'serviceorder' && onNavigeraServiceorder
+              ? () => { setVisaDetalj(null); onNavigeraServiceorder(visaDetalj.item._sourceId) }
+              : undefined
+          }
+          onGåTillMontage={
+            visaDetalj.isVirtual && visaDetalj.item.typ === 'montageorder' && onNavigeraMontage
+              ? () => { setVisaDetalj(null); onNavigeraMontage(visaDetalj.item._sourceId) }
+              : undefined
+          }
         />
       )}
     </div>
