@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { UserPlus, Trash2, Shield, User, RefreshCw, Copy,
-         ChevronDown, ChevronUp, Plus, GripVertical, Check, ClipboardList } from 'lucide-react'
+         ChevronDown, ChevronUp, Plus, GripVertical, Check, ClipboardList,
+         Building2, Users as UsersIcon } from 'lucide-react'
 
 const ROLL_LABEL  = { admin: 'Admin', tekniker: 'Tekniker', kontorist: 'Kontorist', kund: 'Kundportal' }
 const ROLL_FÄRG   = { admin: '#f59e0b', tekniker: 'var(--c-blue)', kontorist: '#a78bfa', kund: 'var(--c-teal)' }
@@ -14,10 +15,9 @@ const FÄLT = {
 }
 const BTN_PRI = { padding: '9px 20px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const BTN_SEC = { padding: '8px 14px', background: 'transparent', color: 'var(--c-text2)', border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }
-
 const SECTION = { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c-text3)', marginBottom: 10 }
 
-// ── Mall-editor (generisk – används för både service- och monteringsmallar) ────
+// ── Mall-editor med drag-and-drop ─────────────────────────────────────────────
 function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', beskrivning = 'Checklistor per porttyp' }) {
   const [lokala,     setLokala]     = useState(() => JSON.parse(JSON.stringify(mallar)))
   const [oppnaTyp,   setOppnaTyp]   = useState(null)
@@ -26,16 +26,15 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
   const [sparat,     setSparat]     = useState(false)
   const [andringar,  setAndringar]  = useState(false)
   const [bekraftaBortTyp, setBekraftaBortTyp] = useState(null)
+  const [dragIdx,     setDragIdx]     = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
 
   const andringarRef = useRef(false)
   const markAndrad = () => { setAndringar(true); setSparat(false); andringarRef.current = true }
 
-  // Synka lokala om mallar-propen uppdateras (t.ex. efter async Supabase-laddning)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!andringarRef.current) {
-      setLokala(JSON.parse(JSON.stringify(mallar)))
-    }
+    if (!andringarRef.current) setLokala(JSON.parse(JSON.stringify(mallar)))
   }, [mallar])
 
   const laggTillTyp = () => {
@@ -79,15 +78,16 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
     markAndrad()
   }
 
-  const flyttaPunkt = (typ, idx, riktning) => {
+  const handleDrop = (typ, toIdx) => {
+    if (dragIdx === null || dragIdx === toIdx) { setDragIdx(null); setDragOverIdx(null); return }
     setLokala(m => {
       const pts = [...m[typ]]
-      const swap = idx + riktning
-      if (swap < 0 || swap >= pts.length) return m
-      ;[pts[idx], pts[swap]] = [pts[swap], pts[idx]]
+      const [moved] = pts.splice(dragIdx, 1)
+      pts.splice(toIdx, 0, moved)
       return { ...m, [typ]: pts }
     })
     markAndrad()
+    setDragIdx(null); setDragOverIdx(null)
   }
 
   const spara = async () => {
@@ -112,29 +112,31 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
           </div>
           <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>{beskrivning}</div>
         </div>
-        {andringar && (
-          <button onClick={spara} disabled={sparar}
-            style={{ padding: '8px 18px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {sparar ? 'Sparar…' : sparat ? <><Check size={13} /> Sparat!</> : 'Spara ändringar'}
-          </button>
-        )}
-        {sparat && !andringar && (
-          <span style={{ fontSize: 12, color: 'var(--c-teal)', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Check size={13} /> Sparat
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {sparat && !andringar && (
+            <span style={{ fontSize: 12, color: 'var(--c-teal)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Check size={13} /> Sparat
+            </span>
+          )}
+          {andringar && (
+            <button onClick={spara} disabled={sparar}
+              style={{ padding: '8px 18px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {sparar ? 'Sparar…' : <><Check size={13} /> Spara ändringar</>}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Typer */}
       {typer.map((typ) => {
-        const punkterAntal = (lokala[typ] || []).filter(p => !p.startsWith('## ')).length
+        const punkterAntal  = (lokala[typ] || []).filter(p => !p.startsWith('## ')).length
         const rubrikerAntal = (lokala[typ] || []).filter(p => p.startsWith('## ')).length
         return (
           <div key={typ} style={{ borderBottom: '1px solid var(--c-border)' }}>
             {/* Typ-rad */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 10 }}>
               <button
-                onClick={() => setOppnaTyp(oppnaTyp === typ ? null : typ)}
+                onClick={() => { setOppnaTyp(oppnaTyp === typ ? null : typ); setDragIdx(null); setDragOverIdx(null) }}
                 style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
               >
                 {oppnaTyp === typ ? <ChevronUp size={15} color="var(--c-text3)" /> : <ChevronDown size={15} color="var(--c-text3)" />}
@@ -157,17 +159,38 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
               )}
             </div>
 
-            {/* Punkter & rubriker */}
+            {/* Punkter & rubriker med drag-and-drop */}
             {oppnaTyp === typ && (
-              <div style={{ padding: '0 20px 14px', background: '#1a1917' }}>
+              <div style={{ padding: '4px 20px 14px', background: 'var(--c-bg)' }}>
+                <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <GripVertical size={11} /> Dra rader för att ändra ordning
+                </div>
                 {(lokala[typ] || []).map((punkt, idx) => {
-                  const isHdr = punkt.startsWith('## ')
-                  const visText = isHdr ? punkt.slice(3) : punkt
+                  const isHdr      = punkt.startsWith('## ')
+                  const visText    = isHdr ? punkt.slice(3) : punkt
+                  const isDragging = dragIdx === idx
+                  const isOver     = dragOverIdx === idx && dragIdx !== null && dragIdx !== idx
                   return (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <div key={idx}
+                      draggable
+                      onDragStart={() => setDragIdx(idx)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx) }}
+                      onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
+                      onDrop={(e) => { e.preventDefault(); handleDrop(typ, idx) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        marginBottom: 4,
+                        paddingTop: isOver ? 4 : 4,
+                        borderTop: isOver ? '2px solid var(--c-blue)' : '2px solid transparent',
+                        opacity: isDragging ? 0.35 : 1,
+                        transition: 'opacity 0.15s, border-color 0.1s',
+                      }}
+                    >
+                      <GripVertical size={14} color="var(--c-text3)"
+                        style={{ flexShrink: 0, cursor: 'grab', opacity: 0.55 }} />
                       {isHdr
-                        ? <span style={{ fontSize: 10, color: 'var(--c-blue)', minWidth: 24, textAlign: 'right', fontWeight: 700 }}>§</span>
-                        : <span style={{ fontSize: 11, color: 'var(--c-text3)', minWidth: 24, textAlign: 'right' }}>{idx + 1}.</span>
+                        ? <span style={{ fontSize: 10, color: 'var(--c-blue)', minWidth: 16, fontWeight: 700 }}>§</span>
+                        : <span style={{ fontSize: 11, color: 'var(--c-text3)', minWidth: 22, textAlign: 'right' }}>{idx + 1}.</span>
                       }
                       <input
                         value={visText}
@@ -182,18 +205,14 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
                           outline: 'none',
                         }}
                       />
-                      <button onClick={() => flyttaPunkt(typ, idx, -1)} disabled={idx === 0}
-                        style={{ background: 'none', border: 'none', color: idx === 0 ? 'var(--c-border)' : 'var(--c-text3)', cursor: idx === 0 ? 'default' : 'pointer', padding: '2px 4px', fontSize: 13 }}>↑</button>
-                      <button onClick={() => flyttaPunkt(typ, idx, 1)} disabled={idx === (lokala[typ] || []).length - 1}
-                        style={{ background: 'none', border: 'none', color: idx === (lokala[typ] || []).length - 1 ? 'var(--c-border)' : 'var(--c-text3)', cursor: idx === (lokala[typ] || []).length - 1 ? 'default' : 'pointer', padding: '2px 4px', fontSize: 13 }}>↓</button>
                       <button onClick={() => taBortPunkt(typ, idx)}
-                        style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: '2px 4px' }}>
+                        style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}>
                         <Trash2 size={13} />
                       </button>
                     </div>
                   )
                 })}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                   <button onClick={() => laggTillPunkt(typ)}
                     style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px dashed var(--c-border)', borderRadius: 6, color: 'var(--c-text3)', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
                     <Plus size={13} /> Lägg till punkt
@@ -249,7 +268,6 @@ function TeknikerPanel({ tekniker = [], onLaggTill, onTaBort }) {
       </div>
 
       <div style={{ padding: '14px 20px' }}>
-        {/* Lista */}
         {tekniker.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--c-text3)', marginBottom: 14 }}>Inga medarbetare registrerade ännu.</div>
         ) : (
@@ -292,12 +310,9 @@ function TeknikerPanel({ tekniker = [], onLaggTill, onTaBort }) {
             ))}
           </div>
         )}
-
-        {/* Lägg till */}
         <div style={{ display: 'flex', gap: 8 }}>
           <input
-            type="text"
-            placeholder="Förnamn Efternamn"
+            type="text" placeholder="Förnamn Efternamn"
             value={nyNamn}
             onChange={e => setNyNamn(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && laggTill()}
@@ -312,24 +327,142 @@ function TeknikerPanel({ tekniker = [], onLaggTill, onTaBort }) {
   )
 }
 
+// ── Företagsprofil ────────────────────────────────────────────────────────────
+function FöretagsPanel({ config = {}, onSpara }) {
+  const [form, setForm] = useState({
+    namn: '', orgnr: '', adress: '', postnr: '', ort: '',
+    telefon: '', epost: '', webbplats: '', standardIntervall: 12,
+    ...config,
+  })
+  const [sparar,  setSparar]  = useState(false)
+  const [sparat,  setSparat]  = useState(false)
+  const [andrat,  setAndrat]  = useState(false)
+  const andratRef = useRef(false)
+
+  useEffect(() => {
+    if (!andratRef.current) setForm(f => ({ ...f, ...config }))
+  }, [config]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const upd = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }))
+    setAndrat(true); andratRef.current = true
+    setSparat(false)
+  }
+
+  const spara = async () => {
+    setSparar(true)
+    await onSpara?.(form)
+    setSparar(false)
+    setAndrat(false); andratRef.current = false
+    setSparat(true)
+    setTimeout(() => setSparat(false), 3000)
+  }
+
+  const Fält = ({ k, label, typ = 'text' }) => (
+    <div>
+      <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>{label}</label>
+      <input type={typ} value={form[k] || ''} onChange={e => upd(k, e.target.value)} style={FÄLT} />
+    </div>
+  )
+
+  return (
+    <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
+      {/* Header */}
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Building2 size={15} color="var(--c-blue)" /> Företagsprofil
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
+            Visas i PDF-dokument och används som standard i systemet
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {sparat && !andrat && (
+            <span style={{ fontSize: 12, color: 'var(--c-teal)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Check size={13} /> Sparat
+            </span>
+          )}
+          {andrat && (
+            <button onClick={spara} disabled={sparar}
+              style={{ ...BTN_PRI, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px' }}>
+              {sparar ? 'Sparar…' : <><Check size={13} /> Spara</>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Fält-grid */}
+      <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+        <Fält k="namn"      label="Företagsnamn *" />
+        <Fält k="orgnr"     label="Organisationsnummer" />
+        <Fält k="adress"    label="Gatuadress" />
+        <Fält k="postnr"    label="Postnummer" />
+        <Fält k="ort"       label="Ort" />
+        <Fält k="telefon"   label="Telefon"   typ="tel" />
+        <Fält k="epost"     label="E-post"    typ="email" />
+        <Fält k="webbplats" label="Webbplats" typ="url" />
+      </div>
+
+      {/* Standard serviceintervall */}
+      <div style={{ padding: '0 20px 20px' }}>
+        <div style={{ borderTop: '1px solid var(--c-border)', paddingTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Standard serviceintervall</div>
+          <div style={{ fontSize: 12, color: 'var(--c-text3)', marginBottom: 12 }}>
+            Förvalt värde vid nya monteringsprotokoll
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              { val: 6,  label: '2 ggr/år',   sub: 'var 6:e månad'    },
+              { val: 12, label: '1 gång/år',   sub: 'var 12:e månad'   },
+              { val: 0,  label: 'Ingen',       sub: 'manuell hantering' },
+            ].map(({ val, label, sub }) => {
+              const aktiv = Number(form.standardIntervall) === val
+              return (
+                <button key={val} onClick={() => upd('standardIntervall', val)} style={{
+                  padding: '10px 18px', borderRadius: 9, cursor: 'pointer', textAlign: 'center',
+                  border: `2px solid ${aktiv ? 'var(--c-blue)' : 'var(--c-border)'}`,
+                  background: aktiv ? 'var(--c-blue-bg)' : 'var(--c-bg)',
+                  color: aktiv ? 'var(--c-blue)' : 'var(--c-text2)',
+                  transition: 'all 0.15s',
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+                  <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>{sub}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Installningar({ kunder, protokollMallar = {}, onSparaProtokollMallar, montagemallar = {}, onSparaMontagemallar, tekniker = [], onLaggTillTekniker, onTaBortTekniker }) {
-  const [inbjudningar, setInbjudningar]   = useState([])
-  const [laddas,       setLaddas]         = useState(true)
-  const [visaForm,     setVisaForm]       = useState(false)
-  const [bekraftaBort, setBekraftaBort]   = useState(null)
+export default function Installningar({
+  kunder,
+  protokollMallar = {}, onSparaProtokollMallar,
+  montagemallar = {}, onSparaMontagemallar,
+  tekniker = [], onLaggTillTekniker, onTaBortTekniker,
+  foretagConfig = {}, onSparaForetagConfig,
+}) {
+  const [aktivTab, setAktivTab]         = useState('anvandare')
+  const [rollerVis, setRollerVis]       = useState(false)
+  const [inbjudningar, setInbjudningar] = useState([])
+  const [laddas,       setLaddas]       = useState(true)
+  const [visaForm,     setVisaForm]     = useState(false)
+  const [bekraftaBort, setBekraftaBort] = useState(null)
 
   // Form-state
-  const [email,     setEmail]     = useState('')
-  const [roll,      setRoll]      = useState('tekniker')
-  const [valdKund,  setValdKund]  = useState('')
-  const [sparar,    setSparar]    = useState(false)
-  const [feldMsg,   setFeldMsg]   = useState('')
-  const [kopierat,  setKopierat]  = useState(null)
+  const [email,    setEmail]    = useState('')
+  const [roll,     setRoll]     = useState('tekniker')
+  const [valdKund, setValdKund] = useState('')
+  const [sparar,   setSparar]   = useState(false)
+  const [feldMsg,  setFeldMsg]  = useState('')
+  const [kopierat, setKopierat] = useState(null)
 
   const loginUrl = window.location.origin
 
-  // ── Ladda inbjudningar ────────────────────────────────────────────────────
   const laddaInbjudningar = async () => {
     setLaddas(true)
     const { data } = await supabase
@@ -342,7 +475,6 @@ export default function Installningar({ kunder, protokollMallar = {}, onSparaPro
 
   useEffect(() => { laddaInbjudningar() }, [])
 
-  // ── Skicka inbjudan ───────────────────────────────────────────────────────
   const sparaInbjudan = async () => {
     if (!email.trim()) { setFeldMsg('Ange en e-postadress.'); return }
     if (roll === 'kund' && !valdKund) { setFeldMsg('Välj vilken kund kontot gäller.'); return }
@@ -370,7 +502,6 @@ export default function Installningar({ kunder, protokollMallar = {}, onSparaPro
     laddaInbjudningar()
   }
 
-  // ── Ta bort inbjudan ──────────────────────────────────────────────────────
   const taBortInbjudan = async (id) => {
     await supabase.from('brukar_inbjudningar').delete().eq('id', id)
     setInbjudningar(prev => prev.filter(i => i.id !== id))
@@ -383,280 +514,306 @@ export default function Installningar({ kunder, protokollMallar = {}, onSparaPro
     setTimeout(() => setKopierat(false), 2000)
   }
 
+  // Tab-knapp helper
+  const TabBtn = ({ id, icon, label }) => (
+    <button onClick={() => setAktivTab(id)} style={{
+      padding: '10px 20px', fontSize: 13,
+      fontWeight: aktivTab === id ? 600 : 400,
+      color: aktivTab === id ? 'var(--c-text)' : 'var(--c-text3)',
+      background: 'none', border: 'none',
+      borderBottom: aktivTab === id ? '2px solid var(--c-blue)' : '2px solid transparent',
+      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+      whiteSpace: 'nowrap', flexShrink: 0,
+    }}>
+      {icon} {label}
+    </button>
+  )
+
   return (
     <div>
 
       {/* Rubrik */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px', color: 'var(--c-text)' }}>Inställningar</h1>
-        <p style={{ fontSize: 13, color: 'var(--c-text2)', margin: 0 }}>Hantera användare och inbjudningar</p>
-      </div>
-
-      {/* Inloggnings-URL */}
-      <div style={{
-        background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-        borderRadius: 12, padding: '16px 20px', marginBottom: 24,
-      }}>
-        <div style={SECTION}>Inloggningslänk</div>
-        <p style={{ fontSize: 12, color: 'var(--c-text2)', margin: '0 0 10px' }}>
-          Alla roller loggar in via samma adress. Skicka denna länk till nya användare.
+        <p style={{ fontSize: 13, color: 'var(--c-text2)', margin: 0 }}>
+          Hantera användare, protokollmallar och företagsinformation
         </p>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{
-            flex: 1, padding: '8px 12px', background: 'var(--c-bg)', border: '1px solid var(--c-border)',
-            borderRadius: 8, fontSize: 13, color: 'var(--c-text2)', overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {loginUrl}
-          </div>
-          <button onClick={kopieraUrl} style={{ ...BTN_SEC, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-            <Copy size={13} /> {kopierat ? 'Kopierat!' : 'Kopiera'}
-          </button>
-        </div>
       </div>
 
-      {/* Roller-info */}
-      <div style={{
-        background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-        borderRadius: 12, padding: '16px 20px', marginBottom: 24,
-      }}>
-        <div style={SECTION}>Roller och behörigheter</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-          {Object.entries(ROLL_LABEL).map(([r, label]) => (
-            <div key={r} style={{
-              padding: '10px 14px', background: 'var(--c-bg)', border: '1px solid var(--c-border)',
-              borderRadius: 9, display: 'flex', alignItems: 'flex-start', gap: 10,
-            }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5, flexShrink: 0,
-                background: ROLL_BG[r], color: ROLL_FÄRG[r],
-              }}>{label}</span>
-              <span style={{ fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.5 }}>
-                {r === 'admin'      && 'Full åtkomst till alla funktioner'}
-                {r === 'tekniker'   && 'Egna ärenden, protokoll och kalender'}
-                {r === 'kontorist'  && 'Registrerar felanmälningar'}
-                {r === 'kund'       && 'Kundportal med egna portar och ärenden'}
-              </span>
-            </div>
-          ))}
-        </div>
+      {/* Tab-bar */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--c-border)', marginBottom: 28, overflowX: 'auto', gap: 0 }}>
+        <TabBtn id="anvandare" icon={<UsersIcon size={14} />} label="Användare" />
+        <TabBtn id="mallar"    icon={<ClipboardList size={14} />} label="Mallar" />
+        <TabBtn id="foretag"   icon={<Building2 size={14} />} label="Företag" />
       </div>
 
-      {/* Inbjudningar */}
-      <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
-        <div style={{
-          padding: '14px 20px', borderBottom: '1px solid var(--c-border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text)' }}>Väntande inbjudningar</div>
-            <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
-              Automatisk rolltilldelning när användaren skapar konto
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={laddaInbjudningar} style={{ ...BTN_SEC, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px' }}>
-              <RefreshCw size={13} />
-            </button>
-            <button
-              onClick={() => { setVisaForm(v => !v); setFeldMsg('') }}
-              style={{ ...BTN_PRI, display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              <UserPlus size={14} /> Bjud in användare
-            </button>
-          </div>
-        </div>
+      {/* ── TAB: ANVÄNDARE ─────────────────────────────────────────────────────── */}
+      {aktivTab === 'anvandare' && (
+        <>
 
-        {/* Inbjudningsformulär */}
-        {visaForm && (
+          {/* Inloggnings-URL */}
           <div style={{
-            padding: '16px 20px', borderBottom: '1px solid var(--c-border)',
-            background: '#1a1917',
+            background: 'var(--c-surface)', border: '1px solid var(--c-border)',
+            borderRadius: 12, padding: '16px 20px', marginBottom: 24,
           }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)', marginBottom: 14 }}>Ny inbjudan</div>
-            <div style={{ display: 'grid', gridTemplateColumns: roll === 'kund' ? '2fr 1fr 2fr' : '2fr 1fr', gap: 12, alignItems: 'end' }}>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>E-postadress *</label>
-                <input
-                  type="email"
-                  placeholder="namn@företag.se"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  style={FÄLT}
-                />
+            <div style={SECTION}>Inloggningslänk</div>
+            <p style={{ fontSize: 12, color: 'var(--c-text2)', margin: '0 0 10px' }}>
+              Alla roller loggar in via samma adress. Skicka denna länk till nya användare.
+            </p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{
+                flex: 1, padding: '8px 12px', background: 'var(--c-bg)', border: '1px solid var(--c-border)',
+                borderRadius: 8, fontSize: 13, color: 'var(--c-text2)', overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {loginUrl}
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Roll *</label>
-                <select value={roll} onChange={e => { setRoll(e.target.value); setValdKund('') }} style={FÄLT}>
-                  {Object.entries(ROLL_LABEL).map(([r, l]) => <option key={r} value={r}>{l}</option>)}
-                </select>
-              </div>
-              {roll === 'kund' && (
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Kopplad kund *</label>
-                  <select value={valdKund} onChange={e => setValdKund(e.target.value)} style={FÄLT}>
-                    <option value="">Välj kund…</option>
-                    {kunder.map(k => <option key={k.id} value={k.id}>{k.namn}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Förklaring */}
-            <div style={{
-              marginTop: 12, padding: '8px 12px', background: 'var(--c-bg)',
-              border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 12, color: 'var(--c-text2)',
-            }}>
-              <strong style={{ color: 'var(--c-text)' }}>Flöde:</strong>{' '}
-              Rollen sparas som en väntande inbjudan. När användaren skapar ett konto med den e-postadressen
-              (via <em>Glömt lösenord</em> eller direkt registrering) tilldelas rollen automatiskt.
-            </div>
-
-            {feldMsg && (
-              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--c-red)' }}>{feldMsg}</div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-              <button style={BTN_SEC} onClick={() => { setVisaForm(false); setFeldMsg('') }}>Avbryt</button>
-              <button
-                style={{ ...BTN_PRI, opacity: sparar ? 0.6 : 1 }}
-                onClick={sparaInbjudan}
-                disabled={sparar}
-              >
-                {sparar ? 'Sparar…' : 'Skapa inbjudan'}
+              <button onClick={kopieraUrl} style={{ ...BTN_SEC, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                <Copy size={13} /> {kopierat ? 'Kopierat!' : 'Kopiera'}
               </button>
             </div>
           </div>
-        )}
 
-        {/* Lista */}
-        {laddas ? (
-          <div style={{ padding: '20px', color: 'var(--c-text3)', fontSize: 13 }}>Laddar…</div>
-        ) : inbjudningar.length === 0 ? (
-          <div style={{ padding: '24px 20px', textAlign: 'center', color: 'var(--c-text3)', fontSize: 13 }}>
-            Inga väntande inbjudningar.
+          {/* Roller-info (collapsible) */}
+          <div style={{
+            background: 'var(--c-surface)', border: '1px solid var(--c-border)',
+            borderRadius: 12, marginBottom: 24, overflow: 'hidden',
+          }}>
+            <button
+              onClick={() => setRollerVis(v => !v)}
+              style={{
+                width: '100%', padding: '14px 20px', background: 'none', border: 'none',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ ...SECTION, marginBottom: 0 }}>Roller och behörigheter</div>
+              {rollerVis
+                ? <ChevronUp size={15} color="var(--c-text3)" />
+                : <ChevronDown size={15} color="var(--c-text3)" />
+              }
+            </button>
+            {rollerVis && (
+              <div style={{ padding: '0 20px 16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                  {Object.entries(ROLL_LABEL).map(([r, label]) => (
+                    <div key={r} style={{
+                      padding: '10px 14px', background: 'var(--c-bg)', border: '1px solid var(--c-border)',
+                      borderRadius: 9, display: 'flex', alignItems: 'flex-start', gap: 10,
+                    }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5, flexShrink: 0,
+                        background: ROLL_BG[r], color: ROLL_FÄRG[r],
+                      }}>{label}</span>
+                      <span style={{ fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.5 }}>
+                        {r === 'admin'     && 'Full åtkomst till alla funktioner'}
+                        {r === 'tekniker'  && 'Egna ärenden, protokoll och kalender'}
+                        {r === 'kontorist' && 'Registrerar felanmälningar'}
+                        {r === 'kund'      && 'Kundportal med egna portar och ärenden'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          inbjudningar.map((inv, i) => (
-            <div key={inv.id} style={{
-              padding: '13px 20px',
-              borderBottom: i < inbjudningar.length - 1 ? '1px solid var(--c-border)' : 'none',
-              display: 'flex', alignItems: 'center', gap: 12,
+
+          {/* Inbjudningar */}
+          <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
+            <div style={{
+              padding: '14px 20px', borderBottom: '1px solid var(--c-border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              {/* Ikon */}
-              <div style={{
-                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-                background: ROLL_BG[inv.roll] || '#2a2925',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {inv.roll === 'kund' ? <User size={15} color={ROLL_FÄRG[inv.roll]} /> : <Shield size={15} color={ROLL_FÄRG[inv.roll] || 'var(--c-text3)'} />}
-              </div>
-
-              {/* Info */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {inv.email}
-                  </span>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
-                    background: ROLL_BG[inv.roll], color: ROLL_FÄRG[inv.roll],
-                  }}>
-                    {ROLL_LABEL[inv.roll] || inv.roll}
-                  </span>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
-                  {inv.roll === 'kund' && inv.kund_namn ? `Kund: ${inv.kund_namn} · ` : ''}
-                  Skapad {new Date(inv.created_at).toLocaleDateString('sv-SE')}
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text)' }}>Väntande inbjudningar</div>
+                <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
+                  Automatisk rolltilldelning när användaren skapar konto
                 </div>
               </div>
-
-              {/* Ta bort */}
-              {bekraftaBort === inv.id ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  <span style={{ fontSize: 12, color: 'var(--c-text2)' }}>Ta bort?</span>
-                  <button onClick={() => taBortInbjudan(inv.id)} style={{
-                    padding: '5px 10px', background: 'var(--c-red)', color: '#fff',
-                    border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600,
-                  }}>Ja</button>
-                  <button onClick={() => setBekraftaBort(null)} style={BTN_SEC}>Nej</button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setBekraftaBort(inv.id)}
-                  style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}
-                  title="Ta bort inbjudan"
-                >
-                  <Trash2 size={15} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={laddaInbjudningar} style={{ ...BTN_SEC, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px' }}>
+                  <RefreshCw size={13} />
                 </button>
-              )}
+                <button
+                  onClick={() => { setVisaForm(v => !v); setFeldMsg('') }}
+                  style={{ ...BTN_PRI, display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <UserPlus size={14} /> Bjud in användare
+                </button>
+              </div>
             </div>
-          ))
-        )}
-      </div>
 
-      {/* Instruktioner */}
-      <div style={{
-        marginTop: 24, padding: '16px 20px',
-        background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-        borderRadius: 12,
-      }}>
-        <div style={SECTION}>Så bjuder du in en ny användare</div>
-        <ol style={{ margin: 0, padding: '0 0 0 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[
-            'Klicka "Bjud in användare" och ange e-post, roll (och kund om det gäller kundportal).',
-            'Kopiera inloggningslänken ovan och skicka den till användaren.',
-            'Användaren skapar ett konto — om e-posten matchar en inbjudan tilldelas rollen automatiskt.',
-            'Inbjudan försvinner automatiskt när kontot skapas.',
-          ].map((steg, i) => (
-            <li key={i} style={{ fontSize: 13, color: 'var(--c-text2)', lineHeight: 1.5 }}>{steg}</li>
-          ))}
-        </ol>
-      </div>
+            {/* Inbjudningsformulär */}
+            {visaForm && (
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-border)', background: '#1a1917' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)', marginBottom: 14 }}>Ny inbjudan</div>
+                <div style={{ display: 'grid', gridTemplateColumns: roll === 'kund' ? '2fr 1fr 2fr' : '2fr 1fr', gap: 12, alignItems: 'end' }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>E-postadress *</label>
+                    <input type="email" placeholder="namn@företag.se" value={email} onChange={e => setEmail(e.target.value)} style={FÄLT} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Roll *</label>
+                    <select value={roll} onChange={e => { setRoll(e.target.value); setValdKund('') }} style={FÄLT}>
+                      {Object.entries(ROLL_LABEL).map(([r, l]) => <option key={r} value={r}>{l}</option>)}
+                    </select>
+                  </div>
+                  {roll === 'kund' && (
+                    <div>
+                      <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Kopplad kund *</label>
+                      <select value={valdKund} onChange={e => setValdKund(e.target.value)} style={FÄLT}>
+                        <option value="">Välj kund…</option>
+                        {kunder.map(k => <option key={k.id} value={k.id}>{k.namn}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--c-bg)', border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 12, color: 'var(--c-text2)' }}>
+                  <strong style={{ color: 'var(--c-text)' }}>Flöde:</strong>{' '}
+                  Rollen sparas som en väntande inbjudan. När användaren skapar ett konto med den e-postadressen
+                  (via <em>Glömt lösenord</em> eller direkt registrering) tilldelas rollen automatiskt.
+                </div>
+                {feldMsg && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--c-red)' }}>{feldMsg}</div>}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                  <button style={BTN_SEC} onClick={() => { setVisaForm(false); setFeldMsg('') }}>Avbryt</button>
+                  <button style={{ ...BTN_PRI, opacity: sparar ? 0.6 : 1 }} onClick={sparaInbjudan} disabled={sparar}>
+                    {sparar ? 'Sparar…' : 'Skapa inbjudan'}
+                  </button>
+                </div>
+              </div>
+            )}
 
-      {/* Säkerhetsnotis */}
-      <div style={{
-        marginTop: 24, padding: '16px 20px',
-        background: 'var(--c-surface)', border: '1px solid #f59e0b44',
-        borderLeft: '3px solid #f59e0b', borderRadius: '0 12px 12px 0',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <Shield size={15} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 6 }}>
-              Säkerhet – rollstyrning är klientbaserad
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.7 }}>
-              Applikationens rollstyrning kontrolleras i webbläsaren. För fullständig datasäkerhet
-              rekommenderas att <strong style={{ color: 'var(--c-text)' }}>Row Level Security (RLS)</strong> aktiveras
-              i Supabase, så att databas­åtkomsten begränsas server-sida per roll.
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.7 }}>
-              <strong style={{ color: 'var(--c-text)' }}>Aktivera RLS:</strong>{' '}
-              Supabase Dashboard → Table Editor → välj tabell → Enable RLS → skapa policies per roll.
+            {/* Lista */}
+            {laddas ? (
+              <div style={{ padding: '20px', color: 'var(--c-text3)', fontSize: 13 }}>Laddar…</div>
+            ) : inbjudningar.length === 0 ? (
+              <div style={{ padding: '24px 20px', textAlign: 'center', color: 'var(--c-text3)', fontSize: 13 }}>
+                Inga väntande inbjudningar.
+              </div>
+            ) : (
+              inbjudningar.map((inv, i) => (
+                <div key={inv.id} style={{
+                  padding: '13px 20px',
+                  borderBottom: i < inbjudningar.length - 1 ? '1px solid var(--c-border)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                    background: ROLL_BG[inv.roll] || '#2a2925',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {inv.roll === 'kund' ? <User size={15} color={ROLL_FÄRG[inv.roll]} /> : <Shield size={15} color={ROLL_FÄRG[inv.roll] || 'var(--c-text3)'} />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {inv.email}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0, background: ROLL_BG[inv.roll], color: ROLL_FÄRG[inv.roll] }}>
+                        {ROLL_LABEL[inv.roll] || inv.roll}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
+                      {inv.roll === 'kund' && inv.kund_namn ? `Kund: ${inv.kund_namn} · ` : ''}
+                      Skapad {new Date(inv.created_at).toLocaleDateString('sv-SE')}
+                    </div>
+                  </div>
+                  {bekraftaBort === inv.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, color: 'var(--c-text2)' }}>Ta bort?</span>
+                      <button onClick={() => taBortInbjudan(inv.id)} style={{ padding: '5px 10px', background: 'var(--c-red)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ja</button>
+                      <button onClick={() => setBekraftaBort(null)} style={BTN_SEC}>Nej</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setBekraftaBort(inv.id)}
+                      style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}
+                      title="Ta bort inbjudan">
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Instruktioner */}
+          <div style={{ marginTop: 24, padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
+            <div style={SECTION}>Så bjuder du in en ny användare</div>
+            <ol style={{ margin: 0, padding: '0 0 0 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[
+                'Klicka "Bjud in användare" och ange e-post, roll (och kund om det gäller kundportal).',
+                'Kopiera inloggningslänken ovan och skicka den till användaren.',
+                'Användaren skapar ett konto — om e-posten matchar en inbjudan tilldelas rollen automatiskt.',
+                'Inbjudan försvinner automatiskt när kontot skapas.',
+              ].map((steg, i) => (
+                <li key={i} style={{ fontSize: 13, color: 'var(--c-text2)', lineHeight: 1.5 }}>{steg}</li>
+              ))}
+            </ol>
+          </div>
+
+          {/* Säkerhetsnotis */}
+          <div style={{
+            marginTop: 24, padding: '16px 20px',
+            background: 'var(--c-surface)', border: '1px solid #f59e0b44',
+            borderLeft: '3px solid #f59e0b', borderRadius: '0 12px 12px 0',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <Shield size={15} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 6 }}>
+                  Säkerhet – rollstyrning är klientbaserad
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.7 }}>
+                  Applikationens rollstyrning kontrolleras i webbläsaren. För fullständig datasäkerhet
+                  rekommenderas att <strong style={{ color: 'var(--c-text)' }}>Row Level Security (RLS)</strong> aktiveras
+                  i Supabase, så att databasens åtkomst begränsas server-sida per roll.
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.7 }}>
+                  <strong style={{ color: 'var(--c-text)' }}>Aktivera RLS:</strong>{' '}
+                  Supabase Dashboard → Table Editor → välj tabell → Enable RLS → skapa policies per roll.
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Medarbetare */}
-      <TeknikerPanel tekniker={tekniker} onLaggTill={onLaggTillTekniker} onTaBort={onTaBortTekniker} />
+          {/* Medarbetare */}
+          <TeknikerPanel tekniker={tekniker} onLaggTill={onLaggTillTekniker} onTaBort={onTaBortTekniker} />
 
-      {/* Protokollmallar */}
-      <ProtokollMallar
-        mallar={protokollMallar}
-        onSpara={onSparaProtokollMallar}
-        titel="Protokollmallar – Service"
-        beskrivning="Checklistor per porttyp som används vid serviceprotokoll"
-      />
+        </>
+      )}
 
-      {/* Monteringsmallar */}
-      <ProtokollMallar
-        mallar={montagemallar}
-        onSpara={onSparaMontagemallar}
-        titel="Monteringsmallar – Egenkontroll"
-        beskrivning="Egenkontroll-checklistor per porttyp som används vid monteringsprotokoll"
-      />
+      {/* ── TAB: MALLAR ────────────────────────────────────────────────────────── */}
+      {aktivTab === 'mallar' && (
+        <>
+          <div style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 4 }}>
+            Protokollmallarna definierar checklistorna som fylls i vid service- och monteringsprotokoll.
+            Dra och släpp rader för att ändra ordning.
+          </div>
+          <ProtokollMallar
+            mallar={protokollMallar}
+            onSpara={onSparaProtokollMallar}
+            titel="Protokollmallar – Service"
+            beskrivning="Checklistor per porttyp som används vid serviceprotokoll"
+          />
+          <ProtokollMallar
+            mallar={montagemallar}
+            onSpara={onSparaMontagemallar}
+            titel="Monteringsmallar – Egenkontroll"
+            beskrivning="Egenkontroll-checklistor per porttyp som används vid monteringsprotokoll"
+          />
+        </>
+      )}
+
+      {/* ── TAB: FÖRETAG ───────────────────────────────────────────────────────── */}
+      {aktivTab === 'foretag' && (
+        <>
+          <div style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 20 }}>
+            Företagsinformationen används i rubriken på alla genererade PDF-dokument
+            och som systemstandard för serviceintervall.
+          </div>
+          <FöretagsPanel config={foretagConfig} onSpara={onSparaForetagConfig} />
+        </>
+      )}
 
     </div>
   )

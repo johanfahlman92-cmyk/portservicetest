@@ -1,6 +1,15 @@
 import logo from '../image-1779305303942.png'
 import { RISKPUNKTER } from '../data/store.js'
 
+// ── Företagskonfiguration (sätts från App.jsx vid start) ──────────────────────
+let _companyConfig = { namn: 'NMV Portservice' }
+/** Uppdaterar företagskonfigurationen som används i PDF-headers. */
+export function setCompanyConfig(cfg) {
+  if (cfg && typeof cfg === 'object') _companyConfig = { ...cfg }
+}
+/** Returnerar aktuell företagskonfiguration. */
+export function getCompanyConfig() { return _companyConfig }
+
 /** Hämtar logotypen som base64-data-URL. */
 export async function hämtaLogoBase64() {
   try {
@@ -107,7 +116,7 @@ export function pdfHeader(logoBase64, docType, docRef = '', docRefSub = '') {
     <div>
       ${logoBase64
         ? `<img src="${logoBase64}" style="height:52px;display:block" alt="NMV Portservice"/>`
-        : `<span style="font-size:18px;font-weight:800;color:#1C3461">NMV Portservice</span>`}
+        : `<span style="font-size:18px;font-weight:800;color:#1C3461">${_companyConfig.namn || 'NMV Portservice'}</span>`}
       <div class="doc-type">${docType}</div>
     </div>
     <div>

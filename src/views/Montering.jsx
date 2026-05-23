@@ -501,7 +501,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder, onTillbaka }) {
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder, onTillbaka, standardIntervall = 12 }) {
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
   const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
@@ -532,7 +532,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [portTyp,          setPortTyp]          = useState(PORTTYPER[0] || 'Vikport')
   const [adress,           setAdress]           = useState('')
   const [kund,             setKund]             = useState('')
-  const [serviceIntervall, setServiceIntervall] = useState('12')
+  const [serviceIntervall, setServiceIntervall] = useState(() => String(standardIntervall || 12))
   const [riskKontroll,     setRiskKontroll]     = useState({})
   const [riskNoteringar,   setRiskNoteringar]   = useState({})
   const [egenRisker,       setEgenRisker]       = useState([])
