@@ -21,7 +21,13 @@ const PROT_STATUSES = [
 const PROT_STATUS_MAP = Object.fromEntries(PROT_STATUSES.map(s => [s.kod, s]))
 
 // ── Montageprotokoll-detalj (läsonly – visa fullständigt protokoll + skriv ut) ─
-function MontageProtokollDetalj({ p, onBack }) {
+function MontageProtokollDetalj({ p: pRaw, onBack }) {
+  // Normalisera fältnamn – historik-poster kan ha porttyp/teknikerNamn istf portTyp/tekniker
+  const p = {
+    ...pRaw,
+    portTyp:  pRaw.portTyp  || pRaw.porttyp       || '',
+    tekniker: pRaw.tekniker || pRaw.teknikerNamn   || '',
+  }
   const punkter = EGENKONTROLL_DEFAULT[p.portTyp] || []
 
   const skrivUt = async () => {
@@ -567,9 +573,17 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
   const öppnaPortArenden  = portArenden.filter(a => a.status !== 'atgardad')
   const stängdaPortArenden = portArenden.filter(a => a.status === 'atgardad').slice(-3).reverse()
 
-  // Länkad montageorder (ny data via Montageplanering)
-  const länkadOrder = montageorder.find(m => m.objekt_id === obj.id && m.status === 'utford')
-  const monteringProtoData = länkadOrder?.protokoll_data || null
+  // Länkad montageorder – matcha via objekt_id eller (fallback) ordernummer
+  const länkadOrder = montageorder.find(m =>
+    m.status === 'utford' && (
+      m.objekt_id === obj.id ||
+      (obj.ordernummer && m.ordernummer &&
+       m.ordernummer.toLowerCase() === obj.ordernummer.toLowerCase())
+    )
+  )
+  // Fullständig protokolldata: prioritera montageorder, fallback till historik (gammal data)
+  const monteringProtoData = länkadOrder?.protokoll_data ||
+    ((obj.historik || []).find(h => h.typ === 'montering' && (h.egenkontroll || h.riskKontroll)) || null)
 
   // Samla alla monteringsdokument (ny + gammal data)
   const monteringDokNy     = monteringProtoData?.dokument || []
@@ -579,7 +593,9 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
   const monteringDok = [...monteringDokNy, ...monteringDokGammal]
 
   const serviceProtokoll = (obj.historik || []).filter(h => h.typ !== 'montering')
-  const monteringEntry   = (obj.historik || []).find(h => h.typ === 'montering')
+  // monteringEntry: bara för gamla poster UTAN fullständig protokolldata (ingen egenkontroll/riskKontroll)
+  const monteringEntry = monteringProtoData ? null
+    : (obj.historik || []).find(h => h.typ === 'montering')
 
   const taBortProtokoll = async (entry) => {
     if (!window.confirm('Ta bort detta protokoll?')) return
