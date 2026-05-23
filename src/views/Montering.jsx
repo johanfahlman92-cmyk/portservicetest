@@ -679,16 +679,32 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       dokument: [...dokument],
     }
 
+    // Beräkna nästa servicedatum från montagedag + intervall
+    const intervallMånader = parseInt(serviceIntervall) || 0
+    let nastaServiceDatum = ''
+    if (intervallMånader > 0) {
+      const installDatum = new Date(datum)
+      installDatum.setMonth(installDatum.getMonth() + intervallMånader)
+      const y = installDatum.getFullYear()
+      const m = String(installDatum.getMonth() + 1).padStart(2, '0')
+      const d = String(installDatum.getDate()).padStart(2, '0')
+      nastaServiceDatum = `${y}-${m}-${d}`
+    }
+
     // Skapa porten med tom servicehistorik — montagedata hör hemma i Montageplanering
     const nyskapadPort = await onLaggTillObjekt({
       id: 'o' + Date.now(), namn: portNamn.trim(), kund: kund.trim(),
-      typ: portTyp, adress: adress.trim(), status: 'ok',
+      typ: portTyp, adress: adress.trim(),
       fabrikat: effektivtFabrikat || '',
       kundTyp: 'foretag', intervallProcent: 0, dagerForsenad: 0,
       ordernummer: ordernummer.trim() || null,
       serienummer: serienummer.trim() || null,
-      serviceIntervall: parseInt(serviceIntervall) || 0,
-      historik: [],
+      ar:              new Date(datum).getFullYear(),
+      senaste:         '',
+      nasta:           nastaServiceDatum,
+      serviceIntervall: intervallMånader,
+      historik:        [],
+      dokument:        [],
     })
 
     // Spara protokollet till montageorder (hitta matchande eller skapa ny)
