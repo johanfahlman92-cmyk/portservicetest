@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle, Check, Wrench, Minus, Save } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
-import { statusConfig, protokollTyper, protokollPunkter } from '../data/store.js'
-import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt } from '../utils/pdf.js'
+import { statusConfig, protokollTyper, protokollPunkter, RISKPUNKTER } from '../data/store.js'
+import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt, EGENKONTROLL_DEFAULT } from '../utils/pdf.js'
 
 const filterOpts = [
   { id: 'alla',     label: 'Alla' },
@@ -19,6 +19,145 @@ const PROT_STATUSES = [
   { kod: 'A', label: 'Avvikelse',   color: 'var(--c-red)',   bg: 'var(--c-red-bg)',   border: 'var(--c-red)',   Icon: Minus  },
 ]
 const PROT_STATUS_MAP = Object.fromEntries(PROT_STATUSES.map(s => [s.kod, s]))
+
+// ── Montageprotokoll-detalj (läsonly – visa fullständigt protokoll + skriv ut) ─
+function MontageProtokollDetalj({ p, onBack }) {
+  const punkter = EGENKONTROLL_DEFAULT[p.portTyp] || []
+
+  const skrivUt = async () => {
+    const logoBase64 = await hämtaLogo()
+    const html = pdfMontageProt(p, logoBase64)
+    const win = window.open('', '_blank', 'width=860,height=1100')
+    win.document.write(html); win.document.close()
+    setTimeout(() => win.print(), 400)
+  }
+
+  return (
+    <div>
+      {/* Toprad */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <button className="btn" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <ArrowLeft size={14} /> Tillbaka
+        </button>
+        <button className="btn btn-primary" onClick={skrivUt} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Printer size={14} /> Skriv ut protokoll
+        </button>
+      </div>
+
+      {/* Metainfo */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 16px', marginBottom: 12 }}>
+          {[
+            ['Porttyp',     p.portTyp],
+            ['Kund',        p.kund],
+            ['Adress',      p.adress],
+            ['Datum',       p.datum],
+            ['Tekniker',    p.tekniker],
+            p.ordernummer ? ['Ordernummer', p.ordernummer] : null,
+            p.serienummer ? ['Serienummer', p.serienummer] : null,
+          ].filter(Boolean).map(([l, v]) => (
+            <div key={l}>
+              <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>{l}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{v || '–'}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, paddingTop: 10, borderTop: '1px solid var(--c-border)' }}>
+          <span style={{ color: 'var(--c-teal)', fontWeight: 600 }}>✓ {p.ok ?? 0} Godkänd</span>
+          {(p.ej ?? 0) > 0 && <span style={{ color: 'var(--c-red)', fontWeight: 600 }}>✗ {p.ej} Avvikelse</span>}
+          {(p.na ?? 0) > 0 && <span style={{ color: '#888' }}>{p.na} Ej tillämpbar</span>}
+          {p.godkannande && (
+            <span style={{ fontWeight: 700, color: p.godkannande === 'godkand' ? 'var(--c-teal)' : 'var(--c-red)' }}>
+              · {p.godkannande === 'godkand' ? '✓ Godkänd av kund' : '✗ Ej godkänd av kund'}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Riskbedömning */}
+      {p.riskKontroll && Object.keys(p.riskKontroll).length > 0 && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Riskbedömning</div>
+          {RISKPUNKTER.map((punkt, i) => {
+            if (punkt.startsWith('## ')) return (
+              <div key={i} style={{ margin: '10px 0 6px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-blue)' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-blue)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{punkt.slice(3)}</span>
+              </div>
+            )
+            const st  = p.riskKontroll?.[i]
+            if (!st) return null
+            const not = p.riskNoteringar?.[i] || ''
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, borderBottom: '1px solid var(--c-border)', paddingBottom: 6, marginBottom: 6 }}>
+                <span style={{ flex: 1, fontSize: 12 }}>{punkt}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                  color: st === 'ok' ? 'var(--c-teal)' : st === 'atgard' ? 'var(--c-amber)' : 'var(--c-text3)' }}>
+                  {st === 'ok' ? '✓ OK' : st === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'}
+                </span>
+                {not && <span style={{ fontSize: 11, color: 'var(--c-text2)', maxWidth: 160, textAlign: 'right' }}>{not}</span>}
+              </div>
+            )
+          })}
+          {(p.egenRisker || []).map((r, i) => (
+            <div key={`er${i}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8,
+              borderBottom: '1px solid var(--c-border)', paddingBottom: 6, marginBottom: 6,
+              background: 'var(--c-bg)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{r.label || '–'}</div>
+                {r.beskrivning && <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{r.beskrivning}</div>}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                color: r.status === 'ok' ? 'var(--c-teal)' : r.status === 'atgard' ? 'var(--c-amber)' : 'var(--c-text3)' }}>
+                {r.status === 'ok' ? '✓ OK' : r.status === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Egenkontroll */}
+      {punkter.length > 0 && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Egenkontroll – {p.portTyp}</div>
+          {(() => {
+            let ec = 0
+            return punkter.map((punkt, i) => {
+              if (punkt.startsWith('## ')) return (
+                <div key={i} style={{ margin: '10px 0 6px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-blue)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-blue)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{punkt.slice(3)}</span>
+                </div>
+              )
+              ec++
+              const st  = p.egenkontroll?.[i] || ''
+              const not = p.egenNoteringar?.[i] || ''
+              const color = st === 'OK' ? 'var(--c-teal)' : st === 'EJ' ? 'var(--c-red)' : 'var(--c-text3)'
+              const etikett = st === 'OK' ? '✓ Godkänd' : st === 'EJ' ? '✗ Avvikelse' : st === 'NA' ? 'Ej tillämpbar' : '–'
+              return (
+                <div key={i} style={{ borderBottom: '1px solid var(--c-border)', paddingBottom: 7, marginBottom: 7 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, flexShrink: 0 }}>{ec}.</span>
+                    <span style={{ flex: 1, fontSize: 12 }}>{punkt}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color, whiteSpace: 'nowrap' }}>{etikett}</span>
+                  </div>
+                  {not && <div style={{ marginLeft: 28, fontSize: 11, color: 'var(--c-text2)', marginTop: 3 }}>{not}</div>}
+                </div>
+              )
+            })
+          })()}
+        </div>
+      )}
+
+      {/* Signatur */}
+      {p.signatur && (
+        <div className="card">
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Signatur tekniker</div>
+          <img src={p.signatur} alt="Signatur" style={{ maxWidth: 280, border: '1px solid var(--c-border)', borderRadius: 6 }} />
+          {p.tekniker && <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 6 }}>{p.tekniker} · {p.datum}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Protokolldetalj (interaktiv – redigera + godkänn alla) ───────────────────
 function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
@@ -400,8 +539,9 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
 
 // ── Portdetaljer ──────────────────────────────────────────────────────────────
 function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillArende, onNavigeraArende, onDupliceraPort, onNyArende, montageorder = [], arenden = [] }) {
-  const [valdProtokoll,    setValdProtokoll]    = useState(null)
-  const [visaSnabbBokning, setVisaSnabbBokning] = useState(false)
+  const [valdProtokoll,       setValdProtokoll]       = useState(null)
+  const [visaMontageDetalj,   setVisaMontageDetalj]   = useState(false)
+  const [visaSnabbBokning,    setVisaSnabbBokning]    = useState(false)
   const [redigeraNasta,    setRedigeraNasta]    = useState(false)
   const [nastaDatum,       setNastaDatum]       = useState(obj.nasta || '')
   const [spararNasta,      setSpararNasta]      = useState(false)
@@ -458,6 +598,15 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
     if (!window.confirm(`Arkivera porten "${obj.namn}"?\nDen kan återställas från arkivet.`)) return
     await onUppdateraObjekt(obj.id, { arkiverad: true })
     onBack()
+  }
+
+  if (visaMontageDetalj && monteringProtoData) {
+    return (
+      <MontageProtokollDetalj
+        p={monteringProtoData}
+        onBack={() => setVisaMontageDetalj(false)}
+      />
+    )
   }
 
   if (valdProtokoll) {
@@ -644,11 +793,11 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
             <div key={i} className="row-item" onClick={() => setValdProtokoll(h)} style={{ cursor: 'pointer' }}>
               <div className="row-main">
                 <div className="row-name">{h.datum} · {h.tekniker || '–'}</div>
-                <div className="row-sub">
-                  <span style={{ color: 'var(--c-teal)' }}>{h.g||0}G</span> ·{' '}
-                  <span style={{ color: 'var(--c-amber)' }}>{h.j||0}J</span> ·{' '}
-                  <span style={{ color: 'var(--c-red)' }}>{h.a||0}A</span>
-                  {h.notering ? ` · ${h.notering.slice(0, 50)}` : ''}
+                <div className="row-sub" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--c-teal)' }}>{h.g||0} Godkänd</span>
+                  {(h.j||0) > 0 && <span style={{ color: 'var(--c-amber)' }}>· {h.j} Notera</span>}
+                  {(h.a||0) > 0 && <span style={{ color: 'var(--c-red)' }}>· {h.a} Avvikelse</span>}
+                  {h.notering ? <span>· {h.notering.slice(0, 50)}</span> : ''}
                 </div>
               </div>
               {h.a > 0 && <span className="badge badge-red">Anmärkning</span>}
@@ -661,53 +810,34 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
       {/* Montageprotokoll */}
       {(monteringProtoData || monteringEntry) && (
         <div className="card" style={{ marginBottom: 12 }}>
-          <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span>Montageprotokoll</span>
-            {monteringProtoData && (
-              <button className="btn" style={{ fontSize: 11, padding: '3px 9px', display: 'flex', alignItems: 'center', gap: 4 }}
-                onClick={async () => {
-                  const logoBase64 = await hämtaLogo()
-                  const html = pdfMontageProt(monteringProtoData, logoBase64)
-                  const win = window.open('', '_blank', 'width=860,height=1100')
-                  win.document.write(html); win.document.close()
-                  setTimeout(() => win.print(), 400)
-                }}>
-                <Printer size={11} /> Skriv ut
-              </button>
-            )}
-          </div>
+          <div className="section-title" style={{ marginBottom: 8 }}>Montageprotokoll</div>
 
-          {/* Ny data från montageorder */}
+          {/* Klickbar rad med fullständigt protokoll (ny data från montageorder) */}
           {monteringProtoData && (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px 16px', marginBottom: 10 }}>
-                {[['Datum', monteringProtoData.datum], ['Tekniker', monteringProtoData.tekniker], ['Porttyp', monteringProtoData.portTyp],
-                  ['Ordernummer', monteringProtoData.ordernummer], ['Serienummer', monteringProtoData.serienummer]
-                ].filter(([,v]) => v).map(([l, v]) => (
-                  <div key={l}>
-                    <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 600, textTransform: 'uppercase' }}>{l}</div>
-                    <div style={{ fontSize: 12, color: 'var(--c-text)', marginTop: 1 }}>{v}</div>
-                  </div>
-                ))}
+            <div className="row-item" onClick={() => setVisaMontageDetalj(true)}
+              style={{ cursor: 'pointer' }}>
+              <div className="row-main">
+                <div className="row-name">{monteringProtoData.datum} · {monteringProtoData.tekniker || '–'}</div>
+                <div className="row-sub" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--c-teal)' }}>{monteringProtoData.ok ?? 0} Godkänd</span>
+                  {(monteringProtoData.ej ?? 0) > 0 && <span style={{ color: 'var(--c-red)' }}>· {monteringProtoData.ej} Avvikelse</span>}
+                  {(monteringProtoData.na ?? 0) > 0 && <span style={{ color: '#888' }}>· {monteringProtoData.na} Ej tillämpbar</span>}
+                  {monteringProtoData.godkannande && (
+                    <span style={{ fontWeight: 600, color: monteringProtoData.godkannande === 'godkand' ? 'var(--c-teal)' : 'var(--c-red)' }}>
+                      · {monteringProtoData.godkannande === 'godkand' ? '✓ Godkänd' : '✗ Ej godkänd'}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 10, fontSize: 12, flexWrap: 'wrap' }}>
-                <span style={{ color: 'var(--c-teal)', fontWeight: 600 }}>✓ {monteringProtoData.ok ?? 0} Godkänd</span>
-                {(monteringProtoData.ej ?? 0) > 0 && <span style={{ color: 'var(--c-red)', fontWeight: 600 }}>✗ {monteringProtoData.ej} Avvikelse</span>}
-                {(monteringProtoData.na ?? 0) > 0 && <span style={{ color: '#888' }}>{monteringProtoData.na} Ej tillämpbar</span>}
-                {monteringProtoData.godkannande && (
-                  <span style={{ fontWeight: 600, color: monteringProtoData.godkannande === 'godkand' ? 'var(--c-teal)' : 'var(--c-red)' }}>
-                    {monteringProtoData.godkannande === 'godkand' ? '✓ Godkänd' : '✗ Ej godkänd'}
-                  </span>
-                )}
-              </div>
+              <ChevronRight size={15} color="var(--c-text3)" />
             </div>
           )}
 
-          {/* Äldre data från objekt.historik */}
+          {/* Äldre data (ingen detaljvy tillgänglig) */}
           {!monteringProtoData && monteringEntry && (
-            <div style={{ display: 'flex', gap: 14, padding: '4px 0', fontSize: 12 }}>
-              <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.datum}</span>
-              <span style={{ color: 'var(--c-text2)' }}>{monteringEntry.tekniker || '–'}</span>
+            <div style={{ display: 'flex', gap: 14, padding: '4px 0', fontSize: 12, color: 'var(--c-text2)' }}>
+              <span>{monteringEntry.datum}</span>
+              <span>{monteringEntry.tekniker || '–'}</span>
               <span style={{ color: 'var(--c-teal)', fontWeight: 500 }}>{monteringEntry.ok ?? 0} Godkänd · {monteringEntry.ej ?? 0} Avvikelse</span>
             </div>
           )}

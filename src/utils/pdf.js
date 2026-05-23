@@ -137,7 +137,7 @@ export function pdfDoc(title, bodyHtml) {
 }
 
 // ── Standardmallar för egenkontroll (används om inga anpassade mallar finns) ──
-const EGENKONTROLL_DEFAULT = {
+export const EGENKONTROLL_DEFAULT = {
   Vikport:      ['Portblad och skenor utan skador','Fjädersystem kalibrerat','Säkerhetsbroms testad','Nödöppning testad','Motor monterad och kalibrerad','Fotocell testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
   Takskjutport: ['Skensystem rakt och säkrat','Balansfjädrar kontrollerade','Portblad utan skador','Hjul och lager smorda','Nödöppning testad','Motormontering kontrollerad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
   Lastbrygga:   ['Hydraulsystem utan läckage','Plattform utan skador','Styrsystem testat','Säkerhetskant testad','Elektrisk installation kontrollerad','Nödstoppsfunktion testad','CE-märkning monterad','Bruksanvisning överlämnad'],
