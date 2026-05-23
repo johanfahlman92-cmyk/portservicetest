@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle } from 'lucide-react'
+import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle, Check, Wrench, Minus, Save } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import { statusConfig, protokollTyper, protokollPunkter } from '../data/store.js'
-import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
+import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt } from '../utils/pdf.js'
 
 const filterOpts = [
   { id: 'alla',     label: 'Alla' },
@@ -12,47 +12,77 @@ const filterOpts = [
   { id: 'arende',   label: 'Öppet ärende' },
 ]
 
-// ── Protokolldetalj (read-only) ───────────────────────────────────────────────
-function ProtokollDetalj({ entry, portTyp, onBack, onTaBort }) {
-  const punkter    = protokollPunkter[entry.portTyp || portTyp] || []
-  const statuses   = entry.statuses   || {}
-  const noteringar = entry.noteringar || {}
+// ── Statusdefinitioner för serviceprotokoll (G/J/A) ─────────────────────────
+const PROT_STATUSES = [
+  { kod: 'G', label: 'Godkänd',     color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  border: 'var(--c-teal)',  Icon: Check  },
+  { kod: 'J', label: 'Att notera',  color: 'var(--c-amber)', bg: 'var(--c-amber-bg)', border: 'var(--c-amber)', Icon: Wrench },
+  { kod: 'A', label: 'Avvikelse',   color: 'var(--c-red)',   bg: 'var(--c-red-bg)',   border: 'var(--c-red)',   Icon: Minus  },
+]
+const PROT_STATUS_MAP = Object.fromEntries(PROT_STATUSES.map(s => [s.kod, s]))
 
-  const STATUS_LABEL = { G: '✓ Godkänd', J: '⚠ Att notera', A: '✗ Avvikelse' }
-  const STATUS_CLS   = { G: 's-g',       J: 's-j',          A: 's-a'         }
+// ── Protokolldetalj (interaktiv – redigera + godkänn alla) ───────────────────
+function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
+  const punkter = protokollPunkter[entry.portTyp || portTyp] || []
+
+  const [statuses,   setStatuses]   = useState(() => ({ ...(entry.statuses   || {}) }))
+  const [noteringar, setNoteringar] = useState(() => ({ ...(entry.noteringar || {}) }))
+  const [sparar,     setSparar]     = useState(false)
+
+  const harÄndrat = JSON.stringify(statuses) !== JSON.stringify(entry.statuses || {}) ||
+                    JSON.stringify(noteringar) !== JSON.stringify(entry.noteringar || {})
+
+  const gCount = Object.values(statuses).filter(s => s === 'G').length
+  const jCount = Object.values(statuses).filter(s => s === 'J').length
+  const aCount = Object.values(statuses).filter(s => s === 'A').length
+
+  const godkannAlla = () => {
+    const nya = {}
+    punkter.forEach((p, i) => { if (!p.startsWith('## ')) nya[i] = 'G' })
+    setStatuses(nya)
+  }
+
+  const sparaÄndringar = async () => {
+    setSparar(true)
+    const updatedEntry = {
+      ...entry,
+      statuses,
+      noteringar,
+      g: Object.values(statuses).filter(s => s === 'G').length,
+      j: Object.values(statuses).filter(s => s === 'J').length,
+      a: Object.values(statuses).filter(s => s === 'A').length,
+    }
+    await onSpara?.(updatedEntry)
+    setSparar(false)
+  }
 
   const skrivUtPDF = async () => {
     const logoBase64 = await hämtaLogo()
+    const STATUS_LABEL = { G: '✓ Godkänd', J: '⚠ Att notera', A: '✗ Avvikelse' }
+    const STATUS_CLS   = { G: 's-g',       J: 's-j',          A: 's-a'         }
     let numCount = 0
     const rader = punkter.map((p, i) => {
-      if (p.startsWith('## ')) {
-        return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
-      }
+      if (p.startsWith('## ')) return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
       numCount++
       const s   = statuses[i]   || ''
       const not = noteringar[i] || ''
-      const label = STATUS_LABEL[s] || (s || '–')
-      const cls   = STATUS_CLS[s]   || ''
       return `<tr>
         <td><span style="color:#bbb;margin-right:6px;font-size:10px">${numCount}.</span>${p}</td>
-        <td class="${cls}" style="white-space:nowrap">${label}</td>
+        <td class="${STATUS_CLS[s] || ''}" style="white-space:nowrap">${STATUS_LABEL[s] || '–'}</td>
         <td style="color:#666">${not}</td>
       </tr>`
     }).join('')
 
     const body = `
       ${pdfHeader(logoBase64, 'Serviceprotokoll', entry.datum || '', '')}
-
       <div class="slbl">Portinformation</div>
       ${pdfMetaGrid([
         { lbl: 'Objekt',    val: entry.portNamn || entry.namn || '–' },
         { lbl: 'Porttyp',   val: entry.portTyp  || portTyp           },
         { lbl: 'Tekniker',  val: entry.tekniker                      },
         { lbl: 'Datum',     val: entry.datum                         },
-        { lbl: 'Resultat',  val: `${entry.g||0}G · ${entry.j||0}J · ${entry.a||0}A` },
+        { lbl: 'Resultat',  val: `${gCount}G · ${jCount}J · ${aCount}A` },
         { lbl: 'Serviceintervall', val: entry.serviceIntervall || '–' },
       ])}
-
       <div class="slbl">Kontrollpunkter</div>
       <table>
         <thead><tr>
@@ -62,31 +92,38 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort }) {
         </tr></thead>
         <tbody>${rader}</tbody>
       </table>
-
       ${entry.signatur ? `
         <div class="slbl">Signatur tekniker</div>
-        <div class="sig-section">
-          <div class="sig-box">
-            <div class="sig-label">${entry.tekniker || ''}</div>
-            <img src="${entry.signatur}" style="max-width:280px;max-height:80px"/>
-            <div class="sig-date">${entry.datum || ''}</div>
-          </div>
-        </div>` : ''}
+        <div class="sig-section"><div class="sig-box">
+          <div class="sig-label">${entry.tekniker || ''}</div>
+          <img src="${entry.signatur}" style="max-width:280px;max-height:80px"/>
+          <div class="sig-date">${entry.datum || ''}</div>
+        </div></div>` : ''}
     `
-
     const win = window.open('', '_blank', 'width=860,height=1000')
     win.document.write(pdfDoc(`Serviceprotokoll ${entry.datum}`, body))
     win.document.close()
     setTimeout(() => win.print(), 400)
   }
 
+  const totalPunkter = punkter.filter(p => !p.startsWith('## ')).length
+  const ifyllda      = gCount + jCount + aCount
+  const pct          = totalPunkter > 0 ? Math.round((ifyllda / totalPunkter) * 100) : 0
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      {/* Toprad */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <button className="btn" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <ArrowLeft size={14} /> Tillbaka
         </button>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {harÄndrat && (
+            <button className="btn btn-teal" onClick={sparaÄndringar} disabled={sparar}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Save size={13} /> {sparar ? 'Sparar…' : 'Spara ändringar'}
+            </button>
+          )}
           <button className="btn" onClick={skrivUtPDF} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Printer size={13} /> Skriv ut
           </button>
@@ -95,61 +132,103 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort }) {
             padding: '6px 12px', fontSize: 12, borderRadius: 7, cursor: 'pointer',
             border: '1px solid var(--c-red)', background: 'var(--c-red-bg)', color: 'var(--c-red-text)',
           }}>
-            <Trash2 size={13} /> Ta bort protokoll
+            <Trash2 size={13} /> Ta bort
           </button>
         </div>
       </div>
 
+      {/* Metainfo */}
       <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-          <div><div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Datum</div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{entry.datum}</div></div>
-          <div><div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Tekniker</div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{entry.tekniker || '–'}</div></div>
-          <div><div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Resultat</div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>
-              <span style={{ color: 'var(--c-teal)' }}>{entry.g||0}G</span> ·{' '}
-              <span style={{ color: 'var(--c-amber)' }}>{entry.j||0}J</span> ·{' '}
-              <span style={{ color: 'var(--c-red)' }}>{entry.a||0}A</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 16px' }}>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Datum</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{entry.datum}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Tekniker</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{entry.tekniker || '–'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Resultat</div>
+            <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', gap: 6 }}>
+              <span style={{ color: 'var(--c-teal)' }}>{gCount}G</span>
+              <span style={{ color: 'var(--c-amber)' }}>{jCount}J</span>
+              <span style={{ color: 'var(--c-red)' }}>{aCount}A</span>
             </div>
           </div>
         </div>
-        {entry.notering && (
-          <div style={{ fontSize: 12, color: 'var(--c-text2)', fontStyle: 'italic' }}>
-            Anmärkning: {entry.notering}
-          </div>
-        )}
+        {/* Förloppsindikator */}
+        <div className="progress-bar" style={{ height: 4, marginTop: 12 }}>
+          <div className="progress-fill" style={{
+            width: `${pct}%`,
+            background: aCount > 0 ? 'var(--c-red)' : jCount > 0 ? 'var(--c-amber)' : 'var(--c-teal)',
+          }} />
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--c-text3)', marginTop: 4 }}>{ifyllda}/{totalPunkter} ifyllda</div>
       </div>
 
+      {/* Kontrollpunkter */}
       {punkter.length > 0 && (
         <div className="card" style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Kontrollpunkter</div>
-          {punkter.map((p, i) => {
-            const s = statuses[i] || ''
-            const bgMap  = { G: 'var(--c-green-bg)', J: 'var(--c-amber-bg)', A: 'var(--c-red-bg)' }
-            const clrMap = { G: 'var(--c-green-text)', J: 'var(--c-amber-text)', A: 'var(--c-red-text)' }
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10,
-                padding: '6px 0', borderBottom: '1px solid var(--c-border)' }}>
-                <span style={{ fontSize: 11, color: 'var(--c-text3)', minWidth: 22 }}>{i + 1}.</span>
-                <span style={{ flex: 1, fontSize: 12 }}>{p}</span>
-                {s && <span style={{ background: bgMap[s], color: clrMap[s],
-                  borderRadius: 4, padding: '1px 8px', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{s}</span>}
-                {noteringar[i] && (
-                  <span style={{ fontSize: 11, color: 'var(--c-text2)', maxWidth: 160,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                    {noteringar[i]}
-                  </span>
-                )}
-              </div>
-            )
-          })}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Kontrollpunkter</div>
+            <button className="btn btn-teal" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}
+              onClick={godkannAlla}>
+              <CheckCircle size={12} /> Godkänn alla
+            </button>
+          </div>
+          {(() => {
+            let numCount = 0
+            return punkter.map((p, i) => {
+              if (p.startsWith('## ')) {
+                return (
+                  <div key={i} style={{ margin: '10px 0 6px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-blue)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-blue)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{p.slice(3)}</span>
+                  </div>
+                )
+              }
+              numCount++
+              const s = statuses[i] || ''
+              const visaNotis = s === 'J' || s === 'A'
+              return (
+                <div key={i} style={{ borderBottom: '1px solid var(--c-border)', paddingBottom: 8, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: 'var(--c-text3)', minWidth: 20, flexShrink: 0 }}>{numCount}.</span>
+                    <span style={{ flex: 1, fontSize: 13 }}>{p}</span>
+                    <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                      {PROT_STATUSES.map(({ kod, Icon, color, bg, border, label }) => (
+                        <button key={kod} onClick={() => setStatuses(prev => ({ ...prev, [i]: s === kod ? undefined : kod }))}
+                          title={label} style={{
+                            width: 30, height: 28, borderRadius: 6,
+                            border: `1px solid ${s === kod ? border : 'var(--c-border)'}`,
+                            background: s === kod ? bg : 'transparent',
+                            color: s === kod ? color : 'var(--c-text3)',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'all 0.12s',
+                          }}>
+                          <Icon size={13} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {visaNotis && (
+                    <input type="text" placeholder="Notering / åtgärd…"
+                      value={noteringar[i] || ''}
+                      onChange={e => setNoteringar(prev => ({ ...prev, [i]: e.target.value }))}
+                      style={{ marginTop: 6, marginLeft: 28, width: 'calc(100% - 28px)', fontSize: 12,
+                        padding: '5px 8px', border: '1px solid var(--c-border)', borderRadius: 6,
+                        background: 'var(--c-bg)', color: 'var(--c-text)', outline: 'none' }} />
+                  )}
+                </div>
+              )
+            })
+          })()}
         </div>
       )}
 
       {entry.signatur && (
         <div className="card">
-          <div style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 8 }}>Signatur tekniker</div>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--c-text3)', marginBottom: 8 }}>Signatur tekniker</div>
           <img src={entry.signatur} alt="Signatur" style={{ maxWidth: 280, border: '1px solid var(--c-border)', borderRadius: 6 }} />
         </div>
       )}
@@ -370,6 +449,12 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
     setValdProtokoll(null)
   }
 
+  const sparaProtokoll = async (updatedEntry) => {
+    const nyHistorik = (obj.historik || []).map(h => h === valdProtokoll ? updatedEntry : h)
+    await onUppdateraObjekt(obj.id, { historik: nyHistorik })
+    setValdProtokoll(updatedEntry)
+  }
+
   const arkiveraPort = async () => {
     if (!window.confirm(`Arkivera porten "${obj.namn}"?\nDen kan återställas från arkivet.`)) return
     await onUppdateraObjekt(obj.id, { arkiverad: true })
@@ -383,6 +468,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
         portTyp={obj.typ}
         onBack={() => setValdProtokoll(null)}
         onTaBort={() => taBortProtokoll(valdProtokoll)}
+        onSpara={sparaProtokoll}
       />
     )
   }
@@ -581,22 +667,11 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
             {monteringProtoData && (
               <button className="btn" style={{ fontSize: 11, padding: '3px 9px', display: 'flex', alignItems: 'center', gap: 4 }}
                 onClick={async () => {
-                  const logoBase64 = await hämtaLogoBase64()
-                  // enkel print-vy
-                  const p = monteringProtoData
+                  const logoBase64 = await hämtaLogo()
+                  const html = pdfMontageProt(monteringProtoData, logoBase64)
                   const win = window.open('', '_blank', 'width=860,height=1100')
-                  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Monteringsprotokoll</title>
-                    <style>body{font-family:Arial,sans-serif;font-size:12px;margin:32px 40px}h2{font-size:13px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75;margin-top:18px}table{width:100%;border-collapse:collapse}th{background:#f3f2ef;padding:5px 8px;font-size:11px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:#1D9E75;font-weight:600}.ej{color:#b83333;font-weight:600}.na{color:#888}</style></head><body>
-                    ${logoBase64 ? `<img src="${logoBase64}" style="height:50px;margin-bottom:12px">` : ''}
-                    <h1 style="font-size:18px">Monteringsprotokoll</h1>
-                    <p style="font-size:11px;color:#555">${p.kund||''} · ${p.adress||''} · ${p.datum||''} · ${p.tekniker||''}</p>
-                    <h2>Egenkontroll – ${p.portTyp||''}</h2>
-                    <table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Notering</th></tr></thead><tbody>
-                    ${Object.entries(p.egenkontroll||{}).map(([i,s]) => `<tr><td>${i}</td><td class="${s==='OK'?'ok':s==='EJ'?'ej':'na'}">${s==='OK'?'✓ OK':s==='EJ'?'✗ Ej OK':'N/A'}</td><td>${p.egenNoteringar?.[i]||''}</td></tr>`).join('')}
-                    </tbody></table>
-                    ${p.signatur ? `<h2>Signatur</h2><img src="${p.signatur}" style="max-width:280px;border:1px solid #ccc;border-radius:6px">` : ''}
-                    </body></html>`)
-                  win.document.close(); setTimeout(() => win.print(), 400)
+                  win.document.write(html); win.document.close()
+                  setTimeout(() => win.print(), 400)
                 }}>
                 <Printer size={11} /> Skriv ut
               </button>

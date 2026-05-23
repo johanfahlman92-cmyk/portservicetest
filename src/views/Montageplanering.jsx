@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, Archive, ArchiveRestore, Lock } from 'lucide-react'
 import { protokollTyper, RISKPUNKTER } from '../data/store.js'
 import KundVäljare from '../components/KundVäljare.jsx'
-import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt } from '../utils/pdf.js'
 
 // Samma porttyper som i Portregister
 const PORTTYPER      = Object.keys(protokollTyper)           // Vikport, Takskjutport, Lastbrygga, Grind
@@ -14,116 +14,6 @@ const STATUS_CFG = {
   utford:      { label: 'Utförd',      color: '#16a34a', bg: '#f0fdf4', Icon: Check },
 }
 
-function genereraMontagePDF({ p, logoBase64, montagemallar = {} }) {
-  const riskRows = RISKPUNKTER.map((punkt, i) => {
-    if (punkt.startsWith('## ')) {
-      return `<tr class="tbl-group"><td colspan="3">${punkt.slice(3)}</td></tr>`
-    }
-    const st  = p.riskKontroll?.[i]
-    const not = p.riskNoteringar?.[i] || ''
-    const cls = st === 'ok' ? 's-risk-ok' : st === 'atgard' ? 's-risk-atgard' : st === 'ej_aktuellt' ? 's-risk-ej' : ''
-    const etk = st === 'ok' ? '✓ OK' : st === 'atgard' ? '⚠ Åtgärd krävs' : st === 'ej_aktuellt' ? '– Ej aktuellt' : '–'
-    return `<tr><td>${punkt}</td><td class="${cls}">${etk}</td><td style="color:#666">${not}</td></tr>`
-  }).join('')
-
-  const egenRiskRows = (p.egenRisker || []).map(r => {
-    const cls = r.status === 'ok' ? 's-risk-ok' : r.status === 'atgard' ? 's-risk-atgard' : 's-risk-ej'
-    const etk = r.status === 'ok' ? '✓ OK' : r.status === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'
-    return `<tr style="background:#fffbf2"><td><strong>${r.label||'–'}</strong>${r.beskrivning ? `<br><span style="color:#888;font-size:10px">${r.beskrivning}</span>` : ''}</td><td class="${cls}">${etk}</td><td style="color:#666">${r.åtgärd||''}</td></tr>`
-  }).join('')
-
-  const mallar = Object.keys(montagemallar).length > 0 ? montagemallar : {
-    Vikport:      ['Portblad och skenor utan skador','Fjädersystem kalibrerat','Säkerhetsbroms testad','Nödöppning testad','Motor monterad och kalibrerad','Fotocell testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
-    Takskjutport: ['Skensystem rakt och säkrat','Balansfjädrar kontrollerade','Portblad utan skador','Hjul och lager smorda','Nödöppning testad','Motormontering kontrollerad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
-    Lastbrygga:   ['Hydraulsystem utan läckage','Plattform utan skador','Styrsystem testat','Säkerhetskant testad','Elektrisk installation kontrollerad','Nödstoppsfunktion testad','CE-märkning monterad','Bruksanvisning överlämnad'],
-    Grind:        ['Stolpar stabilt monterade','Räls och styrning rak','Grindblad utan skador','Motor monterad','Fotocell kontrollerad','Nödöppning testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
-  }
-  const punkter = mallar[p.portTyp] || []
-  let egenCount = 0
-  const egenRows = punkter.map((punkt, i) => {
-    if (punkt.startsWith('## ')) {
-      return `<tr class="tbl-group"><td colspan="3">${punkt.slice(3)}</td></tr>`
-    }
-    egenCount++
-    const st  = p.egenkontroll?.[i] || '–'
-    const not = p.egenNoteringar?.[i] || ''
-    const cls = st === 'OK' ? 's-ok' : st === 'EJ' ? 's-ka' : st === 'NA' ? 's-ej' : ''
-    const etk = st === 'OK' ? '✓ Godkänd' : st === 'EJ' ? '✗ Avvikelse' : st === 'NA' ? 'Ej tillämpbar' : '–'
-    return `<tr>
-      <td><span style="color:#bbb;margin-right:6px;font-size:10px">${egenCount}.</span>${punkt}</td>
-      <td class="${cls}" style="white-space:nowrap">${etk}</td>
-      <td style="color:#666">${not}</td>
-    </tr>`
-  }).join('')
-
-  const godkjHtml = p.godkannande
-    ? `<div class="approval ${p.godkannande === 'godkand' ? 'approval-ok' : 'approval-ej'}">
-        <span class="approval-icon">${p.godkannande === 'godkand' ? '✓' : '✗'}</span>
-        <div>
-          <div class="approval-text">${p.godkannande === 'godkand' ? 'Godkänd' : 'Ej godkänd'}</div>
-          <div class="approval-sub">${p.godkannande === 'godkand'
-            ? 'Arbetsplatsen kan påbörjas utan fara för säkerhet och hälsa.'
-            : 'Ej godkänd – ansvarig informerad om fel och åtgärder.'}</div>
-        </div>
-      </div>` : ''
-
-  const metaCeller = [
-    { lbl: 'Porttyp',   val: p.portTyp   },
-    { lbl: 'Kund',      val: p.kund      },
-    { lbl: 'Adress',    val: p.adress    },
-    { lbl: 'Datum',     val: p.datum     },
-    { lbl: 'Tekniker',  val: p.tekniker  },
-    ...(p.ordernummer ? [{ lbl: 'Ordernummer', val: p.ordernummer }] : [{ lbl: '', val: '' }]),
-    ...(p.serienummer ? [{ lbl: 'Serienummer', val: p.serienummer }] : []),
-  ]
-  if (metaCeller.length % 2 !== 0) metaCeller.push({ lbl: '', val: '' })
-
-  const metaHtml = `<div class="meta">${metaCeller.map(c =>
-    `<div class="cell"><div class="lbl">${c.lbl}</div><div class="val">${c.val || '–'}</div></div>`
-  ).join('')}</div>`
-
-  const body = `
-    ${pdfHeader(logoBase64, 'Monteringsprotokoll', p.portTyp || '', p.datum || '')}
-
-    <div class="slbl">Information</div>
-    ${metaHtml}
-
-    <div class="slbl">Riskbedömning</div>
-    <table>
-      <thead><tr>
-        <th>Kontrollpunkt</th>
-        <th>Status</th>
-        <th style="width:30%">Åtgärd / notering</th>
-      </tr></thead>
-      <tbody>${riskRows}${egenRiskRows}</tbody>
-    </table>
-    ${godkjHtml}
-
-    <div class="page-break"></div>
-
-    <div class="slbl">Egenkontroll — ${p.portTyp || ''}</div>
-    <table>
-      <thead><tr>
-        <th style="width:58%">Kontrollpunkt</th>
-        <th style="width:20%">Status</th>
-        <th style="width:22%">Notering</th>
-      </tr></thead>
-      <tbody>${egenRows}</tbody>
-    </table>
-
-    ${p.signatur ? `
-      <div class="slbl">Signatur tekniker</div>
-      <div class="sig-section">
-        <div class="sig-box">
-          <div class="sig-label">${p.tekniker || ''}</div>
-          <img src="${p.signatur}" style="max-width:300px;max-height:90px"/>
-          <div class="sig-date">${p.datum || ''}</div>
-        </div>
-      </div>` : ''}
-  `
-
-  return pdfDoc('Monteringsprotokoll', body)
-}
 
 function StatusBadge({ status }) {
   const s = STATUS_CFG[status] || STATUS_CFG.ej_planerad
@@ -530,7 +420,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                 <button className="btn" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
                   onClick={async () => {
                     const logoBase64 = await hämtaLogoBase64()
-                    const html = genereraMontagePDF({ p: order.protokoll_data, logoBase64 })
+                    const html = pdfMontageProt(order.protokoll_data, logoBase64)
                     const win = window.open('', '_blank', 'width=860,height=1100')
                     win.document.write(html); win.document.close()
                     setTimeout(() => win.print(), 400)
