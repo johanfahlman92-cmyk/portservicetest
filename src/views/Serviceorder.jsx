@@ -192,12 +192,15 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
   const slutfor = async () => {
     setSparar(true)
     const idag = new Date().toISOString().slice(0, 10)
-    const nastaDate = new Date(); nastaDate.setMonth(nastaDate.getMonth() + 6)
-    const nastaDatum = nastaDate.toISOString().slice(0, 10)
 
     for (const objId of (valdOrder.objekt_ids || [])) {
       const port = objekt.find(o => o.id === objId)
       if (!port) continue
+      // Beräkna nästa service baserat på portens konfigurerade intervall
+      const intervallMån = port.serviceIntervall || 12
+      const nd = new Date(valdOrder.datum || idag)
+      nd.setMonth(nd.getMonth() + intervallMån)
+      const nastaDatum = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}`
       const prot    = protokoll[objId] || {}
       const punkter = mallar[port.typ] || []
       const counts  = { ok: 0, af: 0, not: 0, ka: 0, ej: 0 }

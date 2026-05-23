@@ -676,6 +676,19 @@ export default function App() {
     <KundPortal user={user} onLoggaUt={loggaUt} />
   )
 
+  if (roll === 'tekniker') return (
+    <TeknikerVy
+      namn={user.user_metadata?.namn || user.email || ''}
+      arenden={arenden}
+      bokningar={bokningar}
+      objekt={objektMedStatus}
+      tekniker={tekniker}
+      onUppdateraArende={uppdateraArende}
+      onUppdateraObjekt={uppdateraObjekt}
+      onLoggaUt={loggaUt}
+    />
+  )
+
   const oppnaArenden = arenden.filter(a => a.status !== 'atgardad').length
 
   const views = {

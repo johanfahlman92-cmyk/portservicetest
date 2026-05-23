@@ -401,7 +401,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
 
           {[
             { label: 'Planeringstavla', sub: 'Boka & planera',  icon: CalendarDays, page: 'planeringstavla', color: 'var(--c-teal)', bg: 'var(--c-teal-bg)' },
-            { label: 'Protokoll',       sub: 'Serviceprotokoll', icon: FileText,    page: 'protokoll',       color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)'   },
+            { label: 'Serviceorder',    sub: 'Utför & protokoll', icon: FileText,    page: 'serviceorder',    color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)'   },
             { label: 'Portregister',    sub: 'Alla portar',      icon: DoorOpen,    page: 'register',        color: 'var(--c-purple)', bg: 'var(--c-purple-bg)' },
           ].map(({ label, sub, icon: Icon, page, color, bg }) => (
             <button

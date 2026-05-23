@@ -6,10 +6,10 @@ import {
 } from 'lucide-react'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const PRIO_LABEL = { kritisk: 'Kritisk', hög: 'Hög', normal: 'Normal' }
-const PRIO_COLOR = { kritisk: 'var(--c-red)', hög: '#f59e0b', normal: 'var(--c-teal)' }
-const STATUS_LABEL = { inkommen: 'Inkommen', tilldelad: 'Tilldelad', påbörjad: 'Påbörjad', atgardad: 'Åtgärdad' }
-const STATUS_COLOR = { inkommen: '#f59e0b', tilldelad: 'var(--c-blue)', påbörjad: '#a78bfa', atgardad: 'var(--c-teal)' }
+const PRIO_LABEL = { akut: 'Akut', hog: 'Hög', normal: 'Normal' }
+const PRIO_COLOR = { akut: 'var(--c-red)', hog: '#f59e0b', normal: 'var(--c-teal)' }
+const STATUS_LABEL = { ny: 'Ny', pagaende: 'Pågår', atgardad: 'Åtgärdad' }
+const STATUS_COLOR = { ny: '#f59e0b', pagaende: 'var(--c-blue)', atgardad: 'var(--c-teal)' }
 
 const FÄLT = { fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--c-border)', background: 'var(--c-surface)', color: 'var(--c-text)', width: '100%', boxSizing: 'border-box', outline: 'none' }
 const BTN_PRI = { padding: '9px 20px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
@@ -75,7 +75,7 @@ export default function KundPortal({ user, onLoggaUt }) {
       feltyp,
       prioritet,
       beskrivning,
-      status:      'inkommen',
+      status:      'ny',
       datum:       now.toISOString().slice(0, 10),
       nr:          now.getTime(),
     })
@@ -105,7 +105,7 @@ export default function KundPortal({ user, onLoggaUt }) {
 
   const serviceHistorik = portar
     .flatMap(p => (p.historik || []).map(h => ({ ...h, portNamn: p.namn })))
-    .filter(h => h.typ === 'protokoll' || h.typ === 'montering')
+    .filter(h => h.datum) // inkludera alla historik-poster som har datum (service + montering)
     .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
 
   return (

@@ -255,7 +255,7 @@ export default function TeknikerVy({
   const idag = new Date().toISOString().slice(0, 10)
 
   const dagensBokningar = (bokningar[idag] || [])
-    .filter(b => !namn || b.tek === namn)
+    .filter(b => !namn || (Array.isArray(b.tek) ? b.tek.includes(namn) : b.tek === namn))
     .slice()
     .sort((a, b) => (a.tid || '').localeCompare(b.tid || ''))
 

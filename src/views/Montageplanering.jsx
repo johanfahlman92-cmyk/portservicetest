@@ -82,6 +82,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
 
   const taBort = async () => {
     if (!valt) return
+    if (!window.confirm(`Ta bort montageorder "${valt.ordernummer || valt.montageplats || 'denna order'}"? Det går inte att ångra.`)) return
     await onTaBort(valt.id)
     setVy('lista'); setValt(null)
   }
