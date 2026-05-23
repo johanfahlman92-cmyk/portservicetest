@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp, Check, Pencil, Trash2, ExternalLink, Filter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp, Check, Pencil, Trash2, ExternalLink, Filter, ClipboardList } from 'lucide-react'
 import KundVäljare from '../components/KundVäljare.jsx'
 
 // ── Konstanter & konfiguration ────────────────────────────────────────────────
@@ -36,7 +36,13 @@ function getMonday(d) {
   date.setHours(0, 0, 0, 0)
   return date
 }
-function toYMD(d) { return d.toISOString().slice(0, 10) }
+function toYMD(d) {
+  // Använd lokal tid – toISOString() ger UTC vilket ger fel datum i t.ex. Sverige (UTC+2)
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
 function getWeekNum(d) {
   const jan4 = new Date(d.getFullYear(), 0, 4)
   return Math.ceil(((d - jan4) / 86400000 + jan4.getDay() + 1) / 7)
@@ -338,6 +344,7 @@ export default function Planeringstavla({
   const [bokArende,    setBokArende]    = useState(null)
   const [visaDetalj,   setVisaDetalj]   = useState(null)
   const [visaObokade,  setVisaObokade]  = useState(true)
+  const [visaKommandeSO, setVisaKommandeSO] = useState(true)
 
   const idag = toYMD(new Date())
 
@@ -449,6 +456,12 @@ export default function Planeringstavla({
   const bokaNed = (datum, b) => { onLaggTillBokning?.(datum, b); setBokArende(null) }
 
   const prioritetDot = { akut: 'var(--c-red)', hog: 'var(--c-amber)', normal: 'var(--c-blue)' }
+
+  // Serviceorder som INTE är i aktuell vecka (visas i panelen nedan)
+  const veckanYMDs = new Set(dagar.map(d => d.nyckel))
+  const kommandeSO = serviceorder
+    .filter(so => so.status !== 'utford' && so.status !== 'arkiverad' && (!so.datum || !veckanYMDs.has(so.datum)))
+    .sort((a, b) => (!a.datum ? 1 : !b.datum ? -1 : a.datum.localeCompare(b.datum)))
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -824,6 +837,63 @@ export default function Planeringstavla({
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Kommande serviceorder (ej i aktuell vecka) */}
+      {!dagVy && kommandeSO.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <button onClick={() => setVisaKommandeSO(v => !v)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            background: '#ecfeff', border: '1px solid #a5f3fc',
+            borderRadius: visaKommandeSO ? '10px 10px 0 0' : 10,
+            padding: '10px 14px', cursor: 'pointer', color: '#0e7490', fontSize: 13, fontWeight: 500,
+          }}>
+            <ClipboardList size={15} />
+            <span style={{ flex: 1, textAlign: 'left' }}>
+              {kommandeSO.length} planerad{kommandeSO.length !== 1 ? 'e' : ''} serviceorder – ej denna vecka
+            </span>
+            {visaKommandeSO ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {visaKommandeSO && (
+            <div style={{ background: 'var(--c-surface)', border: '1px solid #a5f3fc', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {kommandeSO.map(so => {
+                const antal = (so.objekt_ids || []).length
+                const statusCfg = so.status === 'pagaende'
+                  ? { label: 'Pågående', color: 'var(--c-blue)' }
+                  : { label: 'Planerad', color: 'var(--c-text3)' }
+                return (
+                  <div key={so.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: '#0891b2' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {so.nr}
+                        <span style={{ fontSize: 10, color: statusCfg.color, fontWeight: 500 }}>· {statusCfg.label}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>
+                        {so.datum ? so.datum : '–'} · {so.fastighet_namn || so.kund || '–'} · {antal} port{antal !== 1 ? 'ar' : ''}
+                        {so.tekniker ? ` · ${so.tekniker}` : ''}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                      {so.datum && (
+                        <button className="btn" style={{ fontSize: 11, padding: '4px 8px' }}
+                          onClick={() => { setVeckosta(getMonday(new Date(so.datum + 'T12:00:00'))); setDagVy(null) }}>
+                          Gå till vecka
+                        </button>
+                      )}
+                      {onNavigeraServiceorder && (
+                        <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 10px' }}
+                          onClick={() => onNavigeraServiceorder(so.id)}>
+                          Öppna
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

@@ -397,7 +397,9 @@ export default function Kalender({
   const dagar = Array.from({ length: 5 }, (_, i) => {
     const d = new Date(måndag)
     d.setDate(måndag.getDate() + i)
-    return { namn: DAG_NAMN[i], datum: d, nyckel: d.toISOString().slice(0, 10) }
+    // Lokal tid – toISOString() ger UTC-datum som kan vara en dag fel i t.ex. Sverige
+    const nyckel = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    return { namn: DAG_NAMN[i], datum: d, nyckel }
   })
 
   // Virtuella händelser från serviceorder och montageorder
