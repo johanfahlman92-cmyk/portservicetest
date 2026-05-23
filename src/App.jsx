@@ -534,7 +534,52 @@ export default function App() {
     try {
       const { data, error } = await supabase.from('montageorder').update(changes).eq('id', id).select().single()
       if (error) throw error
-      if (data) setMontageorder(prev => prev.map(m => m.id === id ? data : m))
+      if (data) {
+        setMontageorder(prev => prev.map(m => m.id === id ? data : m))
+
+        // ── Auto-registrera port i portregistret när montage markeras som utfört ──
+        if (changes.status === 'utford' && !data.objekt_id) {
+          const p = data.protokoll_data || {}
+          const fast = fastigheter.find(f => f.id === data.fastighet_id)
+          const installationsår = p.datum ? parseInt(p.datum.slice(0, 4)) : new Date().getFullYear()
+          const nästaService = (() => {
+            const d = new Date()
+            d.setMonth(d.getMonth() + 12)
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+          })()
+
+          const nyttObjekt = {
+            typ:             data.porttyp          || p.portTyp       || 'Vikport',
+            fabrikat:        data.fabrikat         || p.fabrikat      || '',
+            kund:            data.kund             || p.kund          || '',
+            adress:          data.montageplats     || p.adress        || '',
+            namn:            data.montageplats     || `${data.porttyp || 'Port'} – ${data.kund || ''}`,
+            ordernummer:     data.ordernummer      || p.ordernummer   || '',
+            serienummer:     p.serienummer         || data.serienummer|| '',
+            fastighetId:     data.fastighet_id     || null,
+            plats:           fast?.namn            || '',
+            ar:              installationsår,
+            serviceIntervall: 12,
+            senaste:         '',
+            nasta:           nästaService,
+            intervallProcent: 0,
+            status:          'ny',
+            protokoll:       data.porttyp          || p.portTyp       || 'Vikport',
+            punkter:         [],
+            historik:        [],
+            dokument:        [],
+            arkiverad:       false,
+            kundTyp:         'foretag',
+          }
+
+          const skapadPort = await laggTillObjekt(nyttObjekt)
+          if (skapadPort?.id) {
+            await supabase.from('montageorder').update({ objekt_id: skapadPort.id }).eq('id', id)
+            setMontageorder(prev => prev.map(m => m.id === id ? { ...m, objekt_id: skapadPort.id } : m))
+            toast(`Port "${skapadPort.namn}" registrerad automatiskt i portregistret`, 'success', 5000)
+          }
+        }
+      }
     } catch (err) { toast('Kunde inte uppdatera montageorder: ' + err.message, 'error') }
   }
 
