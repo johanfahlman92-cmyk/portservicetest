@@ -8,15 +8,13 @@ const typText  = { service: 'var(--c-teal-text)', felanmalan: 'var(--c-coral-tex
 const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Möte/Övrigt', mote: 'Möte/Övrigt', serviceorder: 'Serviceorder', montageorder: 'Montageorder' }
 const DAG_NAMN = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
 
-const HOUR_START  = 7
-const HOUR_END    = 16
-const HOURS       = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i)
+const HOUR_START  = 7   // Standardstart – expanderas dynamiskt vid behov
+const HOUR_END    = 17  // Standardslut  – expanderas dynamiskt vid behov
 const HOUR_HEIGHT = 64
 
-function getTop(tid) {
+function getTop(tid, hourStart) {
   const [h, m] = (tid || '08:00').split(':').map(Number)
-  const top = (h - HOUR_START) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
-  return Math.max(0, Math.min(top, (HOURS.length - 1) * HOUR_HEIGHT))
+  return Math.max(0, (h - hourStart) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT)
 }
 
 function tidTillMinuter(tid) {
@@ -432,6 +430,24 @@ export default function Kalender({
     return result
   }, [serviceorder, montageorder])
 
+  // Dynamisk tidsaxel – expanderar om bokningar finns utanför standardintervallet
+  const { dynHourStart, dynHours } = useMemo(() => {
+    let minH = HOUR_START
+    let maxH = HOUR_END
+    for (const dag of dagar) {
+      const items = [...(bokningar[dag.nyckel] || []), ...(virtualDag[dag.nyckel] || [])]
+      for (const item of items) {
+        const [h] = (item.tid || '08:00').split(':').map(Number)
+        if (h < minH) minH = Math.max(0, h)
+        if (h > maxH) maxH = Math.min(23, h + 1)
+      }
+    }
+    return {
+      dynHourStart: minH,
+      dynHours: Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i),
+    }
+  }, [dagar, bokningar, virtualDag])
+
   const allaBokFlatMap = Object.values(bokningar).flat()
   const bokadeIds      = new Set(allaBokFlatMap.map(b => b.arendeId).filter(Boolean))
   const obokade        = arenden.filter(a => a.typ === 'felanmalan' && a.status !== 'atgardad' && !bokadeIds.has(a.id))
@@ -538,7 +554,7 @@ export default function Kalender({
         {/* Tidsaxel + kolumner */}
         <div style={{ display: 'flex', overflowY: 'auto', maxHeight: 680 }}>
           <div style={{ width: 52, flexShrink: 0, borderRight: '1px solid var(--c-border)', background: 'var(--c-surface)' }}>
-            {HOURS.map((h, hi) => (
+            {dynHours.map((h, hi) => (
               <div key={h} style={{
                 height: HOUR_HEIGHT, fontSize: 10, color: 'var(--c-text3)',
                 textAlign: 'right', paddingRight: 8, paddingTop: 4,
@@ -554,7 +570,7 @@ export default function Kalender({
             const lagd  = layoutBokningar(items, filtTekniker)
             return (
               <div key={dag.nyckel} style={{ flex: 1, position: 'relative', borderLeft: '1px solid var(--c-border)' }}>
-                {HOURS.map((h, hi) => (
+                {dynHours.map((h, hi) => (
                   <div key={h} style={{ height: HOUR_HEIGHT, borderTop: hi === 0 ? 'none' : '1px solid var(--c-border)', boxSizing: 'border-box' }} />
                 ))}
                 {lagd.map(({ item, origIdx, tekArr, col, totalCols }) => {
@@ -565,7 +581,7 @@ export default function Kalender({
                       onClick={() => setVisaDetalj({ item: { ...item, tek: tekArr }, dagNamn: dag.namn, nyckel: dag.nyckel, origIdx: item._virtual ? null : origIdx, isVirtual: !!item._virtual })}
                       style={{
                         position: 'absolute',
-                        top: getTop(item.tid) + 2,
+                        top: getTop(item.tid, dynHourStart) + 2,
                         left:  `calc(${vänster}% + 2px)`,
                         width: `calc(${bredd}%  - 4px)`,
                         minHeight: HOUR_HEIGHT - 6,

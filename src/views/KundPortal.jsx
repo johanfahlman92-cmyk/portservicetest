@@ -145,7 +145,7 @@ export default function KundPortal({ user, onLoggaUt }) {
         </div>
 
         {/* KPI-kort */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 28 }}>
           {[
             { label: 'Portar', value: portar.length, icon: DoorOpen, color: 'var(--c-blue)' },
             { label: 'Aktiva ärenden', value: öppnaArenden.length, icon: AlertCircle, color: öppnaArenden.length > 0 ? 'var(--c-red)' : 'var(--c-teal)' },

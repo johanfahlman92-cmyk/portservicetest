@@ -68,7 +68,7 @@ async function skrivUtArende(a) {
   setTimeout(() => w.print(), 400)
 }
 
-function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdatera, onUppdateraObjekt, onLaggTillBokning, onBack }) {
+function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdatera, onUppdateraObjekt, onLaggTillBokning, onTaBortBokning, bokningar = {}, onBack }) {
   const [visaTilldela,  setVisaTilldela]  = useState(false)
   const [valdTekniker,  setValdTekniker]  = useState(a.tekniker || '')
   const [sparar,        setSparar]        = useState(false)
@@ -117,6 +117,15 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
 
   const sparaRedigering = async () => {
     setSparar(true)
+    // Ta bort gamla besöksbokning om datum ändrats eller rensats
+    if (onTaBortBokning && a.besok && editForm.besok !== a.besok) {
+      const gamlaBok = bokningar[a.besok] || []
+      let gammalIdx = -1
+      for (let i = gamlaBok.length - 1; i >= 0; i--) {
+        if (gamlaBok[i].arendeId === a.id) { gammalIdx = i; break }
+      }
+      if (gammalIdx !== -1) await onTaBortBokning(a.besok, gammalIdx)
+    }
     await onUppdatera(a.id, editForm)
     // Auto-skapa kalenderbokning när besök-datum sätts eller ändras
     if (editForm.besok && editForm.besok !== a.besok && onLaggTillBokning) {
@@ -543,7 +552,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], protokollMallar = {}, onUppdatera, onUppdateraObjekt, onLaggTill, onLaggTillBokning, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], protokollMallar = {}, bokningar = {}, onUppdatera, onUppdateraObjekt, onLaggTill, onLaggTillBokning, onTaBortBokning, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
   const [valt,      setValt]      = useState(null)
   const [filter,    setFilter]    = useState('oppna')
   const [sokText,   setSokText]   = useState('')
@@ -606,7 +615,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
 
   if (valt) {
     const uppdaterat = arenden.find(a => a.id === valt.id) || valt
-    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} objekt={objekt} protokollMallar={protokollMallar} onUppdatera={onUppdatera} onUppdateraObjekt={onUppdateraObjekt} onLaggTillBokning={onLaggTillBokning} onBack={() => setValt(null)} />
+    return <ArendeDetalj a={uppdaterat} tekniker={tekniker} objekt={objekt} protokollMallar={protokollMallar} bokningar={bokningar} onUppdatera={onUppdatera} onUppdateraObjekt={onUppdateraObjekt} onLaggTillBokning={onLaggTillBokning} onTaBortBokning={onTaBortBokning} onBack={() => setValt(null)} />
   }
 
   return (

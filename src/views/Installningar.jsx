@@ -614,6 +614,31 @@ export default function Installningar({ kunder, protokollMallar = {}, onSparaPro
         </ol>
       </div>
 
+      {/* Säkerhetsnotis */}
+      <div style={{
+        marginTop: 24, padding: '16px 20px',
+        background: 'var(--c-surface)', border: '1px solid #f59e0b44',
+        borderLeft: '3px solid #f59e0b', borderRadius: '0 12px 12px 0',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <Shield size={15} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 6 }}>
+              Säkerhet – rollstyrning är klientbaserad
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.7 }}>
+              Applikationens rollstyrning kontrolleras i webbläsaren. För fullständig datasäkerhet
+              rekommenderas att <strong style={{ color: 'var(--c-text)' }}>Row Level Security (RLS)</strong> aktiveras
+              i Supabase, så att databas­åtkomsten begränsas server-sida per roll.
+            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.7 }}>
+              <strong style={{ color: 'var(--c-text)' }}>Aktivera RLS:</strong>{' '}
+              Supabase Dashboard → Table Editor → välj tabell → Enable RLS → skapa policies per roll.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Medarbetare */}
       <TeknikerPanel tekniker={tekniker} onLaggTill={onLaggTillTekniker} onTaBort={onTaBortTekniker} />
 

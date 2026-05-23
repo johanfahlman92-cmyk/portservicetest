@@ -120,7 +120,7 @@ function KundForm({ initialVarden = null, onSpara, onAvbryt }) {
 }
 
 // ── Kund-detaljvy ─────────────────────────────────────────────────────────────
-function KundDetalj({ kund, fastigheter, objekt, arenden, onBack, onRedigera, onTaBort }) {
+function KundDetalj({ kund, fastigheter, objekt, arenden, onBack, onRedigera, onTaBort, onNavigeraArende, onNavigeraPort }) {
   const [bekraftaBort, setBekraftaBort] = useState(false)
 
   const kundensFastigheter = fastigheter.filter(f => !f.arkiverad && f.kund === kund.namn)
@@ -208,14 +208,18 @@ function KundDetalj({ kund, fastigheter, objekt, arenden, onBack, onRedigera, on
         <div className="card" style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Portar ({kundensPortar.length})</div>
           {kundensPortar.map(o => (
-            <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10,
-              padding: '7px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
+            <div key={o.id}
+              onClick={() => onNavigeraPort?.(o.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10,
+                padding: '7px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12,
+                cursor: onNavigeraPort ? 'pointer' : 'default' }}>
               <DoorOpen size={14} color="var(--c-text2)" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.namn}</div>
                 <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{o.typ}{o.plats ? ` · ${o.plats}` : ''}</div>
               </div>
               <div style={{ fontSize: 11, color: 'var(--c-text3)', whiteSpace: 'nowrap' }}>Nästa: {o.nasta || '–'}</div>
+              {onNavigeraPort && <ChevronRight size={14} color="var(--c-text3)" style={{ flexShrink: 0 }} />}
             </div>
           ))}
         </div>
@@ -228,14 +232,18 @@ function KundDetalj({ kund, fastigheter, objekt, arenden, onBack, onRedigera, on
             Ärenden ({kundensArenden.length})
           </div>
           {[...kundensArenden].sort((a, b) => (b.datum || '').localeCompare(a.datum || '')).map(a => (
-            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10,
-              padding: '7px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
+            <div key={a.id}
+              onClick={() => onNavigeraArende?.(a.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10,
+                padding: '7px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12,
+                cursor: onNavigeraArende ? 'pointer' : 'default' }}>
               <AlertCircle size={14} color={a.status === 'atgardad' ? 'var(--c-text3)' : 'var(--c-red)'} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.namn}</div>
                 <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{a.feltyp} · {a.datum}</div>
               </div>
               <span className={`badge ${statusCls[a.status] || 'badge-gray'}`}>{statusLabel[a.status] || a.status}</span>
+              {onNavigeraArende && <ChevronRight size={14} color="var(--c-text3)" style={{ flexShrink: 0 }} />}
             </div>
           ))}
         </div>
@@ -267,7 +275,7 @@ function KundDetalj({ kund, fastigheter, objekt, arenden, onBack, onRedigera, on
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Kunder({ kunder = [], fastigheter = [], objekt = [], arenden = [], onLaggTill, onUppdatera, onTaBort }) {
+export default function Kunder({ kunder = [], fastigheter = [], objekt = [], arenden = [], onLaggTill, onUppdatera, onTaBort, onNavigeraArende, onNavigeraPort }) {
   const [sok,           setSok]           = useState('')
   const [visaForm,      setVisaForm]      = useState(false)
   const [redigerar,     setRedigerar]     = useState(null)
@@ -318,6 +326,8 @@ export default function Kunder({ kunder = [], fastigheter = [], objekt = [], are
         onBack={() => setValdKundId(null)}
         onRedigera={() => setRedigerar(kund)}
         onTaBort={() => taBortKund(kund.id)}
+        onNavigeraArende={onNavigeraArende}
+        onNavigeraPort={onNavigeraPort}
       />
     )
   }

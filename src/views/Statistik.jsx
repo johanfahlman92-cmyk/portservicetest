@@ -1,5 +1,13 @@
-import { useMemo } from 'react'
-import { Users, DoorOpen, Building2, AlertCircle, CheckCircle, TrendingUp, BarChart2, Activity } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Users, DoorOpen, Building2, AlertCircle, CheckCircle, TrendingUp, BarChart2, Activity, Printer } from 'lucide-react'
+
+const PERIOD_OPTS = [
+  { id: '1m',  label: 'Senaste mån' },
+  { id: '3m',  label: '3 månader'   },
+  { id: '6m',  label: '6 månader'   },
+  { id: '1y',  label: 'Senaste år'  },
+  { id: 'all', label: 'Allt'        },
+]
 
 // ── SVG-stapeldiagram ─────────────────────────────────────────────────────────
 function BarChart({ data, color = 'var(--c-teal)', height = 120 }) {
@@ -30,24 +38,43 @@ export default function Statistik({
   aktivitetslogg = [],
   onExportKunder, onExportPortar, onExportArenden, onExportFastigheter,
 }) {
+  const [period, setPeriod] = useState('6m')
+
   const idag = new Date()
-  const aktivaPortar = useMemo(() => objekt.filter(o => !o.arkiverad), [objekt])
-  const oppnaArenden = arenden.filter(a => a.status !== 'atgardad')
-  const atgardade    = arenden.filter(a => a.status === 'atgardad')
-  const dennaManad   = idag.toISOString().slice(0, 7)
 
-  let protokollDennaManad = 0
-  for (const o of aktivaPortar)
-    for (const h of (o.historik || []))
-      if (h.typ !== 'montering' && h.datum?.startsWith(dennaManad)) protokollDennaManad++
+  // ── Beräkna period-startdatum ─────────────────────────────────────────────
+  const periodeStart = useMemo(() => {
+    if (period === 'all') return null
+    const d = new Date()
+    if (period === '1m') d.setMonth(d.getMonth() - 1)
+    else if (period === '3m') d.setMonth(d.getMonth() - 3)
+    else if (period === '6m') d.setMonth(d.getMonth() - 6)
+    else if (period === '1y') d.setFullYear(d.getFullYear() - 1)
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  }, [period])
 
-  // Services per månad (senaste 6)
+  const aktivaPortar     = useMemo(() => objekt.filter(o => !o.arkiverad), [objekt])
+  const oppnaArenden     = useMemo(() => arenden.filter(a => a.status !== 'atgardad'), [arenden])
+  const atgardade        = useMemo(() => arenden.filter(a => a.status === 'atgardad'), [arenden])
+  const aktivaFastigheter = useMemo(() => fastigheter.filter(f => !f.arkiverad), [fastigheter])
+
+  // Protokoll i vald period
+  const protokollIPeriod = useMemo(() => {
+    let count = 0
+    for (const o of aktivaPortar)
+      for (const h of (o.historik || []))
+        if (h.typ !== 'montering' && h.datum && (!periodeStart || h.datum >= periodeStart)) count++
+    return count
+  }, [aktivaPortar, periodeStart])
+
+  // Services per månad (baserat på vald period)
   const manadData = useMemo(() => {
+    const n = period === '1m' ? 1 : period === '3m' ? 3 : period === '1y' ? 12 : 6
     const months = []
-    for (let i = 5; i >= 0; i--) {
+    for (let i = n - 1; i >= 0; i--) {
       const d = new Date(idag)
       d.setMonth(d.getMonth() - i)
-      const key   = d.toISOString().slice(0, 7)
+      const key   = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
       const label = d.toLocaleString('sv-SE', { month: 'short' })
       let count = 0
       for (const o of aktivaPortar)
@@ -56,16 +83,17 @@ export default function Statistik({
       months.push({ label, value: count })
     }
     return months
-  }, [objekt])
+  }, [objekt, period])
 
-  // Tekniker-aktivitet
+  // Tekniker-aktivitet (filtrerat på period)
   const tekAktivitet = useMemo(() => {
     const counts = {}
     for (const o of aktivaPortar)
       for (const h of (o.historik || []))
-        if (h.tekniker) counts[h.tekniker] = (counts[h.tekniker] || 0) + 1
+        if (h.tekniker && (!periodeStart || (h.datum && h.datum >= periodeStart)))
+          counts[h.tekniker] = (counts[h.tekniker] || 0) + 1
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6)
-  }, [objekt])
+  }, [objekt, periodeStart])
 
   // Portar per status
   const statusCounts = useMemo(() => {
@@ -74,24 +102,93 @@ export default function Statistik({
     return c
   }, [objekt])
 
-  const aktivaFastigheter = fastigheter.filter(f => !f.arkiverad)
+  // ── Skriv ut statistikrapport ─────────────────────────────────────────────
+  const skrivUtStatistik = () => {
+    const periodLabel = PERIOD_OPTS.find(p => p.id === period)?.label || period
+    const w = window.open('', '_blank')
+    w.document.write(`<!DOCTYPE html><html lang="sv"><head>
+      <meta charset="utf-8">
+      <title>Statistikrapport</title>
+      <style>
+        body { font-family: Arial, sans-serif; color: #111; padding: 32px; font-size: 13px; }
+        h1 { font-size: 22px; margin: 0 0 4px; }
+        h2 { font-size: 14px; margin: 22px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .meta { color: #666; font-size: 11px; margin-bottom: 24px; }
+        .kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+        .kpi-item { border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; }
+        .kpi-val { font-size: 26px; font-weight: 700; margin-bottom: 2px; }
+        .kpi-lbl { font-size: 11px; color: #666; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        td, th { border: 1px solid #ddd; padding: 7px 10px; text-align: left; }
+        th { background: #f5f5f5; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      </style>
+    </head><body>
+      <h1>Statistikrapport</h1>
+      <div class="meta">Genererad: ${new Date().toLocaleString('sv-SE')} &nbsp;·&nbsp; Period: ${periodLabel}</div>
+      <div class="kpi">
+        <div class="kpi-item"><div class="kpi-val">${aktivaPortar.length}</div><div class="kpi-lbl">Aktiva portar</div></div>
+        <div class="kpi-item"><div class="kpi-val">${kunder.length}</div><div class="kpi-lbl">Kunder</div></div>
+        <div class="kpi-item"><div class="kpi-val">${aktivaFastigheter.length}</div><div class="kpi-lbl">Fastigheter</div></div>
+        <div class="kpi-item"><div class="kpi-val">${oppnaArenden.length}</div><div class="kpi-lbl">Öppna ärenden</div></div>
+        <div class="kpi-item"><div class="kpi-val">${protokollIPeriod}</div><div class="kpi-lbl">Protokoll (${periodLabel.toLowerCase()})</div></div>
+        <div class="kpi-item"><div class="kpi-val">${atgardade.length}</div><div class="kpi-lbl">Åtgärdade ärenden totalt</div></div>
+      </div>
+      <h2>Portar per status</h2>
+      <table><thead><tr><th>Status</th><th>Antal</th></tr></thead><tbody>
+        ${[['ok','OK'],['snart','Service snart'],['forsenad','Försenad'],['arende','Öppet ärende'],['ny','Ny (ej servicad)']].map(([k,l]) =>
+          `<tr><td>${l}</td><td>${statusCounts[k]||0}</td></tr>`).join('')}
+      </tbody></table>
+      ${tekAktivitet.length > 0 ? `
+      <h2>Tekniker – protokoll (${periodLabel.toLowerCase()})</h2>
+      <table><thead><tr><th>Tekniker</th><th>Antal protokoll</th></tr></thead><tbody>
+        ${tekAktivitet.map(([n,c]) => `<tr><td>${n}</td><td>${c}</td></tr>`).join('')}
+      </tbody></table>` : ''}
+      <h2>Protokoll per månad</h2>
+      <table><thead><tr><th>Månad</th><th>Antal</th></tr></thead><tbody>
+        ${manadData.map(m => `<tr><td>${m.label}</td><td>${m.value}</td></tr>`).join('')}
+      </tbody></table>
+    </body></html>`)
+    w.document.close()
+    setTimeout(() => w.print(), 300)
+  }
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Statistik & rapporter</h1>
-        <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Nyckeltal och aktivitet</p>
+      {/* Rubrik + period-väljare + skriv ut */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Statistik & rapporter</h1>
+          <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Nyckeltal och aktivitet</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {PERIOD_OPTS.map(({ id, label }) => (
+              <button key={id} onClick={() => setPeriod(id)} style={{
+                padding: '5px 12px', fontSize: 12, borderRadius: 20, cursor: 'pointer',
+                border: '1px solid var(--c-border)',
+                background: period === id ? 'var(--c-text)' : 'transparent',
+                color: period === id ? '#fff' : 'var(--c-text2)',
+                transition: 'all 0.12s',
+              }}>{label}</button>
+            ))}
+          </div>
+          <button onClick={skrivUtStatistik} className="btn" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+            <Printer size={13} /> Skriv ut rapport
+          </button>
+        </div>
       </div>
 
       {/* ── KPI-kort ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Portar (aktiva)',    value: aktivaPortar.length,       icon: DoorOpen,    color: 'var(--c-blue)',  bg: 'var(--c-blue-bg)' },
-          { label: 'Kunder',             value: kunder.length,             icon: Users,       color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)' },
-          { label: 'Fastigheter',        value: aktivaFastigheter.length,  icon: Building2,   color: '#a78bfa',        bg: '#a78bfa20' },
-          { label: 'Öppna ärenden',      value: oppnaArenden.length,       icon: AlertCircle, color: 'var(--c-red)',   bg: 'var(--c-red-bg)' },
-          { label: 'Protokoll (mån)',    value: protokollDennaManad,       icon: CheckCircle, color: 'var(--c-green)', bg: 'var(--c-green-bg)' },
-          { label: 'Åtgärdade ärenden',  value: atgardade.length,         icon: TrendingUp,  color: 'var(--c-amber)', bg: 'var(--c-amber-bg)' },
+          { label: 'Portar (aktiva)',      value: aktivaPortar.length,      icon: DoorOpen,    color: 'var(--c-blue)',  bg: 'var(--c-blue-bg)' },
+          { label: 'Kunder',               value: kunder.length,            icon: Users,       color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)' },
+          { label: 'Fastigheter',          value: aktivaFastigheter.length, icon: Building2,   color: '#a78bfa',        bg: '#a78bfa20' },
+          { label: 'Öppna ärenden',        value: oppnaArenden.length,      icon: AlertCircle, color: 'var(--c-red)',   bg: 'var(--c-red-bg)' },
+          { label: 'Protokoll (perioden)', value: protokollIPeriod,         icon: CheckCircle, color: 'var(--c-green)', bg: 'var(--c-green-bg)' },
+          { label: 'Åtgärdade ärenden',    value: atgardade.length,         icon: TrendingUp,  color: 'var(--c-amber)', bg: 'var(--c-amber-bg)' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
             <div style={{ width: 38, height: 38, borderRadius: 9, background: bg, flexShrink: 0,
@@ -147,7 +244,9 @@ export default function Statistik({
       {/* ── Tekniker-aktivitet ── */}
       {tekAktivitet.length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Tekniker – antal protokoll</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>
+            Tekniker – antal protokoll ({PERIOD_OPTS.find(p => p.id === period)?.label || period})
+          </div>
           {tekAktivitet.map(([namn, antal]) => (
             <div key={namn} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <div style={{ width: 120, fontSize: 12, color: 'var(--c-text2)',
