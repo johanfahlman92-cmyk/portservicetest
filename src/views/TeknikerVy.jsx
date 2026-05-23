@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Calendar, AlertCircle, FileText, LogOut, Clock, CheckCircle, Play, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
+import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
 import logo from '../logo.png'
-import Protokoll from './Protokoll.jsx'
 
 const prioritetConf = {
   akut:   { label: 'Akut',   badge: 'badge-red',   bar: 'var(--c-red)' },
@@ -414,15 +413,6 @@ export default function TeknikerVy({
             </div>
           )}
 
-          {/* ── PROTOKOLL ── */}
-          {flik === 'protokoll' && (
-            <Protokoll
-              objekt={objekt}
-              tekniker={tekniker}
-              onUppdateraObjekt={onUppdateraObjekt}
-            />
-          )}
-
         </div>
       </div>
 
@@ -436,9 +426,8 @@ export default function TeknikerVy({
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}>
         {[
-          { id: 'idag',      icon: Calendar,    label: 'Idag',      badge: dagensBokningar.length },
-          { id: 'arenden',   icon: AlertCircle, label: 'Ärenden',   badge: minaArenden.length },
-          { id: 'protokoll', icon: FileText,     label: 'Protokoll', badge: 0 },
+          { id: 'idag',    icon: Calendar,    label: 'Idag',    badge: dagensBokningar.length },
+          { id: 'arenden', icon: AlertCircle, label: 'Ärenden', badge: minaArenden.length },
         ].map(({ id, icon: Icon, label, badge }) => {
           const aktiv = flik === id
           return (

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Planeringstavla</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0 }
+body { font-family: Arial, sans-serif; background: #f5f4f1; color: #1a1917; padding: 20px; font-size: 13px }
+
+/* ── Toolbar ── */
+.toolbar { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; flex-wrap: wrap }
+h2 { font-size: 19px; font-weight: 700 }
+.sub { color: #888; font-size: 12px; margin-bottom: 16px }
+.btn { padding: 6px 13px; border-radius: 6px; border: 1px solid #d1d0cc; background: #fff; cursor: pointer; font-size: 12px; color: #444 }
+.btn.active { background: #1D9E75; color: #fff; border-color: #1D9E75; font-weight: 600 }
+.nav-week { display: flex; align-items: center; gap: 8px }
+.week-label { font-weight: 700; font-size: 14px; min-width: 155px; text-align: center }
+
+/* ── Filter chips ── */
+.filters { display: flex; gap: 7px; margin-bottom: 14px; flex-wrap: wrap; align-items: center }
+.filters span { font-size: 11px; color: #888 }
+.chip { padding: 3px 11px; border-radius: 12px; font-size: 11px; cursor: pointer; border: 1.5px solid; font-weight: 500 }
+.chip.on  { color: #fff }
+.chip.off { background: #fff; opacity: 0.55 }
+
+/* ── Technician filter ── */
+.tek-row { display: flex; gap: 6px; margin-bottom: 14px; align-items: center; flex-wrap: wrap }
+.tek-row span { font-size: 11px; color: #888 }
+.tek-chip { padding: 3px 11px; border-radius: 12px; font-size: 11px; cursor: pointer; border: 1.5px solid; font-weight: 600 }
+
+/* ── Week grid ── */
+.week-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px }
+
+.day-col { background: #fff; border-radius: 10px; border: 1px solid #e3e2de; overflow: hidden }
+.day-col.today { border-color: #1D9E75; box-shadow: 0 0 0 2px #d1fae5 }
+
+.day-header { padding: 9px 11px 8px; border-bottom: 1px solid #f0eeea; display: flex; justify-content: space-between; align-items: flex-start }
+.day-name { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px }
+.day-date { font-size: 20px; font-weight: 800; color: #1a1917; line-height: 1 }
+.day-col.today .day-date { color: #1D9E75 }
+.today-chip { font-size: 9px; background: #d1fae5; color: #1D9E75; padding: 1px 6px; border-radius: 8px; font-weight: 700; margin-top: 2px }
+.day-count { font-size: 9px; color: #bbb; margin-top: 2px }
+
+.day-body { padding: 7px }
+
+/* ── Cards ── */
+.card { border-radius: 7px; padding: 8px 9px; margin-bottom: 6px; cursor: pointer; border-left: 3px solid; transition: box-shadow 0.15s }
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.10) }
+.card:last-child { margin-bottom: 0 }
+
+/* Montage */
+.c-montage   { background: #eff6ff; border-color: #2563eb }
+/* Service */
+.c-service   { background: #f0fdfa; border-color: #1D9E75 }
+/* Ärende / felanmälan */
+.c-arende    { background: #fff7ed; border-color: #ea580c }
+/* Akut */
+.c-akut      { background: #fef2f2; border-color: #dc2626 }
+/* Kalender */
+.c-kalender  { background: #faf5ff; border-color: #7c3aed }
+
+.type-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; display: flex; align-items: center; gap: 3px }
+.c-montage  .type-tag { color: #2563eb }
+.c-service  .type-tag { color: #1D9E75 }
+.c-arende   .type-tag { color: #ea580c }
+.c-akut     .type-tag { color: #dc2626 }
+.c-kalender .type-tag { color: #7c3aed }
+
+.card-title { font-weight: 700; font-size: 12px; line-height: 1.2 }
+.card-sub   { font-size: 10px; color: #666; margin-top: 1px }
+.card-typ   { font-size: 10px; color: #999; margin-top: 1px }
+.card-tek   { font-size: 10px; margin-top: 5px; display: flex; align-items: center; gap: 4px }
+.tek-dot    { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0 }
+.time-tag   { font-size: 9px; color: #bbb; margin-top: 3px }
+.continues  { font-size: 9px; background: #fef3c7; color: #b45309; padding: 1px 5px; border-radius: 3px; margin-top: 3px; display: inline-block }
+.urgent-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #dc2626; margin-right: 3px; animation: pulse 1s infinite }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.empty-day { text-align: center; padding: 20px 6px; color: #ccc; font-size: 11px }
+
+/* ── Unplanned bar ── */
+.unplanned-bar { margin-top: 14px; background: #fff; border-radius: 10px; border: 1px solid #e3e2de; padding: 12px 14px }
+.unplanned-title { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 9px }
+.unplanned-list { display: flex; gap: 9px; flex-wrap: wrap }
+.unplanned-card { flex: 1; min-width: 170px; border-radius: 7px; padding: 8px 10px; border-left: 3px solid; cursor: pointer }
+.unplanned-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08) }
+
+/* ── Summary row ── */
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 14px }
+.sum-card { background: #fff; border-radius: 9px; border: 1px solid #e3e2de; padding: 10px 14px }
+.sum-num  { font-size: 22px; font-weight: 800 }
+.sum-lbl  { font-size: 11px; color: #888; margin-top: 1px }
+</style>
+</head>
+<body>
+
+<h2>Planeringstavla</h2>
+<p class="sub">Samlad veckoöversikt — montage, service, ärenden och händelser</p>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <button class="btn">☰ Lista</button>
+  <button class="btn active">📅 Vecka</button>
+  <button class="btn">📊 Gantt</button>
+  <div class="nav-week" style="margin-left:10px">
+    <button class="btn">‹</button>
+    <span class="week-label">v24 · 9–13 jun 2025</span>
+    <button class="btn">›</button>
+    <button class="btn" style="font-size:11px;color:#1D9E75;border-color:#1D9E75">Idag</button>
+  </div>
+  <button class="btn" style="margin-left:auto; background:#1D9E75; color:#fff; border-color:#1D9E75">+ Ny</button>
+</div>
+
+<!-- Summaryrad -->
+<div class="summary">
+  <div class="sum-card"><div class="sum-num" style="color:#2563eb">4</div><div class="sum-lbl">🔵 Montage</div></div>
+  <div class="sum-card"><div class="sum-num" style="color:#1D9E75">6</div><div class="sum-lbl">🟢 Service</div></div>
+  <div class="sum-card"><div class="sum-num" style="color:#ea580c">3</div><div class="sum-lbl">🟠 Ärenden</div></div>
+  <div class="sum-card"><div class="sum-num" style="color:#dc2626">1</div><div class="sum-lbl">🔴 Akuta</div></div>
+</div>
+
+<!-- Typ-filter -->
+<div class="filters">
+  <span>Visa:</span>
+  <span class="chip on" style="background:#2563eb;border-color:#2563eb">🔵 Montage</span>
+  <span class="chip on" style="background:#1D9E75;border-color:#1D9E75">🟢 Service</span>
+  <span class="chip on" style="background:#ea580c;border-color:#ea580c">🟠 Ärenden</span>
+  <span class="chip on" style="background:#dc2626;border-color:#dc2626">🔴 Akuta</span>
+  <span class="chip on" style="background:#7c3aed;border-color:#7c3aed">🟣 Händelser</span>
+</div>
+
+<!-- Tekniker-filter -->
+<div class="tek-row">
+  <span>Tekniker:</span>
+  <span class="tek-chip" style="background:#1D9E75;border-color:#1D9E75;color:#fff">Alla</span>
+  <span class="tek-chip" style="background:#fff;border-color:#2563eb;color:#2563eb">● Erik S.</span>
+  <span class="tek-chip" style="background:#fff;border-color:#7c3aed;color:#7c3aed">● Marcus L.</span>
+  <span class="tek-chip" style="background:#fff;border-color:#ea580c;color:#ea580c">● Jonas K.</span>
+  <span class="tek-chip" style="background:#fff;border-color:#0891b2;color:#0891b2">● Anna B.</span>
+</div>
+
+<!-- Veckogrid -->
+<div class="week-grid">
+
+  <!-- Måndag -->
+  <div class="day-col today">
+    <div class="day-header">
+      <div>
+        <div class="day-name">Måndag</div>
+        <div class="day-date">9</div>
+        <div class="day-count">3 händelser</div>
+      </div>
+      <span class="today-chip">Idag</span>
+    </div>
+    <div class="day-body">
+
+      <div class="card c-akut">
+        <div class="type-tag"><span class="urgent-dot"></span>Akut ärende</div>
+        <div class="card-title">Port öppnar ej</div>
+        <div class="card-sub">Scandic Hotels, Malmö</div>
+        <div class="card-typ">Takskjutport · Hörmann</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#2563eb"></span><span style="color:#2563eb">Erik S.</span></div>
+        <div class="time-tag">Inkommit 07:42</div>
+      </div>
+
+      <div class="card c-montage">
+        <div class="type-tag">🔵 Montage</div>
+        <div class="card-title">2025-0139</div>
+        <div class="card-sub">Region Skåne</div>
+        <div class="card-typ">Grind · Torverk</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#7c3aed"></span><span style="color:#7c3aed">Marcus L.</span></div>
+        <div class="time-tag">Heldag</div>
+      </div>
+
+      <div class="card c-kalender">
+        <div class="type-tag">🟣 Händelse</div>
+        <div class="card-title">Leveransmöte Lindab</div>
+        <div class="card-sub">Konferensrum / Teams</div>
+        <div class="time-tag">13:00–14:00</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Tisdag -->
+  <div class="day-col">
+    <div class="day-header">
+      <div>
+        <div class="day-name">Tisdag</div>
+        <div class="day-date">10</div>
+        <div class="day-count">3 händelser</div>
+      </div>
+    </div>
+    <div class="day-body">
+
+      <div class="card c-service">
+        <div class="type-tag">🟢 Service</div>
+        <div class="card-title">Årsservice vikport</div>
+        <div class="card-sub">ICA Kvantum, Lund</div>
+        <div class="card-typ">Vikport · Hörmann</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#2563eb"></span><span style="color:#2563eb">Erik S.</span></div>
+        <div class="time-tag">08:00 – ca 2h</div>
+      </div>
+
+      <div class="card c-service">
+        <div class="type-tag">🟢 Service</div>
+        <div class="card-title">Halvårsservice grind</div>
+        <div class="card-sub">Volvo Cars, Göteborg</div>
+        <div class="card-typ">Grind · Beyron Door</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#0891b2"></span><span style="color:#0891b2">Anna B.</span></div>
+        <div class="time-tag">10:30 – ca 3h</div>
+      </div>
+
+      <div class="card c-arende">
+        <div class="type-tag">🟠 Ärende</div>
+        <div class="card-title">Fjärrkontroll fungerar ej</div>
+        <div class="card-sub">Fastighets AB Lund</div>
+        <div class="card-typ">Takskjutport · Lindab</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#0891b2"></span><span style="color:#0891b2">Anna B.</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Onsdag -->
+  <div class="day-col">
+    <div class="day-header">
+      <div>
+        <div class="day-name">Onsdag</div>
+        <div class="day-date">11</div>
+        <div class="day-count">3 händelser</div>
+      </div>
+    </div>
+    <div class="day-body">
+
+      <div class="card c-montage">
+        <div class="type-tag">🔵 Montage</div>
+        <div class="card-title">2025-0141</div>
+        <div class="card-sub">Logistik Nord AB</div>
+        <div class="card-typ">Takskjutport · Lindab</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#7c3aed"></span><span style="color:#7c3aed">Marcus L.</span></div>
+        <div class="time-tag">Dag 1 av 3</div>
+        <div class="continues">→ fortsätter</div>
+      </div>
+
+      <div class="card c-service">
+        <div class="type-tag">🟢 Service</div>
+        <div class="card-title">Årsservice lastbrygga</div>
+        <div class="card-sub">PostNord Terminal, Malmö</div>
+        <div class="card-typ">Lastbrygga · Nordic Door</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#ea580c"></span><span style="color:#ea580c">Jonas K.</span></div>
+        <div class="time-tag">07:00 – ca 4h</div>
+      </div>
+
+      <div class="card c-arende">
+        <div class="type-tag">🟠 Ärende</div>
+        <div class="card-title">Oljud vid stängning</div>
+        <div class="card-sub">Malmö Stad, Rosengård</div>
+        <div class="card-typ">Vikport · Torverk</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#ea580c"></span><span style="color:#ea580c">Jonas K.</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Torsdag -->
+  <div class="day-col">
+    <div class="day-header">
+      <div>
+        <div class="day-name">Torsdag</div>
+        <div class="day-date">12</div>
+        <div class="day-count">3 händelser</div>
+      </div>
+    </div>
+    <div class="day-body">
+
+      <div class="card c-montage" style="opacity:0.7">
+        <div class="type-tag">🔵 Montage</div>
+        <div class="card-title">2025-0141</div>
+        <div class="card-sub">Logistik Nord AB</div>
+        <div class="card-typ">Takskjutport · Lindab</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#7c3aed"></span><span style="color:#7c3aed">Marcus L.</span></div>
+        <div class="continues">← Dag 2 av 3</div>
+      </div>
+
+      <div class="card c-service">
+        <div class="type-tag">🟢 Service</div>
+        <div class="card-title">Service vikport × 2</div>
+        <div class="card-sub">Region Skåne, Lund</div>
+        <div class="card-typ">Vikport · Hörmann</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#2563eb"></span><span style="color:#2563eb">Erik S.</span></div>
+        <div class="time-tag">09:00 – ca 5h</div>
+      </div>
+
+      <div class="card c-kalender">
+        <div class="type-tag">🟣 Händelse</div>
+        <div class="card-title">Personalgenomgång</div>
+        <div class="card-sub">Kontoret</div>
+        <div class="time-tag">15:00–16:00</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Fredag -->
+  <div class="day-col">
+    <div class="day-header">
+      <div>
+        <div class="day-name">Fredag</div>
+        <div class="day-date">13</div>
+        <div class="day-count">4 händelser</div>
+      </div>
+    </div>
+    <div class="day-body">
+
+      <div class="card c-montage" style="opacity:0.6">
+        <div class="type-tag">🔵 Montage</div>
+        <div class="card-title">2025-0141</div>
+        <div class="card-sub">Logistik Nord AB</div>
+        <div class="card-typ">Takskjutport · Lindab</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#7c3aed"></span><span style="color:#7c3aed">Marcus L.</span></div>
+        <div class="continues">← Dag 3 av 3 · Slutdag</div>
+      </div>
+
+      <div class="card c-montage">
+        <div class="type-tag">🔵 Montage</div>
+        <div class="card-title">2025-0138</div>
+        <div class="card-sub">Fastighets AB Lund</div>
+        <div class="card-typ">Vikport · Hörmann</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#2563eb"></span><span style="color:#2563eb">Erik S.</span></div>
+        <div class="time-tag">Dag 1 av 2</div>
+        <div class="continues">→ fortsätter v25</div>
+      </div>
+
+      <div class="card c-service">
+        <div class="type-tag">🟢 Service</div>
+        <div class="card-title">Garantiservice grind</div>
+        <div class="card-sub">ICA Fastighet, Helsingborg</div>
+        <div class="card-typ">Grind · Torverk</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#0891b2"></span><span style="color:#0891b2">Anna B.</span></div>
+        <div class="time-tag">08:00</div>
+      </div>
+
+      <div class="card c-arende">
+        <div class="type-tag">🟠 Ärende</div>
+        <div class="card-title">Fotocell larmar</div>
+        <div class="card-sub">Scandic Hotels, Malmö</div>
+        <div class="card-typ">Takskjutport · Hörmann</div>
+        <div class="card-tek"><span class="tek-dot" style="background:#ea580c"></span><span style="color:#ea580c">Jonas K.</span></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Oplanerade -->
+<div class="unplanned-bar">
+  <div class="unplanned-title">⏳ Ej schemalagda denna vecka</div>
+  <div class="unplanned-list">
+    <div class="unplanned-card c-montage">
+      <div class="type-tag" style="color:#2563eb">🔵 Montage</div>
+      <div class="card-title" style="font-size:12px">2025-0142 · ICA Fastighet</div>
+      <div class="card-typ">Grind · Torverk</div>
+      <div style="font-size:10px;color:#f59e0b;margin-top:4px">📦 Leverans 17 jun</div>
+    </div>
+    <div class="unplanned-card c-arende">
+      <div class="type-tag" style="color:#ea580c">🟠 Ärende</div>
+      <div class="card-title" style="font-size:12px">Signatur saknas</div>
+      <div class="card-typ">Volvo Cars · Vikport</div>
+      <div style="font-size:10px;color:#ea580c;margin-top:4px">Väntar på svar från kund</div>
+    </div>
+    <div class="unplanned-card" style="background:#f9fafb;border-color:#d1d5db;border-left:3px solid #d1d5db">
+      <div class="type-tag" style="color:#888">⚫ Montage</div>
+      <div class="card-title" style="font-size:12px">2025-0145 · Volvo Cars</div>
+      <div class="card-typ">Vikport · Beyron Door</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:4px">Leveransdatum ej satt</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
