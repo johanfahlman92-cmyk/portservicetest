@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { Check, ChevronRight, ChevronLeft, Printer, CheckSquare,
          AlertTriangle, Wrench, AlertCircle, Minus, Plus,
-         ClipboardList, CheckCircle, Search } from 'lucide-react'
+         ClipboardList, CheckCircle, Search, Trash2, Archive } from 'lucide-react'
 import { protokollPunkter as defaultMallar } from '../data/store.js'
 import { hämtaLogoBase64 } from '../utils/pdf.js'
 
@@ -79,6 +79,8 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
   const [protokoll,   setProtokoll]   = useState({})
   const [sparar,      setSparar]      = useState(false)
   const [sokText,     setSokText]     = useState('')
+  const [bekraftaId,  setBekraftaId]  = useState(null) // ID att bekräfta permanent borttagning
+  const [visaArkiverade, setVisaArkiverade] = useState(false)
 
   // Form
   const [formFastighet, setFormFastighet] = useState('')
@@ -705,9 +707,10 @@ ${sigHtml}
     .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
 
   const grupper = {
-    pagaende: filtrerade.filter(o => o.status === 'pagaende'),
-    planerad: filtrerade.filter(o => o.status === 'planerad'),
-    utford:   filtrerade.filter(o => o.status === 'utford'),
+    pagaende:  filtrerade.filter(o => o.status === 'pagaende'),
+    planerad:  filtrerade.filter(o => o.status === 'planerad'),
+    utford:    filtrerade.filter(o => o.status === 'utford'),
+    arkiverad: filtrerade.filter(o => o.status === 'arkiverad'),
   }
 
   return (
@@ -728,7 +731,7 @@ ${sigHtml}
           style={{ width: '100%', padding: '7px 10px 7px 32px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)', boxSizing: 'border-box' }} />
       </div>
 
-      {serviceorder.length === 0 && (
+      {serviceorder.filter(o => o.status !== 'arkiverad').length === 0 && grupper.arkiverad.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: 32 }}>
           <ClipboardList size={32} color="var(--c-text3)" style={{ margin: '0 auto 12px', display: 'block' }} />
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text2)', marginBottom: 6 }}>Inga serviceorder ännu</div>
@@ -743,6 +746,7 @@ ${sigHtml}
         { key: 'pagaende', label: 'Pågående' },
         { key: 'planerad', label: 'Planerade' },
         { key: 'utford',   label: 'Utförda' },
+        ...(visaArkiverade ? [{ key: 'arkiverad', label: 'Arkiverade' }] : []),
       ].map(({ key, label }) => grupper[key].length > 0 && (
         <div key={key} style={{ marginBottom: 20 }}>
           <div style={{ ...SECTION, marginBottom: 8 }}>{label} ({grupper[key].length})</div>
@@ -761,7 +765,7 @@ ${sigHtml}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
-                    onClick={() => order.status !== 'utford' ? startaUtfor(order) : skrivUt(order)}>
+                    onClick={() => (order.status === 'utford' || order.status === 'arkiverad') ? skrivUt(order) : startaUtfor(order)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>{order.nr}</span>
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
@@ -770,22 +774,43 @@ ${sigHtml}
                       {order.fastighet_namn || order.kund || '–'} · {order.datum} · {order.tekniker || 'Ingen tekniker'} · {(order.objekt_ids || []).length} port{(order.objekt_ids || []).length !== 1 ? 'ar' : ''}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    {order.status !== 'utford' && (
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                    {order.status !== 'utford' && order.status !== 'arkiverad' && (
                       <button className="btn btn-teal" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => startaUtfor(order)}>
                         {order.status === 'pagaende' ? 'Fortsätt' : 'Utför'}
                       </button>
                     )}
-                    {order.status === 'utford' && (
+                    {(order.status === 'utford' || order.status === 'arkiverad') && (
                       <button className="btn" style={{ fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => skrivUt(order)}>
                         <Printer size={12} /> Skriv ut
                       </button>
                     )}
-                    {order.status !== 'utford' && (
+                    {order.status !== 'utford' && order.status !== 'arkiverad' && (
                       <button className="btn" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => öppnaForm(order)}>
                         Redigera
                       </button>
                     )}
+                    {order.status === 'utford' && (
+                      <button className="btn" style={{ fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+                        onClick={() => onUppdatera(order.id, { status: 'arkiverad' })}>
+                        <Archive size={12} /> Arkivera
+                      </button>
+                    )}
+                    {order.status === 'arkiverad' && (
+                      <button className="btn" style={{ fontSize: 11, padding: '4px 8px' }}
+                        onClick={() => onUppdatera(order.id, { status: 'utford' })}>
+                        Återställ
+                      </button>
+                    )}
+                    <button style={{
+                      fontSize: 11, padding: '4px 7px', borderRadius: 6, cursor: 'pointer',
+                      background: 'none', border: '1px solid var(--c-border)',
+                      color: 'var(--c-red)', display: 'flex', alignItems: 'center',
+                    }}
+                      title="Ta bort permanent"
+                      onClick={e => { e.stopPropagation(); setBekraftaId(order.id) }}>
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               )
@@ -793,6 +818,37 @@ ${sigHtml}
           </div>
         </div>
       ))}
+
+      {/* Arkiverade - toggle */}
+      {grupper.arkiverad.length > 0 && (
+        <button className="btn" style={{ width: '100%', fontSize: 12, color: 'var(--c-text3)', marginTop: 4 }}
+          onClick={() => setVisaArkiverade(v => !v)}>
+          {visaArkiverade ? 'Dölj arkiverade' : `Visa ${grupper.arkiverad.length} arkiverad${grupper.arkiverad.length !== 1 ? 'e' : ''} order`}
+        </button>
+      )}
+
+      {/* Bekräfta permanent borttagning */}
+      {bekraftaId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}
+          onClick={() => setBekraftaId(null)}>
+          <div className="card" style={{ width: 340, padding: 22 }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Ta bort serviceorder?</div>
+            <div style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 20 }}>
+              Ordern tas bort permanent och kan inte återställas. Utförda protokoll på respektive port påverkas inte.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{
+                flex: 1, padding: '9px 14px', borderRadius: 8, cursor: 'pointer',
+                background: 'var(--c-red)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }} onClick={() => { onTaBort(bekraftaId); setBekraftaId(null) }}>
+                <Trash2 size={13} /> Ja, ta bort permanent
+              </button>
+              <button className="btn" onClick={() => setBekraftaId(null)}>Avbryt</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

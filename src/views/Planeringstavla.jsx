@@ -7,11 +7,12 @@ const DAGNAMN_KORT = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
 const DAGNAMN_LÅNG = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag']
 
 const TYPE_CFG = {
-  montage:  { label: 'Montage',   color: '#2563eb', bg: '#eff6ff',               emoji: '🔵' },
-  service:  { label: 'Service',   color: '#1D9E75', bg: 'rgba(29,158,117,0.08)', emoji: '🟢' },
-  arende:   { label: 'Ärende',    color: '#ea580c', bg: '#fff7ed',               emoji: '🟠' },
-  akut:     { label: 'Akut',      color: '#dc2626', bg: '#fef2f2',               emoji: '🔴' },
-  kalender: { label: 'Händelse',  color: '#7c3aed', bg: '#faf5ff',               emoji: '🟣' },
+  montage:      { label: 'Montage',      color: '#2563eb', bg: '#eff6ff',               emoji: '🔵' },
+  service:      { label: 'Service',      color: '#1D9E75', bg: 'rgba(29,158,117,0.08)', emoji: '🟢' },
+  arende:       { label: 'Ärende',       color: '#ea580c', bg: '#fff7ed',               emoji: '🟠' },
+  akut:         { label: 'Akut',         color: '#dc2626', bg: '#fef2f2',               emoji: '🔴' },
+  kalender:     { label: 'Händelse',     color: '#7c3aed', bg: '#faf5ff',               emoji: '🟣' },
+  serviceorder: { label: 'Serviceorder', color: '#0891b2', bg: '#ecfeff',               emoji: '📋' },
 }
 
 // Bokningstyper (tidsgrid-stil)
@@ -321,15 +322,15 @@ function EventKort({ ev, tekFärger, onClick }) {
 
 // ── Huvud-komponent ───────────────────────────────────────────────────────────
 export default function Planeringstavla({
-  montageorder = [], arenden = [], bokningar = {},
+  montageorder = [], arenden = [], bokningar = {}, serviceorder = [],
   tekniker = [], kunder = [], objekt = [],
-  onNavigeraArende, onNavigeraMontering,
+  onNavigeraArende, onNavigeraMontering, onNavigeraServiceorder,
   onLaggTillBokning, onTaBortBokning,
   onNyKund, onNavigeraObjekt,
 }) {
   const [veckosta,     setVeckosta]     = useState(() => getMonday(new Date()))
   const [dagVy,        setDagVy]        = useState(null)   // null = vecka, 'YYYY-MM-DD' = dagvy
-  const [typFilter,    setTypFilter]    = useState({ montage: true, service: true, arende: true, akut: true, kalender: true })
+  const [typFilter,    setTypFilter]    = useState({ montage: true, service: true, arende: true, akut: true, kalender: true, serviceorder: true })
   const [tekFilter,    setTekFilter]    = useState('alla')
   const [filtTekniker, setFiltTekniker] = useState('')     // dagvy-filter
   const [formDag,      setFormDag]      = useState(null)
@@ -370,6 +371,14 @@ export default function Planeringstavla({
         evs.push({ type: 'montage', id: 'm_' + m.id, title: m.ordernummer, sub: m.kund,
           typLabel: [m.porttyp, m.fabrikat].filter(Boolean).join(' · '), tekniker: m.tekniker || null, raw: m })
       )
+    }
+    if (typFilter.serviceorder) {
+      serviceorder.filter(so => so.datum === ymd && so.status !== 'utford' && so.status !== 'arkiverad').forEach(so => {
+        const antal = (so.objekt_ids || []).length
+        evs.push({ type: 'serviceorder', id: 'so_' + so.id,
+          title: so.fastighet_namn || so.nr || 'Serviceorder', sub: so.kund || null,
+          typLabel: `${antal} port${antal !== 1 ? 'ar' : ''}`, tekniker: so.tekniker || null, raw: so })
+      })
     }
     arenden.filter(a => a.status !== 'atgardad' && a.besok === ymd).forEach(a => {
       const isAkut = a.prioritet === 'akut'
@@ -419,6 +428,12 @@ export default function Planeringstavla({
       evs.push({ type: a.prioritet === 'akut' ? 'akut' : 'arende', id: 'a_' + a.id,
         title: a.namn, sub: a.kund, typLabel: a.feltyp, raw: a })
     )
+    serviceorder.filter(so => so.datum === ymd && so.status !== 'utford' && so.status !== 'arkiverad').forEach(so => {
+      const antal = (so.objekt_ids || []).length
+      evs.push({ type: 'serviceorder', id: 'so_' + so.id,
+        title: so.fastighet_namn || so.nr || 'Serviceorder', sub: so.kund || null,
+        typLabel: `${antal} port${antal !== 1 ? 'ar' : ''}`, raw: so })
+    })
     return evs
   })() : []
 
@@ -495,8 +510,8 @@ export default function Planeringstavla({
       {!dagVy && (
         <>
           {/* Summering */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 9, marginBottom: 14 }}>
-            {(['montage', 'service', 'arende', 'akut']).map(k => {
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 9, marginBottom: 14 }}>
+            {(['montage', 'serviceorder', 'service', 'arende', 'akut']).map(k => {
               const s = TYPE_CFG[k]
               return (
                 <div key={k} style={{ background: 'var(--c-surface)', borderRadius: 9, border: '1px solid var(--c-border)', padding: '10px 14px' }}>
@@ -600,7 +615,8 @@ export default function Planeringstavla({
                       <EventKort key={ev.id} ev={ev} tekFärger={tekFärger}
                         onClick={
                           (ev.type === 'arende' || ev.type === 'akut') && onNavigeraArende ? () => onNavigeraArende(ev.raw.id) :
-                          ev.type === 'montage' && onNavigeraMontering ? () => onNavigeraMontering(ev.raw) : null
+                          ev.type === 'montage' && onNavigeraMontering ? () => onNavigeraMontering(ev.raw) :
+                          ev.type === 'serviceorder' && onNavigeraServiceorder ? () => onNavigeraServiceorder(ev.raw.id) : null
                         }
                       />
                     ))}
@@ -641,6 +657,7 @@ export default function Planeringstavla({
                       onClick={() => {
                         if ((ev.type === 'arende' || ev.type === 'akut') && onNavigeraArende) onNavigeraArende(ev.raw.id)
                         else if (ev.type === 'montage' && onNavigeraMontering) onNavigeraMontering(ev.raw)
+                        else if (ev.type === 'serviceorder' && onNavigeraServiceorder) onNavigeraServiceorder(ev.raw.id)
                       }}
                       style={{ flex: '1 1 200px', maxWidth: 280, borderRadius: 8, padding: '9px 12px',
                         borderLeft: `3px solid ${s.color}`, background: s.bg, cursor: 'pointer', transition: 'filter 0.12s' }}
@@ -745,6 +762,7 @@ export default function Planeringstavla({
                   onClick={() => {
                     if ((ev.type === 'arende' || ev.type === 'akut') && onNavigeraArende) onNavigeraArende(ev.raw.id)
                     else if (ev.type === 'montage' && onNavigeraMontering) onNavigeraMontering(ev.raw)
+                    else if (ev.type === 'serviceorder' && onNavigeraServiceorder) onNavigeraServiceorder(ev.raw.id)
                   }}
                   style={{ flex: '1 1 170px', maxWidth: 230, borderRadius: 7, padding: '8px 10px',
                     borderLeft: `3px solid ${s.color}`, background: s.bg, cursor: 'pointer', transition: 'filter 0.12s' }}

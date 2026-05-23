@@ -404,7 +404,7 @@ export default function Kalender({
   const virtualDag = useMemo(() => {
     const result = {}
     for (const so of serviceorder) {
-      if (!so.datum || so.status === 'utford') continue
+      if (!so.datum || so.status === 'utford' || so.status === 'arkiverad') continue
       const d = so.datum
       if (!result[d]) result[d] = []
       const tekArr = Array.isArray(so.tekniker) ? so.tekniker : (so.tekniker ? [so.tekniker] : [])
