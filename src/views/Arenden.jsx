@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer, Archive, RotateCcw, Check, Wrench, AlertCircle, AlertTriangle, Minus } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import Felanmalan from './Felanmalan.jsx'
-import { hämtaLogoBase64 } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
 import { protokollPunkter as defaultProtokollMallar } from '../data/store.js'
 
 const statusLabel = { ny: 'Ny', pagAr: 'Pågår', atgardad: 'Åtgärdad' }
@@ -23,59 +23,47 @@ const KONTROLL_STATUSES = [
 async function skrivUtArende(a) {
   const logoBase64 = await hämtaLogoBase64()
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>Felanmälan #${a.nr}</title>
-  <style>
-    *{box-sizing:border-box}
-    body{font-family:system-ui,sans-serif;margin:0;padding:32px 40px;color:#1a1917;font-size:13px}
-    .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #1C3461}
-    .company-sub{font-size:11px;color:#666;margin-top:4px}
-    .nr{font-size:22px;font-weight:700;text-align:right}
-    .nr-sub{font-size:11px;color:#666;text-align:right}
-    h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:20px 0 8px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #ddd;border-radius:8px;overflow:hidden}
-    .cell{padding:9px 13px;border-bottom:1px solid #ddd}
-    .cell:nth-child(odd){border-right:1px solid #ddd}
-    .cell:last-child,.cell:nth-last-child(2){border-bottom:none}
-    .lbl{font-size:10px;color:#888;margin-bottom:2px}
-    .val{font-weight:600}
-    .desc{border:1px solid #ddd;border-radius:8px;padding:12px;color:#444;line-height:1.7;min-height:60px}
-    .sigs{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px}
-    .sig{border-top:1px solid #333;padding-top:8px;font-size:11px;color:#666}
-    .work{border:1px solid #ddd;border-radius:8px;padding:12px;min-height:100px}
-    @media print{body{padding:16px 20px}}
-  </style></head><body>
-  <div class="top">
-    <div>
-      ${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block" alt="NMV Portservice" />` : '<div style="font-size:20px;font-weight:800">NMV Portservice</div>'}
-      <div class="company-sub">Felanmälan</div>
+  const body = `
+    ${pdfHeader(logoBase64, 'Felanmälan', `#${a.nr}`, a.datum || '')}
+
+    <div class="slbl">Kund &amp; port</div>
+    ${pdfMetaGrid([
+      { lbl: 'Kund',            val: a.kund    },
+      { lbl: 'Port',            val: a.namn    },
+      { lbl: 'Kontaktperson',   val: a.kontakt },
+      { lbl: 'Planerat besök',  val: a.besok   },
+    ])}
+
+    <div class="slbl">Felinformation</div>
+    ${pdfMetaGrid([
+      { lbl: 'Feltyp',              val: a.feltyp                               },
+      { lbl: 'Prioritet',           val: prioLabel[a.prioritet] || a.prioritet  },
+      { lbl: 'Tilldelad tekniker',  val: a.tekniker || 'Ej tilldelad'           },
+      { lbl: 'Status',              val: statusLabel[a.status] || a.status      },
+    ])}
+
+    ${a.beskrivning ? `
+      <div class="slbl">Kundens beskrivning</div>
+      <div class="desc-box">&ldquo;${a.beskrivning}&rdquo;</div>
+    ` : ''}
+
+    <div class="slbl">Utfört arbete (fylls i av tekniker)</div>
+    <div class="desc-box" style="min-height:100px"></div>
+
+    <div class="sig-section">
+      <div class="sig-box" style="flex:1;min-height:70px">
+        <div class="sig-label">Teknikerns underskrift</div>
+        <div class="sig-date" style="margin-top:32px">Datum: ___________________</div>
+      </div>
+      <div class="sig-box" style="flex:1;min-height:70px">
+        <div class="sig-label">Kundens underskrift</div>
+        <div class="sig-date" style="margin-top:32px">Datum: ___________________</div>
+      </div>
     </div>
-    <div><div class="nr">#${a.nr}</div><div class="nr-sub">${a.datum || ''}</div></div>
-  </div>
-  <h3>Kund &amp; Port</h3>
-  <div class="grid">
-    <div class="cell"><div class="lbl">Kund</div><div class="val">${a.kund || '–'}</div></div>
-    <div class="cell"><div class="lbl">Port</div><div class="val">${a.namn || '–'}</div></div>
-    <div class="cell"><div class="lbl">Kontaktperson</div><div class="val">${a.kontakt || '–'}</div></div>
-    <div class="cell"><div class="lbl">Planerat besök</div><div class="val">${a.besok || '–'}</div></div>
-  </div>
-  <h3>Felinformation</h3>
-  <div class="grid">
-    <div class="cell"><div class="lbl">Feltyp</div><div class="val">${a.feltyp || '–'}</div></div>
-    <div class="cell"><div class="lbl">Prioritet</div><div class="val">${prioLabel[a.prioritet] || a.prioritet || '–'}</div></div>
-    <div class="cell"><div class="lbl">Tilldelad tekniker</div><div class="val">${a.tekniker || 'Ej tilldelad'}</div></div>
-    <div class="cell"><div class="lbl">Status</div><div class="val">${statusLabel[a.status] || a.status || '–'}</div></div>
-  </div>
-  ${a.beskrivning ? `<h3>Kundens beskrivning</h3><div class="desc">"${a.beskrivning}"</div>` : ''}
-  <h3>Utfört arbete (fylls i av tekniker)</h3>
-  <div class="work"></div>
-  <div class="sigs">
-    <div class="sig">Teknikerns underskrift &amp; datum</div>
-    <div class="sig">Kundens underskrift &amp; datum</div>
-  </div>
-  </body></html>`
+  `
+
   const w = window.open('', '_blank')
-  w.document.write(html)
+  w.document.write(pdfDoc(`Felanmälan #${a.nr}`, body))
   w.document.close()
   setTimeout(() => w.print(), 400)
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import { statusConfig, protokollTyper, protokollPunkter } from '../data/store.js'
-import logo from '../image-1779305303942.png'
+import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
 
 const filterOpts = [
   { id: 'alla',     label: 'Alla' },
@@ -12,63 +12,70 @@ const filterOpts = [
   { id: 'arende',   label: 'Öppet ärende' },
 ]
 
-// ── Hämta logo som base64 ─────────────────────────────────────────────────────
-async function hämtaLogoBase64() {
-  try {
-    const res  = await fetch(logo)
-    const blob = await res.blob()
-    return await new Promise(resolve => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result)
-      reader.readAsDataURL(blob)
-    })
-  } catch { return '' }
-}
-
 // ── Protokolldetalj (read-only) ───────────────────────────────────────────────
 function ProtokollDetalj({ entry, portTyp, onBack, onTaBort }) {
   const punkter    = protokollPunkter[entry.portTyp || portTyp] || []
   const statuses   = entry.statuses   || {}
   const noteringar = entry.noteringar || {}
 
+  const STATUS_LABEL = { G: '✓ Godkänd', J: '⚠ Att notera', A: '✗ Avvikelse' }
+  const STATUS_CLS   = { G: 's-g',       J: 's-j',          A: 's-a'         }
+
   const skrivUtPDF = async () => {
-    const logoBase64 = await hämtaLogoBase64()
+    const logoBase64 = await hämtaLogo()
+    let numCount = 0
     const rader = punkter.map((p, i) => {
-      const s = statuses[i] || ''
-      return `<tr class="${s.toLowerCase()}"><td>${i+1}</td><td>${p}</td><td style="text-align:center;font-weight:bold">${s||'–'}</td><td>${noteringar[i]||''}</td></tr>`
+      if (p.startsWith('## ')) {
+        return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
+      }
+      numCount++
+      const s   = statuses[i]   || ''
+      const not = noteringar[i] || ''
+      const label = STATUS_LABEL[s] || (s || '–')
+      const cls   = STATUS_CLS[s]   || ''
+      return `<tr>
+        <td><span style="color:#bbb;margin-right:6px;font-size:10px">${numCount}.</span>${p}</td>
+        <td class="${cls}" style="white-space:nowrap">${label}</td>
+        <td style="color:#666">${not}</td>
+      </tr>`
     }).join('')
-    const win = window.open('', '_blank', 'width=860,height=1000')
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-      <title>Serviceprotokoll ${entry.datum}</title>
-      <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:15mm 18mm}
-        h1{font-size:18px;margin-bottom:3px}
-        .sub{color:#666;font-size:11px;margin-bottom:14px}
-        .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
-        .box{border:1px solid #ddd;padding:6px 10px;border-radius:4px}
-        .lbl{font-size:9px;color:#888;margin-bottom:1px}
-        .val{font-size:12px;font-weight:bold}
-        table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10px}
-        th{background:#f4f4f4;text-align:left;padding:4px 6px;border:1px solid #ddd}
-        td{padding:3px 6px;border:1px solid #ddd;vertical-align:top}
-        .g{background:#e1f5ee}.j{background:#faeeda}.a{background:#fcebeb}
-        @media print{@page{size:A4;margin:10mm}}
-      </style></head><body>
-      ${logoBase64 ? `<img src="${logoBase64}" style="float:right;height:40px;margin-top:-4px" alt="NMV Portservice" />` : ''}
-      <h1>Serviceprotokoll</h1>
-      <div class="sub">Datum: ${entry.datum}</div>
-      <div class="grid">
-        <div class="box"><div class="lbl">Tekniker</div><div class="val">${entry.tekniker||'–'}</div></div>
-        <div class="box"><div class="lbl">Porttyp</div><div class="val">${entry.portTyp||portTyp}</div></div>
-        <div class="box"><div class="lbl">Resultat</div><div class="val">${entry.g||0}G · ${entry.j||0}J · ${entry.a||0}A</div></div>
-      </div>
+
+    const body = `
+      ${pdfHeader(logoBase64, 'Serviceprotokoll', entry.datum || '', '')}
+
+      <div class="slbl">Portinformation</div>
+      ${pdfMetaGrid([
+        { lbl: 'Objekt',    val: entry.portNamn || entry.namn || '–' },
+        { lbl: 'Porttyp',   val: entry.portTyp  || portTyp           },
+        { lbl: 'Tekniker',  val: entry.tekniker                      },
+        { lbl: 'Datum',     val: entry.datum                         },
+        { lbl: 'Resultat',  val: `${entry.g||0}G · ${entry.j||0}J · ${entry.a||0}A` },
+        { lbl: 'Serviceintervall', val: entry.serviceIntervall || '–' },
+      ])}
+
+      <div class="slbl">Kontrollpunkter</div>
       <table>
-        <tr><th style="width:28px">#</th><th>Kontrollpunkt</th><th style="width:42px;text-align:center">Status</th><th>Notering / Åtgärd</th></tr>
-        ${rader}
+        <thead><tr>
+          <th style="width:58%">Kontrollpunkt</th>
+          <th style="width:22%">Status</th>
+          <th style="width:20%">Notering / Åtgärd</th>
+        </tr></thead>
+        <tbody>${rader}</tbody>
       </table>
-      ${entry.signatur ? `<div style="margin-top:10px"><div style="font-size:10px;color:#888;margin-bottom:4px">Signatur tekniker</div><img src="${entry.signatur}" style="max-width:280px;border:1px solid #ccc;border-radius:4px" /></div>` : ''}
-    </body></html>`)
+
+      ${entry.signatur ? `
+        <div class="slbl">Signatur tekniker</div>
+        <div class="sig-section">
+          <div class="sig-box">
+            <div class="sig-label">${entry.tekniker || ''}</div>
+            <img src="${entry.signatur}" style="max-width:280px;max-height:80px"/>
+            <div class="sig-date">${entry.datum || ''}</div>
+          </div>
+        </div>` : ''}
+    `
+
+    const win = window.open('', '_blank', 'width=860,height=1000')
+    win.document.write(pdfDoc(`Serviceprotokoll ${entry.datum}`, body))
     win.document.close()
     setTimeout(() => win.print(), 400)
   }

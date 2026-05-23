@@ -3,7 +3,7 @@ import { Check, ChevronRight, ChevronLeft, Printer, CheckSquare,
          AlertTriangle, Wrench, AlertCircle, Minus, Plus,
          ClipboardList, CheckCircle, Search, Trash2, Archive } from 'lucide-react'
 import { protokollPunkter as defaultMallar } from '../data/store.js'
-import { hämtaLogoBase64 } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 const STATUSES = [
@@ -250,8 +250,9 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
   // ── Skriv ut ─────────────────────────────────────────────────────────────────
   const skrivUt = async (order) => {
     const logoBase64 = await hämtaLogoBase64()
+
     const PDF_STATUS_LABEL = { OK: 'Godkänd', AF: 'Åtgärdad', NOT: 'Att notera', KA: 'Kräver åtgärd', EJ: 'Ej tillämpbar' }
-    const PDF_STATUS_COLOR = { OK: '#16a34a', AF: '#2563eb', NOT: '#d97706', KA: '#dc2626', EJ: '#9ca3af' }
+    const PDF_STATUS_CLS   = { OK: 's-ok',    AF: 's-af',     NOT: 's-not',      KA: 's-ka',           EJ: 's-ej'          }
 
     const portSektioner = (order.objekt_ids || []).map(objId => {
       const port    = objekt.find(o => o.id === objId)
@@ -261,26 +262,26 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
       let numCount  = 0
       const rader   = punkter.map((p, i) => {
         if (p.startsWith('## ')) {
-          return `<tr><td colspan="3" style="background:#f3f2ef;padding:6px 8px;font-size:10px;font-weight:700;color:#1C3461;text-transform:uppercase;letter-spacing:0.06em">${p.slice(3)}</td></tr>`
+          return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
         }
         numCount++
         const kod   = prot.statuses?.[i] || ''
         const label = PDF_STATUS_LABEL[kod] || '–'
-        const color = PDF_STATUS_COLOR[kod] || '#888'
-        const not   = prot.noteringar?.[i] || ''
+        const cls   = PDF_STATUS_CLS[kod]   || ''
+        const not   = prot.noteringar?.[i]  || ''
         return `<tr>
-          <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px"><span style="color:#888;margin-right:5px">${numCount}.</span>${p}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;color:${color};font-weight:600;white-space:nowrap">${label}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;color:#555">${not}</td>
+          <td><span style="color:#bbb;margin-right:6px;font-size:10px">${numCount}.</span>${p}</td>
+          <td class="${cls}" style="white-space:nowrap">${label}</td>
+          <td style="color:#666">${not}</td>
         </tr>`
       }).join('')
       return `<div class="port-sektion">
-        <h2>${port.namn}<span style="font-weight:400;color:#666;font-size:12px;margin-left:8px">— ${port.typ || ''}</span></h2>
+        <div class="slbl">${port.namn}${port.typ ? `<span style="font-weight:400;color:#aaa;margin-left:8px;text-transform:none;font-size:11px;letter-spacing:0">— ${port.typ}</span>` : ''}</div>
         <table>
           <thead><tr>
-            <th style="width:60%">Kontrollpunkt</th>
+            <th style="width:58%">Kontrollpunkt</th>
             <th style="width:20%">Status</th>
-            <th style="width:20%">Notering</th>
+            <th style="width:22%">Notering</th>
           </tr></thead>
           <tbody>${rader}</tbody>
         </table>
@@ -288,47 +289,39 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
     }).join('')
 
     const sigHtml = order.signatur_tekniker || order.signatur_kund ? `
-      <div class="sig-row">
-        ${order.signatur_tekniker ? `<div>
-          <p style="font-size:11px;font-weight:600;color:#555;margin-bottom:4px">Tekniker: ${order.tekniker || ''}</p>
-          <div class="sig-box"><img src="${order.signatur_tekniker}" style="max-width:260px;max-height:80px"/></div>
+      <div class="slbl">Signaturer</div>
+      <div class="sig-section">
+        ${order.signatur_tekniker ? `<div class="sig-box">
+          <div class="sig-label">Tekniker: ${order.tekniker || ''}</div>
+          <img src="${order.signatur_tekniker}"/>
+          <div class="sig-date">${order.datum || ''}</div>
         </div>` : ''}
-        ${order.signatur_kund ? `<div>
-          <p style="font-size:11px;font-weight:600;color:#555;margin-bottom:4px">Kund</p>
-          <div class="sig-box"><img src="${order.signatur_kund}" style="max-width:260px;max-height:80px"/></div>
+        ${order.signatur_kund ? `<div class="sig-box">
+          <div class="sig-label">Kund</div>
+          <img src="${order.signatur_kund}"/>
+          <div class="sig-date">${order.datum || ''}</div>
         </div>` : ''}
-      </div>
-      <p style="font-size:11px;color:#555;margin-top:6px">${order.datum || ''}</p>` : ''
+      </div>` : ''
+
+    const body = `
+      ${pdfHeader(logoBase64, 'Serviceorder', order.nr, order.datum || '')}
+
+      <div class="slbl">Grundinformation</div>
+      ${pdfMetaGrid([
+        { lbl: 'Fastighet',    val: order.fastighet_namn                 },
+        { lbl: 'Kund',         val: order.kund                           },
+        { lbl: 'Datum',        val: order.datum                          },
+        { lbl: 'Tekniker',     val: order.tekniker                       },
+        { lbl: 'Antal portar', val: (order.objekt_ids || []).length      },
+        { lbl: 'Status',       val: 'Utförd'                             },
+      ])}
+
+      ${portSektioner}
+      ${sigHtml}
+    `
 
     const win = window.open('', '_blank', 'width=860,height=1100')
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Serviceorder ${order.nr}</title>
-<style>
-body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;margin:32px 40px}
-h1{font-size:20px;margin-bottom:6px}
-h2{font-size:14px;margin-top:0;margin-bottom:8px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:20px;font-size:11px;color:#555}
-.meta b{color:#1a1917}
-table{width:100%;border-collapse:collapse;margin-bottom:8px}
-th{background:#f3f2ef;padding:6px 8px;text-align:left;font-size:11px;font-weight:600}
-td{vertical-align:top}
-.port-sektion{margin-bottom:28px;page-break-inside:avoid}
-.sig-row{display:flex;gap:40px;flex-wrap:wrap;margin-top:16px}
-.sig-box{border:1px solid #ccc;border-radius:6px;padding:8px;display:inline-block}
-@media print{body{margin:16px}}
-</style></head><body>
-${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
-<h1>Serviceorder ${order.nr}</h1>
-<div class="meta">
-  <div><b>Fastighet:</b> ${order.fastighet_namn || '–'}</div>
-  <div><b>Kund:</b> ${order.kund || '–'}</div>
-  <div><b>Datum:</b> ${order.datum || '–'}</div>
-  <div><b>Tekniker:</b> ${order.tekniker || '–'}</div>
-  <div><b>Antal portar:</b> ${(order.objekt_ids || []).length}</div>
-  <div><b>Status:</b> Utförd</div>
-</div>
-${portSektioner}
-${sigHtml}
-</body></html>`)
+    win.document.write(pdfDoc(`Serviceorder ${order.nr}`, body))
     win.document.close()
     setTimeout(() => win.print(), 400)
   }

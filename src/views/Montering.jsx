@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { CheckCircle, Printer, ChevronRight, Upload, FileText, X as XIcon, AlertTriangle,
          ChevronLeft, Edit2, Save, List, PlusCircle, Check } from 'lucide-react'
-import logo from '../image-1779305303942.png'
 import KundVäljare from '../components/KundVäljare.jsx'
 import { supabase } from '../lib/supabase.js'
 import { RISKPUNKTER as RISKPUNKTER_SHARED } from '../data/store.js'
+import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
 
 // ── Signaturpad ───────────────────────────────────────────────────────────────
 function SignaturPad({ onChange }) {
@@ -123,113 +123,125 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
                         ordernummer = null, serienummer = null,
                         // bakåtkompatibilitet – gamla protokoll med FAROR-baserade risker
                         risker = null }) {
-  const punkter = (effektivaMallar || EGENKONTROLL)[portTyp] || []
+  const punkter    = (effektivaMallar || EGENKONTROLL)[portTyp] || []
   const objektNamn = portNamn || adress || '–'
 
   // Riskbedömning – ny format
   const riskRows = RISKPUNKTER.map((p, i) => {
     if (p.startsWith('## ')) {
-      return `<tr style="background:#f3f2ef"><td colspan="3" style="font-weight:700;font-size:11px;color:#1D9E75;padding:7px 8px;letter-spacing:0.06em">${p.slice(3).toUpperCase()}</td></tr>`
+      return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
     }
     const st  = riskKontroll[i]
     const not = riskNoteringar[i] || ''
-    const cls = st === 'ok' ? 'risk-ok' : st === 'atgard' ? 'risk-atgard' : st === 'ej_aktuellt' ? 'risk-ej' : ''
+    const cls = st === 'ok' ? 's-risk-ok' : st === 'atgard' ? 's-risk-atgard' : st === 'ej_aktuellt' ? 's-risk-ej' : ''
     const etk = st === 'ok' ? '✓ OK' : st === 'atgard' ? '⚠ Åtgärd krävs' : st === 'ej_aktuellt' ? '– Ej aktuellt' : '–'
-    return `<tr><td>${p}</td><td class="${cls}">${etk}</td><td>${not}</td></tr>`
+    return `<tr><td>${p}</td><td class="${cls}">${etk}</td><td style="color:#666">${not}</td></tr>`
   }).join('')
 
   // Egna risker
   const egenRiskRows = egenRisker.map(r => {
     const st  = r.status
-    const cls = st === 'ok' ? 'risk-ok' : st === 'atgard' ? 'risk-atgard' : st === 'ej_aktuellt' ? 'risk-ej' : ''
-    const etk = st === 'ok' ? '✓ OK' : st === 'atgard' ? '⚠ Åtgärd krävs' : st === 'ej_aktuellt' ? '– Ej aktuellt' : '–'
-    return `<tr style="background:#fffbf0"><td><strong>${r.label||'–'}</strong><br><span style="color:#888">${r.beskrivning||''}</span></td><td class="${cls}">${etk}</td><td>${r.åtgärd||''}</td></tr>`
+    const cls = st === 'ok' ? 's-risk-ok' : st === 'atgard' ? 's-risk-atgard' : 's-risk-ej'
+    const etk = st === 'ok' ? '✓ OK' : st === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'
+    return `<tr style="background:#fffbf2"><td><strong>${r.label||'–'}</strong>${r.beskrivning ? `<br><span style="color:#888;font-size:10px">${r.beskrivning}</span>` : ''}</td><td class="${cls}">${etk}</td><td style="color:#666">${r.åtgärd||''}</td></tr>`
   }).join('')
 
   // Gamla FAROR-baserade risker (bakåtkompatibilitet)
   const gamlRiskRows = risker ? Object.entries(risker).map(([id, r]) => {
     const niv = (r.nivå || r.status || '').toLowerCase()
+    const clsMap = { ok: 's-risk-ok', atgard: 's-risk-atgard', ej_aktuellt: 's-risk-ej', låg: 's-risk-ok', medel: 's-risk-atgard', hög: 's-ka' }
     const visLabel = r.nivå || (r.status === 'ok' ? '✓ OK' : r.status === 'atgard' ? '⚠ Åtgärd krävs' : r.status === 'ej_aktuellt' ? '– Ej aktuellt' : '–')
-    return `<tr><td>${id}</td><td class="risk-${niv}">${visLabel}</td><td>${r.åtgärd||'–'}</td></tr>`
+    return `<tr><td>${id}</td><td class="${clsMap[niv]||''}">${visLabel}</td><td style="color:#666">${r.åtgärd||'–'}</td></tr>`
   }).join('') : ''
 
+  let egenCount = 0
   const egenRows = punkter.map((p, i) => {
     if (p.startsWith('## ')) {
-      return `<tr style="background:#f3f2ef"><td colspan="3" style="font-weight:700;font-size:11px;color:#1D9E75;padding:7px 8px;letter-spacing:0.06em">${p.slice(3).toUpperCase()}</td></tr>`
+      return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
     }
+    egenCount++
     const st  = egenkontroll[i] || '–'
     const not = egenNoteringar[i] || ''
-    const cls = st === 'OK' ? 'ok' : st === 'EJ' ? 'ej' : 'na'
-    const etk = st === 'OK' ? 'Godkänd' : st === 'EJ' ? 'Avvikelse' : st === 'NA' ? 'Ej tillämpbar' : '–'
-    return `<tr><td>${p}</td><td class="${cls}">${etk}</td><td>${not}</td></tr>`
+    const cls = st === 'OK' ? 's-ok' : st === 'EJ' ? 's-ka' : st === 'NA' ? 's-ej' : ''
+    const etk = st === 'OK' ? '✓ Godkänd' : st === 'EJ' ? '✗ Avvikelse' : st === 'NA' ? 'Ej tillämpbar' : '–'
+    return `<tr>
+      <td><span style="color:#bbb;margin-right:6px;font-size:10px">${egenCount}.</span>${p}</td>
+      <td class="${cls}" style="white-space:nowrap">${etk}</td>
+      <td style="color:#666">${not}</td>
+    </tr>`
   }).join('')
 
-  const godkannandeSektionHtml = godkannande
-    ? `<h2>Avslutande bedömning</h2>
-       <div style="display:inline-flex;align-items:center;gap:10px;padding:10px 18px;border-radius:8px;
-         background:${godkannande === 'godkand' ? '#d1fae5' : '#fee2e2'};
-         border:2px solid ${godkannande === 'godkand' ? '#1D9E75' : '#b83333'}">
-         <span style="font-size:20px">${godkannande === 'godkand' ? '✓' : '✗'}</span>
-         <div>
-           <div style="font-weight:700;font-size:13px;color:${godkannande === 'godkand' ? '#1D9E75' : '#b83333'}">
-             ${godkannande === 'godkand' ? 'Godkänd' : 'Ej godkänd'}
-           </div>
-           <div style="font-size:11px;color:#555;margin-top:2px">
-             ${godkannande === 'godkand'
-               ? 'Ovanstående arbetsplats kan påbörjas utan fara för säkerhet och hälsa.'
-               : 'Ovanstående installationsplats kan INTE användas utan fara – ansvarig är informerad om fel och åtgärder.'}
-           </div>
-         </div>
-       </div>` : ''
+  const godkjHtml = godkannande
+    ? `<div class="approval ${godkannande === 'godkand' ? 'approval-ok' : 'approval-ej'}">
+        <span class="approval-icon">${godkannande === 'godkand' ? '✓' : '✗'}</span>
+        <div>
+          <div class="approval-text">${godkannande === 'godkand' ? 'Godkänd' : 'Ej godkänd'}</div>
+          <div class="approval-sub">${godkannande === 'godkand'
+            ? 'Ovanstående arbetsplats kan påbörjas utan fara för säkerhet och hälsa.'
+            : 'Ovanstående installationsplats kan INTE användas utan fara – ansvarig är informerad.'}</div>
+        </div>
+      </div>` : ''
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Monteringsprotokoll – ${objektNamn}</title>
-<style>
-body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;margin:32px 40px}
-h1{font-size:20px;margin-bottom:6px}
-h2{font-size:13px;margin-top:22px;margin-bottom:8px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:3px 24px;margin-bottom:14px;font-size:11px;color:#555}
-.meta b{color:#1a1917}
-table{width:100%;border-collapse:collapse;margin-bottom:14px}
-th{background:#f3f2ef;padding:6px 8px;text-align:left;font-size:11px;font-weight:600}
-td{padding:6px 8px;border-bottom:1px solid #e8e7e4;font-size:11px}
-.ok{color:#1D9E75;font-weight:600}.ej{color:#b83333;font-weight:600}.na{color:#888}
-.risk-ok{color:#1D9E75;font-weight:600}.risk-atgard{color:#b87000;font-weight:600}.risk-ej{color:#888;font-weight:600}
-.risk-låg{color:#1D9E75;font-weight:600}.risk-medel{color:#b87000;font-weight:600}
-.risk-hög{color:#b83333;font-weight:600}.risk-eliminerad{color:#888;font-weight:600}
-.sig-box{border:1px solid #ccc;border-radius:6px;padding:8px;display:inline-block;margin-top:6px}
-@media print{body{margin:0}}
-</style></head><body>
-${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
-<h1>Monteringsprotokoll</h1>
-<div class="meta">
-  <div><b>Objekt:</b> ${objektNamn}</div>
-  <div><b>Kund:</b> ${kund||'–'}</div>
-  <div><b>Adress:</b> ${adress||'–'}</div>
-  <div><b>Porttyp:</b> ${portTyp}</div>
-  <div><b>Datum:</b> ${datum}</div>
-  <div><b>Tekniker:</b> ${teknikerNamn||'–'}</div>
-  <div><b>Serviceintervall:</b> ${serviceIntervallLabel(serviceIntervall)}</div>
-  ${ordernummer ? `<div><b>Ordernummer:</b> ${ordernummer}</div>` : ''}
-  ${serienummer ? `<div><b>Serienummer:</b> ${serienummer}</div>` : ''}
-</div>
-${ansvariga.length > 0 ? `<p style="font-size:11px;margin:0 0 8px;color:#333"><strong>Ansvariga:</strong> ${ansvariga.map(a => `${a.namn}${a.roll ? ` (${a.roll})` : ''}`).join(' · ')}</p>` : ''}
-<h2>Riskbedömning</h2>
-${risker
-  ? `<table><thead><tr><th>Farotyp</th><th>Status</th><th>Åtgärd</th></tr></thead><tbody>${gamlRiskRows}</tbody></table>`
-  : `<table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Åtgärd / notering</th></tr></thead><tbody>${riskRows}${egenRiskRows}</tbody></table>`
-}
-${godkannandeSektionHtml}
-<div style="page-break-before:always;break-before:page"></div>
-<h2 style="margin-top:0">Egenkontroll – ${portTyp}</h2>
-<table>
-  <thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Notering</th></tr></thead>
-  <tbody>${egenRows}</tbody>
-</table>
-${signaturbild ? `<h2>Tekniker signatur</h2>
-<div class="sig-box"><img src="${signaturbild}" style="max-width:300px;max-height:90px"/></div>
-<p style="font-size:11px;color:#555;margin-top:6px">${teknikerNamn||''},&nbsp;${datum}</p>` : ''}
-</body></html>`
+  const metaCeller = [
+    { lbl: 'Objekt',    val: objektNamn          },
+    { lbl: 'Porttyp',   val: portTyp              },
+    { lbl: 'Kund',      val: kund                 },
+    { lbl: 'Adress',    val: adress               },
+    { lbl: 'Datum',     val: datum                },
+    { lbl: 'Tekniker',  val: teknikerNamn         },
+    { lbl: 'Serviceintervall', val: serviceIntervallLabel(serviceIntervall) },
+    ...(ordernummer ? [{ lbl: 'Ordernummer', val: ordernummer }] : []),
+    ...(serienummer ? [{ lbl: 'Serienummer', val: serienummer }] : []),
+  ]
+  // Jämna ut till jämnt antal
+  if (metaCeller.length % 2 !== 0) metaCeller.push({ lbl: '', val: '' })
+
+  const metaHtml = `<div class="meta">${metaCeller.map(c =>
+    `<div class="cell"><div class="lbl">${c.lbl}</div><div class="val">${c.val || '–'}</div></div>`
+  ).join('')}</div>`
+
+  const ansvarigaHtml = ansvariga.length > 0
+    ? `<p style="font-size:11px;color:#555;margin:-10px 0 16px"><strong>Ansvariga:</strong> ${ansvariga.map(a => `${a.namn}${a.roll ? ` (${a.roll})` : ''}`).join(' · ')}</p>`
+    : ''
+
+  const body = `
+    ${pdfHeader(logoBase64, 'Monteringsprotokoll', objektNamn, '')}
+
+    <div class="slbl">Information</div>
+    ${metaHtml}
+    ${ansvarigaHtml}
+
+    <div class="slbl">Riskbedömning</div>
+    ${risker
+      ? `<table><thead><tr><th>Farotyp</th><th>Status</th><th style="width:35%">Åtgärd</th></tr></thead><tbody>${gamlRiskRows}</tbody></table>`
+      : `<table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th style="width:30%">Åtgärd / notering</th></tr></thead><tbody>${riskRows}${egenRiskRows}</tbody></table>`
+    }
+    ${godkjHtml}
+
+    <div class="page-break"></div>
+
+    <div class="slbl">Egenkontroll — ${portTyp}</div>
+    <table>
+      <thead><tr>
+        <th style="width:58%">Kontrollpunkt</th>
+        <th style="width:20%">Status</th>
+        <th style="width:22%">Notering</th>
+      </tr></thead>
+      <tbody>${egenRows}</tbody>
+    </table>
+
+    ${signaturbild ? `
+      <div class="slbl">Signatur tekniker</div>
+      <div class="sig-section">
+        <div class="sig-box">
+          <div class="sig-label">${teknikerNamn || ''}</div>
+          <img src="${signaturbild}" style="max-width:300px;max-height:90px"/>
+          <div class="sig-date">${datum}</div>
+        </div>
+      </div>` : ''}
+  `
+
+  return pdfDoc(`Monteringsprotokoll – ${objektNamn}`, body)
 }
 
 // ── Dokument drag-and-drop ────────────────────────────────────────────────────
@@ -727,7 +739,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
 
   const skrivUtDetaljPDF = async () => {
     if (!valdProtokoll) return
-    const logoBase64 = await hämtaLogoBase64()
+    const logoBase64 = await hämtaLogo()
     const html = genereraHTML({
       portNamn: valdProtokoll.objektNamn, kund: valdProtokoll.kund,
       adress: valdProtokoll.adress, portTyp: valdProtokoll.portTyp,
@@ -751,20 +763,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setTimeout(() => win.print(), 400)
   }
 
-  const hämtaLogoBase64 = async () => {
-    try {
-      const res  = await fetch(logo)
-      const blob = await res.blob()
-      return await new Promise(resolve => {
-        const reader = new FileReader()
-        reader.onloadend = () => resolve(reader.result)
-        reader.readAsDataURL(blob)
-      })
-    } catch { return null }
-  }
-
   const skrivUtPDF = async () => {
-    const logoBase64 = await hämtaLogoBase64()
+    const logoBase64 = await hämtaLogo()
     const html = genereraHTML({
       portNamn, kund, adress, portTyp, datum, teknikerNamn, serviceIntervall,
       riskKontroll, riskNoteringar, egenRisker, egenkontroll, egenNoteringar,

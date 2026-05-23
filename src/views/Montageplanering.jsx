@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, Archive, ArchiveRestore, Lock } from 'lucide-react'
 import { protokollTyper, RISKPUNKTER } from '../data/store.js'
 import KundVäljare from '../components/KundVäljare.jsx'
-import { hämtaLogoBase64 } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
 
 // Samma porttyper som i Portregister
 const PORTTYPER      = Object.keys(protokollTyper)           // Vikport, Takskjutport, Lastbrygga, Grind
@@ -16,83 +16,113 @@ const STATUS_CFG = {
 
 function genereraMontagePDF({ p, logoBase64, montagemallar = {} }) {
   const riskRows = RISKPUNKTER.map((punkt, i) => {
+    if (punkt.startsWith('## ')) {
+      return `<tr class="tbl-group"><td colspan="3">${punkt.slice(3)}</td></tr>`
+    }
     const st  = p.riskKontroll?.[i]
     const not = p.riskNoteringar?.[i] || ''
-    const cls = st === 'ok' ? 'risk-ok' : st === 'atgard' ? 'risk-atgard' : st === 'ej_aktuellt' ? 'risk-ej' : ''
+    const cls = st === 'ok' ? 's-risk-ok' : st === 'atgard' ? 's-risk-atgard' : st === 'ej_aktuellt' ? 's-risk-ej' : ''
     const etk = st === 'ok' ? '✓ OK' : st === 'atgard' ? '⚠ Åtgärd krävs' : st === 'ej_aktuellt' ? '– Ej aktuellt' : '–'
-    return `<tr><td style="text-align:justify">${punkt}</td><td class="${cls}">${etk}</td><td>${not}</td></tr>`
+    return `<tr><td>${punkt}</td><td class="${cls}">${etk}</td><td style="color:#666">${not}</td></tr>`
   }).join('')
 
   const egenRiskRows = (p.egenRisker || []).map(r => {
-    const cls = r.status === 'ok' ? 'risk-ok' : r.status === 'atgard' ? 'risk-atgard' : 'risk-ej'
+    const cls = r.status === 'ok' ? 's-risk-ok' : r.status === 'atgard' ? 's-risk-atgard' : 's-risk-ej'
     const etk = r.status === 'ok' ? '✓ OK' : r.status === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'
-    return `<tr style="background:#fffbf0"><td><strong>${r.label||'–'}</strong><br><span style="color:#888">${r.beskrivning||''}</span></td><td class="${cls}">${etk}</td><td>${r.åtgärd||''}</td></tr>`
+    return `<tr style="background:#fffbf2"><td><strong>${r.label||'–'}</strong>${r.beskrivning ? `<br><span style="color:#888;font-size:10px">${r.beskrivning}</span>` : ''}</td><td class="${cls}">${etk}</td><td style="color:#666">${r.åtgärd||''}</td></tr>`
   }).join('')
 
   const mallar = Object.keys(montagemallar).length > 0 ? montagemallar : {
-    Vikport: ['Portblad och skenor utan skador','Fjädersystem kalibrerat','Säkerhetsbroms testad','Nödöppning testad','Motor monterad och kalibrerad','Fotocell testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
+    Vikport:      ['Portblad och skenor utan skador','Fjädersystem kalibrerat','Säkerhetsbroms testad','Nödöppning testad','Motor monterad och kalibrerad','Fotocell testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
     Takskjutport: ['Skensystem rakt och säkrat','Balansfjädrar kontrollerade','Portblad utan skador','Hjul och lager smorda','Nödöppning testad','Motormontering kontrollerad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
-    Lastbrygga: ['Hydraulsystem utan läckage','Plattform utan skador','Styrsystem testat','Säkerhetskant testad','Elektrisk installation kontrollerad','Nödstoppsfunktion testad','CE-märkning monterad','Bruksanvisning överlämnad'],
-    Grind: ['Stolpar stabilt monterade','Räls och styrning rak','Grindblad utan skador','Motor monterad','Fotocell kontrollerad','Nödöppning testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
+    Lastbrygga:   ['Hydraulsystem utan läckage','Plattform utan skador','Styrsystem testat','Säkerhetskant testad','Elektrisk installation kontrollerad','Nödstoppsfunktion testad','CE-märkning monterad','Bruksanvisning överlämnad'],
+    Grind:        ['Stolpar stabilt monterade','Räls och styrning rak','Grindblad utan skador','Motor monterad','Fotocell kontrollerad','Nödöppning testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
   }
   const punkter = mallar[p.portTyp] || []
+  let egenCount = 0
   const egenRows = punkter.map((punkt, i) => {
-    if (punkt.startsWith('## ')) return `<tr style="background:#f3f2ef"><td colspan="3" style="font-weight:700;font-size:11px;color:#1D9E75;padding:7px 8px">${punkt.slice(3).toUpperCase()}</td></tr>`
+    if (punkt.startsWith('## ')) {
+      return `<tr class="tbl-group"><td colspan="3">${punkt.slice(3)}</td></tr>`
+    }
+    egenCount++
     const st  = p.egenkontroll?.[i] || '–'
     const not = p.egenNoteringar?.[i] || ''
-    const cls = st === 'OK' ? 'ok' : st === 'EJ' ? 'ej' : 'na'
-    const etk = st === 'OK' ? '✓ OK' : st === 'EJ' ? '✗ Ej OK' : st === 'NA' ? 'N/A' : '–'
-    return `<tr><td style="text-align:justify">${punkt}</td><td class="${cls}">${etk}</td><td>${not}</td></tr>`
+    const cls = st === 'OK' ? 's-ok' : st === 'EJ' ? 's-ka' : st === 'NA' ? 's-ej' : ''
+    const etk = st === 'OK' ? '✓ Godkänd' : st === 'EJ' ? '✗ Avvikelse' : st === 'NA' ? 'Ej tillämpbar' : '–'
+    return `<tr>
+      <td><span style="color:#bbb;margin-right:6px;font-size:10px">${egenCount}.</span>${punkt}</td>
+      <td class="${cls}" style="white-space:nowrap">${etk}</td>
+      <td style="color:#666">${not}</td>
+    </tr>`
   }).join('')
 
   const godkjHtml = p.godkannande
-    ? `<div style="display:inline-flex;align-items:center;gap:10px;padding:10px 18px;border-radius:8px;margin-top:12px;
-        background:${p.godkannande === 'godkand' ? '#d1fae5' : '#fee2e2'};
-        border:2px solid ${p.godkannande === 'godkand' ? '#1D9E75' : '#b83333'}">
-        <span style="font-size:20px">${p.godkannande === 'godkand' ? '✓' : '✗'}</span>
-        <div style="font-weight:700;color:${p.godkannande === 'godkand' ? '#1D9E75' : '#b83333'}">
-          ${p.godkannande === 'godkand' ? 'Godkänd – arbetsplatsen kan påbörjas' : 'Ej godkänd – ansvarig informerad'}
-        </div></div>` : ''
+    ? `<div class="approval ${p.godkannande === 'godkand' ? 'approval-ok' : 'approval-ej'}">
+        <span class="approval-icon">${p.godkannande === 'godkand' ? '✓' : '✗'}</span>
+        <div>
+          <div class="approval-text">${p.godkannande === 'godkand' ? 'Godkänd' : 'Ej godkänd'}</div>
+          <div class="approval-sub">${p.godkannande === 'godkand'
+            ? 'Arbetsplatsen kan påbörjas utan fara för säkerhet och hälsa.'
+            : 'Ej godkänd – ansvarig informerad om fel och åtgärder.'}</div>
+        </div>
+      </div>` : ''
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Monteringsprotokoll</title>
-<style>
-body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;margin:32px 40px}
-h1{font-size:20px;margin-bottom:6px}
-h2{font-size:13px;margin-top:22px;margin-bottom:8px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:14px;font-size:11px;color:#555}
-.meta b{color:#1a1917}
-table{width:100%;border-collapse:collapse;margin-bottom:14px}
-th{background:#f3f2ef;padding:6px 8px;text-align:left;font-size:11px;font-weight:600}
-td{padding:6px 8px;border-bottom:1px solid #e8e7e4;font-size:11px;vertical-align:top}
-.ok{color:#1D9E75;font-weight:600}.ej{color:#b83333;font-weight:600}.na{color:#888}
-.risk-ok{color:#1D9E75;font-weight:600}.risk-atgard{color:#b87000;font-weight:600}.risk-ej{color:#888;font-weight:600}
-.sig-box{border:1px solid #ccc;border-radius:6px;padding:8px;display:inline-block;margin-top:6px}
-@media print{body{margin:16px}}
-</style></head><body>
-${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
-<h1>Monteringsprotokoll</h1>
-<div class="meta">
-  <div><b>Porttyp:</b> ${p.portTyp || '–'}</div>
-  <div><b>Kund:</b> ${p.kund || '–'}</div>
-  <div><b>Adress:</b> ${p.adress || '–'}</div>
-  <div><b>Datum:</b> ${p.datum || '–'}</div>
-  <div><b>Tekniker:</b> ${p.tekniker || '–'}</div>
-  ${p.ordernummer ? `<div><b>Ordernummer:</b> ${p.ordernummer}</div>` : ''}
-  ${p.serienummer ? `<div><b>Serienummer:</b> ${p.serienummer}</div>` : ''}
-</div>
-<h2>Riskbedömning</h2>
-<table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Åtgärd / notering</th></tr></thead>
-<tbody>${riskRows}${egenRiskRows}</tbody></table>
-${godkjHtml}
-<div style="page-break-before:always;break-before:page"></div>
-<h2 style="margin-top:0">Egenkontroll – ${p.portTyp || ''}</h2>
-<table><thead><tr><th>Kontrollpunkt</th><th>Status</th><th>Notering</th></tr></thead>
-<tbody>${egenRows}</tbody></table>
-${p.signatur ? `<h2>Signatur tekniker</h2>
-<div class="sig-box"><img src="${p.signatur}" style="max-width:300px;max-height:90px"/></div>
-<p style="font-size:11px;color:#555;margin-top:6px">${p.tekniker||''},&nbsp;${p.datum}</p>` : ''}
-</body></html>`
+  const metaCeller = [
+    { lbl: 'Porttyp',   val: p.portTyp   },
+    { lbl: 'Kund',      val: p.kund      },
+    { lbl: 'Adress',    val: p.adress    },
+    { lbl: 'Datum',     val: p.datum     },
+    { lbl: 'Tekniker',  val: p.tekniker  },
+    ...(p.ordernummer ? [{ lbl: 'Ordernummer', val: p.ordernummer }] : [{ lbl: '', val: '' }]),
+    ...(p.serienummer ? [{ lbl: 'Serienummer', val: p.serienummer }] : []),
+  ]
+  if (metaCeller.length % 2 !== 0) metaCeller.push({ lbl: '', val: '' })
+
+  const metaHtml = `<div class="meta">${metaCeller.map(c =>
+    `<div class="cell"><div class="lbl">${c.lbl}</div><div class="val">${c.val || '–'}</div></div>`
+  ).join('')}</div>`
+
+  const body = `
+    ${pdfHeader(logoBase64, 'Monteringsprotokoll', p.portTyp || '', p.datum || '')}
+
+    <div class="slbl">Information</div>
+    ${metaHtml}
+
+    <div class="slbl">Riskbedömning</div>
+    <table>
+      <thead><tr>
+        <th>Kontrollpunkt</th>
+        <th>Status</th>
+        <th style="width:30%">Åtgärd / notering</th>
+      </tr></thead>
+      <tbody>${riskRows}${egenRiskRows}</tbody>
+    </table>
+    ${godkjHtml}
+
+    <div class="page-break"></div>
+
+    <div class="slbl">Egenkontroll — ${p.portTyp || ''}</div>
+    <table>
+      <thead><tr>
+        <th style="width:58%">Kontrollpunkt</th>
+        <th style="width:20%">Status</th>
+        <th style="width:22%">Notering</th>
+      </tr></thead>
+      <tbody>${egenRows}</tbody>
+    </table>
+
+    ${p.signatur ? `
+      <div class="slbl">Signatur tekniker</div>
+      <div class="sig-section">
+        <div class="sig-box">
+          <div class="sig-label">${p.tekniker || ''}</div>
+          <img src="${p.signatur}" style="max-width:300px;max-height:90px"/>
+          <div class="sig-date">${p.datum || ''}</div>
+        </div>
+      </div>` : ''}
+  `
+
+  return pdfDoc('Monteringsprotokoll', body)
 }
 
 function StatusBadge({ status }) {
@@ -169,33 +199,38 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
   const skrivUt = async (order) => {
     const logoBase64 = await hämtaLogoBase64()
     const st = STATUS_CFG[order.status] || STATUS_CFG.ej_planerad
+
+    const metaCeller = [
+      { lbl: 'Porttyp',     val: order.porttyp       },
+      { lbl: 'Fabrikat',    val: order.fabrikat       },
+      { lbl: 'Kund',        val: order.kund           },
+      { lbl: 'Montageplats', val: order.montageplats  },
+      { lbl: 'Status',      val: st.label             },
+      { lbl: 'Tekniker',    val: order.tekniker       },
+      ...(order.serienummer ? [{ lbl: 'Serienummer', val: order.serienummer }] : [{ lbl: '', val: '' }]),
+      ...(order.preliminar_leverans ? [{ lbl: 'Preliminär leverans', val: order.preliminar_leverans }] : [{ lbl: '', val: '' }]),
+      ...(order.onskat_montagedag   ? [{ lbl: 'Önskad montagedag',   val: order.onskat_montagedag   }] : []),
+    ]
+    if (metaCeller.length % 2 !== 0) metaCeller.push({ lbl: '', val: '' })
+
+    const metaHtml = `<div class="meta">${metaCeller.map(c =>
+      `<div class="cell"><div class="lbl">${c.lbl}</div><div class="val">${c.val || '–'}</div></div>`
+    ).join('')}</div>`
+
+    const body = `
+      ${pdfHeader(logoBase64, 'Montageorder', order.ordernummer || '–', '')}
+
+      <div class="slbl">Orderinformation</div>
+      ${metaHtml}
+
+      ${order.notering ? `
+        <div class="slbl">Notering</div>
+        <div class="desc-box">${order.notering}</div>
+      ` : ''}
+    `
+
     const win = window.open('', '_blank', 'width=860,height=1100')
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Montageorder – ${order.ordernummer}</title>
-<style>
-body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;margin:32px 40px}
-h1{font-size:20px;margin-bottom:6px}
-h2{font-size:13px;margin-top:22px;margin-bottom:8px;border-bottom:2px solid #1D9E75;padding-bottom:4px;color:#1D9E75}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;margin-bottom:18px;font-size:11px;color:#555}
-.meta b{color:#1a1917}
-p{text-align:justify;line-height:1.6;font-size:12px}
-@media print{body{margin:16px}}
-</style></head><body>
-${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
-<h1>Montageorder</h1>
-<div class="meta">
-  <div><b>Ordernummer:</b> ${order.ordernummer}</div>
-  ${order.serienummer ? `<div><b>Serienummer:</b> ${order.serienummer}</div>` : '<div></div>'}
-  <div><b>Porttyp:</b> ${order.porttyp}</div>
-  ${order.fabrikat ? `<div><b>Fabrikat:</b> ${order.fabrikat}</div>` : '<div></div>'}
-  <div><b>Status:</b> ${st.label}</div>
-  <div><b>Montageplats:</b> ${order.montageplats}</div>
-  <div><b>Kund:</b> ${order.kund || '–'}</div>
-  ${order.preliminar_leverans ? `<div><b>Preliminär leverans:</b> ${order.preliminar_leverans}</div>` : '<div></div>'}
-  ${order.onskat_montagedag  ? `<div><b>Önskad montagedag:</b> ${order.onskat_montagedag}</div>` : '<div></div>'}
-</div>
-${order.notering ? `<h2>Notering</h2><p>${order.notering}</p>` : ''}
-</body></html>`)
+    win.document.write(pdfDoc(`Montageorder – ${order.ordernummer}`, body))
     win.document.close()
     setTimeout(() => win.print(), 400)
   }
