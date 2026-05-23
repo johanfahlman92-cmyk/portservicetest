@@ -17,6 +17,7 @@ import Fastigheter from './views/Fastigheter.jsx'
 import Statistik from './views/Statistik.jsx'
 import Installningar from './views/Installningar.jsx'
 import KundPortal from './views/KundPortal.jsx'
+import Serviceorder from './views/Serviceorder.jsx'
 import { Menu, Search } from 'lucide-react'
 import { protokollPunkter as defaultProtokollMallar, monteringPunkter as defaultMontagemallar } from './data/store.js'
 
@@ -194,6 +195,7 @@ export default function App() {
   const [tekniker,      setTekniker]      = useState([])
   const [bokningar,     setBokningar]     = useState({})
   const [montageorder,  setMontageorder]  = useState([])
+  const [serviceorderArr, setServiceorderArr] = useState([])
   const [aktivitetslogg,  setAktivitetslogg]  = useState([])
   const [protokollMallar, setProtokollMallar] = useState(defaultProtokollMallar)
   const [montagemallar,   setMontagemallar]   = useState(defaultMontagemallar)
@@ -321,6 +323,16 @@ export default function App() {
       try {
         const { data, error } = await supabase.from('montageorder').select('*').order('created_at')
         if (!error && data) setMontageorder(data)
+      } catch { /* tabellen finns inte ännu — ignorera */ }
+
+      // Serviceorder
+      try {
+        const { data, error } = await supabase.from('serviceorder').select('*').order('created_at')
+        if (!error && data) setServiceorderArr(data.map(r => ({
+          ...r,
+          objekt_ids: r.objekt_ids || [],
+          protokoll:  r.protokoll  || {},
+        })))
       } catch { /* tabellen finns inte ännu — ignorera */ }
     }
     ladda()
@@ -527,6 +539,38 @@ export default function App() {
     } catch (err) { toast('Kunde inte uppdatera montageorder: ' + err.message, 'error') }
   }
 
+  // ── Serviceorder CRUD ────────────────────────────────────────────────────
+  const laggTillServiceorder = async (ny) => {
+    try {
+      const { data, error } = await supabase.from('serviceorder').insert(ny).select().single()
+      if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') {
+          toast('Tabellen serviceorder saknas – kör SQL-scriptet under Inställningar', 'error', 8000)
+        } else {
+          toast('Kunde inte spara serviceorder: ' + error.message, 'error')
+        }
+        return
+      }
+      if (data) setServiceorderArr(prev => [...prev, { ...data, objekt_ids: data.objekt_ids || [], protokoll: data.protokoll || {} }])
+    } catch (err) { toast('Kunde inte spara serviceorder: ' + err.message, 'error') }
+  }
+
+  const uppdateraServiceorder = async (id, changes) => {
+    try {
+      const { data, error } = await supabase.from('serviceorder').update(changes).eq('id', id).select().single()
+      if (error) throw error
+      if (data) setServiceorderArr(prev => prev.map(o => o.id === id ? { ...data, objekt_ids: data.objekt_ids || [], protokoll: data.protokoll || {} } : o))
+    } catch (err) { toast('Kunde inte uppdatera serviceorder: ' + err.message, 'error') }
+  }
+
+  const taBortServiceorder = async (id) => {
+    try {
+      const { error } = await supabase.from('serviceorder').delete().eq('id', id)
+      if (error) throw error
+      setServiceorderArr(prev => prev.filter(o => o.id !== id))
+    } catch (err) { toast('Kunde inte ta bort serviceorder: ' + err.message, 'error') }
+  }
+
   const taBortMontageorder = async (id) => {
     try {
       const { error } = await supabase.from('montageorder').delete().eq('id', id)
@@ -648,6 +692,7 @@ export default function App() {
     montageplanering: () => <Montageplanering kunder={kunder} fastigheter={fastigheter} montageorder={montageorder} tekniker={tekniker} objekt={objektMedStatus} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} onNyKund={snabbLaggTillKund} onNavigeraMontering={navigeraMontering} onNyttEjPlaneratMontage={() => navigeraMontering(null)} />,
     planeringstavla:  () => <Planeringstavla montageorder={montageorder} arenden={arenden} bokningar={bokningar} tekniker={tekniker} kunder={kunder} objekt={objektMedStatus} onNavigeraArende={navigeraArende} onNavigeraMontering={navigeraMontering} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigeraObjekt={navigeraObjekt} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objektMedStatus} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
+    serviceorder:  () => <Serviceorder serviceorder={serviceorderArr} fastigheter={fastigheter} objekt={objektMedStatus} tekniker={tekniker} protokollMallar={protokollMallar} onLaggTill={laggTillServiceorder} onUppdatera={uppdateraServiceorder} onTaBort={taBortServiceorder} onUppdateraObjekt={uppdateraObjekt} />,
     installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} /> : null,
   }
 

@@ -1,4 +1,4 @@
-import { Home, Database, AlertCircle, FileText, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings, LayoutGrid } from 'lucide-react'
+import { Home, Database, AlertCircle, FileText, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings, LayoutGrid, ClipboardList } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 
 const NAV_BG      = '#1C3461'
@@ -16,6 +16,7 @@ const navItems = [
   { id: 'register',         label: 'Portregister',   icon: Database   },
   { id: 'arenden',          label: 'Ärenden',        icon: AlertCircle },
   { id: 'protokoll',        label: 'Protokoll',      icon: FileText   },
+  { id: 'serviceorder',    label: 'Serviceorder',   icon: ClipboardList },
   { id: 'montageplanering', label: 'Montering',      icon: Wrench     },
   { id: 'planeringstavla',  label: 'Planeringstavla', icon: LayoutGrid },
   { id: 'kunder',           label: 'Kunder',         icon: Users      },
