@@ -1,24 +1,24 @@
 import { useState, useRef } from 'react'
-import { CheckCircle, ChevronRight, Printer, CheckSquare, History, ArrowLeft,
+import { CheckCircle, ChevronRight, Printer, CheckSquare,
          Search, CalendarPlus, X, Check, Wrench, AlertCircle, AlertTriangle,
-         Minus, Pencil, Plus, ClipboardList } from 'lucide-react'
+         Minus, Pencil, ClipboardList } from 'lucide-react'
 import { protokollPunkter as defaultMallar, RISKPUNKTER } from '../data/store.js'
 import { hämtaLogoBase64 } from '../utils/pdf.js'
 
 const PDF_STATUS_LABEL = { OK: 'Godkänd', AF: 'Åtgärdad', NOT: 'Att notera', KA: 'Kräver åtgärd', EJ: 'Ej tillämpbar' }
 const PDF_STATUS_COLOR = { OK: '#16a34a', AF: '#2563eb', NOT: '#d97706', KA: '#dc2626', EJ: '#9ca3af' }
 
-// ── Nya statusalternativ (5 st) ────────────────────────────────────────────
+// ── Statusalternativ ───────────────────────────────────────────────────────────
 const STATUSES = [
-  { kod: 'OK',  label: 'Godkänd',       Icon: Check,         color: '#16a34a', bg: '#f0fdf4', border: '#16a34a' },
-  { kod: 'AF',  label: 'Åtgärdad',      Icon: Wrench,        color: '#2563eb', bg: '#eff6ff', border: '#2563eb' },
-  { kod: 'NOT', label: 'Att notera',    Icon: AlertCircle,   color: '#d97706', bg: '#fffbeb', border: '#d97706' },
-  { kod: 'KA',  label: 'Kräver åtgärd', Icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2', border: '#dc2626' },
-  { kod: 'EJ',  label: 'Ej tillämpbar', Icon: Minus,         color: '#9ca3af', bg: '#f9fafb', border: '#d1d5db' },
+  { kod: 'OK',  label: 'Godkänd',        Icon: Check,         color: '#16a34a', bg: '#f0fdf4', border: '#16a34a' },
+  { kod: 'AF',  label: 'Åtgärdad',       Icon: Wrench,        color: '#2563eb', bg: '#eff6ff', border: '#2563eb' },
+  { kod: 'NOT', label: 'Att notera',     Icon: AlertCircle,   color: '#d97706', bg: '#fffbeb', border: '#d97706' },
+  { kod: 'KA',  label: 'Kräver åtgärd',  Icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2', border: '#dc2626' },
+  { kod: 'EJ',  label: 'Ej tillämpbar',  Icon: Minus,         color: '#9ca3af', bg: '#f9fafb', border: '#d1d5db' },
 ]
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.kod, s]))
 
-// ── Riskbedömningsstatus ───────────────────────────────────────────────────
+// ── Riskbedömningsstatus ───────────────────────────────────────────────────────
 const RISKSTATUS = [
   { id: 'ok',          label: '✓ OK',           color: '#1D9E75', bg: '#e8f7f1', txt: '#0f4e38' },
   { id: 'atgard',      label: '⚠ Åtgärd krävs', color: '#d97706', bg: '#fffbeb', txt: '#92400e' },
@@ -42,7 +42,7 @@ function StatusBadge({ kod }) {
   )
 }
 
-// ── Signaturplatta ─────────────────────────────────────────────────────────
+// ── Signaturplatta ─────────────────────────────────────────────────────────────
 function SignaturPad({ onChange }) {
   const canvasRef = useRef(null)
   const drawing   = useRef(false)
@@ -83,11 +83,10 @@ function SignaturPad({ onChange }) {
   )
 }
 
-// ── Protokollformulär (används för nytt OCH redigering) ───────────────────
+// ── Protokollformulär ──────────────────────────────────────────────────────────
 function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, onSpara, onAvbryt }) {
   const isEdit = !!entry
   const initPortTyp = entry?.portTyp || obj?.typ || Object.keys(mallar)[0] || 'Vikport'
-  const punkter     = mallar[initPortTyp] || Object.values(mallar)[0] || []
 
   const initStatuses = {}
   if (entry?.statuses) {
@@ -96,18 +95,20 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
 
   const PORTTYPER = Object.keys(mallar)
 
-  const [portTyp,       setPortTyp]       = useState(initPortTyp)
-  const [statuses,      setStatuses]      = useState(initStatuses)
-  const [noteringar,    setNoteringar]    = useState(entry?.noteringar || {})
-  const [teknikerNamn,  setTeknikerNamn]  = useState(entry?.tekniker || tekniker[0] || '')
-  const [datumStr,      setDatumStr]      = useState(entry?.datum || new Date().toISOString().slice(0, 10))
-  const [visaSignatur,  setVisaSignatur]  = useState(false)
-  const [signaturbild,  setSignaturbild]  = useState(entry?.signatur || '')
+  const [portTyp,        setPortTyp]        = useState(initPortTyp)
+  const [statuses,       setStatuses]       = useState(initStatuses)
+  const [noteringar,     setNoteringar]     = useState(entry?.noteringar || {})
+  const [teknikerNamn,   setTeknikerNamn]   = useState(entry?.tekniker || tekniker[0] || '')
+  const [datumStr,       setDatumStr]       = useState(entry?.datum || new Date().toISOString().slice(0, 10))
+  const [visaSignatur,   setVisaSignatur]   = useState(false)
+  const [signaturbild,   setSignaturbild]   = useState(entry?.signatur || '')
+  const [visaKundSign,   setVisaKundSign]   = useState(!!(entry?.kundSignatur))
+  const [kundSignbild,   setKundSignbild]   = useState(entry?.kundSignatur || '')
   const [visaRisk,       setVisaRisk]       = useState(!!(entry?.harRiskbedömning))
   const [riskKontroll,   setRiskKontroll]   = useState(entry?.riskKontroll || {})
   const [riskNoteringar, setRiskNoteringar] = useState(entry?.riskNoteringar || {})
-  const [sparar,        setSparar]        = useState(false)
-  const [expandNotis,   setExpandNotis]   = useState({})
+  const [sparar,         setSparar]         = useState(false)
+  const [expandNotis,    setExpandNotis]    = useState({})
 
   const aktuellaPunkter = mallar[portTyp] || []
 
@@ -122,7 +123,7 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
 
   const counts = { OK: 0, AF: 0, NOT: 0, KA: 0, EJ: 0, tom: 0 }
   aktuellaPunkter.forEach((p, i) => {
-    if (p.startsWith('## ')) return  // rubriker räknas inte
+    if (p.startsWith('## ')) return
     const s = statuses[i]
     if (STATUS_MAP[s]) counts[s]++
     else counts.tom++
@@ -140,18 +141,16 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
       portTyp,
       statuses:   { ...statuses },
       noteringar: { ...noteringar },
-      signatur:   signaturbild || null,
-      // Riskbedömning (tillval)
+      signatur:     signaturbild    || null,
+      kundSignatur: visaKundSign ? kundSignbild || null : null,
       harRiskbedömning: visaRisk,
       riskKontroll:     visaRisk ? { ...riskKontroll }   : null,
       riskNoteringar:   visaRisk ? { ...riskNoteringar } : null,
-      // Summary counts
       ok:  counts.OK,
       af:  counts.AF,
       not: counts.NOT,
       ka:  counts.KA,
       ej:  counts.EJ,
-      // Legacy fields for bakåtkompatibilitet
       g: counts.OK, j: counts.NOT, a: counts.KA,
       notering: Object.values(noteringar).filter(Boolean).join(', ') || '',
     }
@@ -195,13 +194,13 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
             <s.Icon size={12} /> {counts[s.kod]} {s.label}
           </span>
         ))}
-        <span style={{ fontSize: 12, color: 'var(--c-text3)', marginLeft: 'auto' }}>{done}/{aktuellaPunkter.length} ({pct}%)</span>
+        <span style={{ fontSize: 12, color: 'var(--c-text3)', marginLeft: 'auto' }}>{done}/{totalPunkter} ({pct}%)</span>
       </div>
       <div className="progress-bar" style={{ height: 6, marginBottom: 14 }}>
         <div className="progress-fill" style={{ width: `${pct}%`, background: counts.KA > 0 ? 'var(--c-red)' : 'var(--c-teal)' }} />
       </div>
 
-      {/* Riskbedömning (tillval) */}
+      {/* Riskbedömning */}
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="toggle-row" style={{ borderBottom: visaRisk ? '1px solid var(--c-border)' : 'none', paddingBottom: visaRisk ? 12 : 0, marginBottom: visaRisk ? 12 : 0 }}>
           <div>
@@ -309,9 +308,9 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
         })()}
       </div>
 
-      {/* Signatur */}
+      {/* Signatur tekniker */}
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="toggle-row" style={{ borderBottom: visaSignatur ? undefined : 'none' }}>
+        <div className="toggle-row" style={{ borderBottom: visaSignatur ? '1px solid var(--c-border)' : 'none', paddingBottom: visaSignatur ? 12 : 0, marginBottom: visaSignatur ? 12 : 0 }}>
           <div>
             <div style={{ fontWeight: 500, fontSize: 13 }}>Signatur tekniker</div>
             <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Tillval</div>
@@ -324,7 +323,22 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
         {visaSignatur && <div style={{ marginTop: 12 }}><SignaturPad onChange={setSignaturbild} /></div>}
       </div>
 
-      {/* Knappar */}
+      {/* Signatur kund */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="toggle-row" style={{ borderBottom: visaKundSign ? '1px solid var(--c-border)' : 'none', paddingBottom: visaKundSign ? 12 : 0, marginBottom: visaKundSign ? 12 : 0 }}>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: 13 }}>Signatur kund</div>
+            <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>Tillval – kunden bekräftar utfört arbete</div>
+          </div>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={visaKundSign} onChange={e => setVisaKundSign(e.target.checked)} />
+            <div className="toggle-track" /><div className="toggle-thumb" />
+          </label>
+        </div>
+        {visaKundSign && <div style={{ marginTop: 12 }}><SignaturPad onChange={setKundSignbild} /></div>}
+      </div>
+
+      {/* Spara-knappar */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="btn btn-teal" style={{ flex: 1 }} onClick={spara} disabled={sparar}>
           <CheckCircle size={14} /> {sparar ? 'Sparar…' : isEdit ? 'Spara ändringar' : 'Skicka in protokoll'}
@@ -335,17 +349,28 @@ function ProtokollForm({ objekt: obj, entry = null, tekniker = [], mallar = {}, 
   )
 }
 
+// ── Hjälp: senaste protokollets utfall ────────────────────────────────────────
+function sistaUtfall(historik = []) {
+  const hist = historik.filter(h => h.typ !== 'montering')
+  const s = hist[hist.length - 1]
+  if (!s) return null
+  if (s.ka > 0)  return { label: 'Kräver åtgärd', cls: 'badge-red'   }
+  if (s.af > 0)  return { label: 'Åtgärdad',      cls: 'badge-blue'  }
+  if (s.not > 0) return { label: 'Att notera',     cls: 'badge-amber' }
+  return           { label: 'OK',              cls: 'badge-teal'  }
+}
+
+// ── Huvudkomponent ─────────────────────────────────────────────────────────────
 export default function Protokoll({ objekt = [], tekniker = [], protokollMallar, onUppdateraObjekt, onLaggTillBokning, onLoggAktivitet }) {
   const protokollPunkter = protokollMallar || defaultMallar
-  const [vy,            setVy]            = useState('lista')    // lista | alla | form | detalj
+  const [vy,            setVy]            = useState('lista')
   const [valdObjekt,    setValdObjekt]    = useState(null)
-  const [valdEntry,     setValdEntry]     = useState(null)       // valt protokoll i historik
+  const [valdEntry,     setValdEntry]     = useState(null)
   const [valdEntryIdx,  setValdEntryIdx]  = useState(null)
   const [redigerar,     setRedigerar]     = useState(false)
   const [sokText,       setSokText]       = useState('')
   const [sparatMsg,     setSparatMsg]     = useState(null)
 
-  // Bokningsstate (visas efter sparat)
   const [visaBokaModal, setVisaBokaModal] = useState(false)
   const [hoppaBokning,  setHoppaBokning]  = useState(false)
   const [bokaDatum,     setBokaDatum]     = useState('')
@@ -354,7 +379,7 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
   const [bokaKlar,      setBokaKlar]      = useState(false)
   const [bokar,         setBokar]         = useState(false)
 
-  // ── Spara nytt/redigerat protokoll ──────────────────────────────────────
+  // ── Spara protokoll ──────────────────────────────────────────────────────────
   const sparaProtokoll = async (nyttInslag, isEdit) => {
     const idag = new Date().toISOString().slice(0, 10)
     let nyHistorik
@@ -393,7 +418,7 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
     }
   }
 
-  // ── Bekräfta bokning ─────────────────────────────────────────────────────
+  // ── Boka nästa service ───────────────────────────────────────────────────────
   const bekraftaBokning = async () => {
     if (!onLaggTillBokning || !bokaDatum) return
     setBokar(true)
@@ -405,12 +430,11 @@ export default function Protokoll({ objekt = [], tekniker = [], protokollMallar,
     setBokar(false); setBokaKlar(true)
   }
 
-  // ── Skriv ut PDF ─────────────────────────────────────────────────────────
+  // ── Skriv ut PDF ─────────────────────────────────────────────────────────────
   const skrivUtProtokoll = async (obj, entry) => {
     const logoBase64 = await hämtaLogoBase64()
     const punkter    = protokollPunkter[entry.portTyp || obj?.typ] || protokollPunkter['Vikport'] || []
 
-    // Riskbedömningsrader (om bifogad)
     const riskRader = entry.harRiskbedömning ? RISKPUNKTER.map((punkt, i) => {
       const vald  = entry.riskKontroll?.[i] || ''
       const label = vald === 'ok' ? '✓ OK' : vald === 'atgard' ? '⚠ Åtgärd krävs' : vald === 'ej_aktuellt' ? '– Ej aktuellt' : '–'
@@ -454,6 +478,7 @@ th{background:#f3f2ef;padding:6px 8px;text-align:left;font-size:11px;font-weight
 td{vertical-align:top}
 p{text-align:justify;line-height:1.6}
 .sig-box{border:1px solid #ccc;border-radius:6px;padding:8px;display:inline-block}
+.sig-row{display:flex;gap:40px;flex-wrap:wrap}
 @media print{body{margin:16px}}
 </style></head><body>
 ${logoBase64 ? `<img src="${logoBase64}" style="height:60px;display:block;margin-bottom:12px" alt="NMV Portservice" />` : ''}
@@ -484,37 +509,34 @@ ${entry.harRiskbedömning ? `<h2>Riskbedömning</h2>
   </tr></thead>
   <tbody>${rader}</tbody>
 </table>
-${entry.signatur ? `<h2>Signatur tekniker</h2>
-<div class="sig-box"><img src="${entry.signatur}" style="max-width:300px;max-height:90px"/></div>
-<p style="font-size:11px;color:#555;margin-top:6px">${entry.tekniker || ''},&nbsp;${entry.datum}</p>` : ''}
+${entry.signatur || entry.kundSignatur ? `<h2>Signaturer</h2>
+<div class="sig-row">
+${entry.signatur ? `<div>
+  <p style="font-size:11px;font-weight:600;color:#555;margin-bottom:4px">Tekniker: ${entry.tekniker || ''}</p>
+  <div class="sig-box"><img src="${entry.signatur}" style="max-width:260px;max-height:80px"/></div>
+</div>` : ''}
+${entry.kundSignatur ? `<div>
+  <p style="font-size:11px;font-weight:600;color:#555;margin-bottom:4px">Kund</p>
+  <div class="sig-box"><img src="${entry.kundSignatur}" style="max-width:260px;max-height:80px"/></div>
+</div>` : ''}
+</div>
+<p style="font-size:11px;color:#555;margin-top:6px">${entry.datum}</p>` : ''}
 </body></html>`)
     win.document.close()
     setTimeout(() => win.print(), 400)
   }
 
-  // ── Välj objekt för nytt protokoll ───────────────────────────────────────
   const valjObjektForNytt = (o) => {
     setValdObjekt(o); setValdEntry(null); setValdEntryIdx(null)
     setRedigerar(false); setVy('form')
   }
 
-  // ── Öppna befintligt protokoll ───────────────────────────────────────────
   const oppnaDetalj = (obj, entry, idx) => {
     setValdObjekt(obj); setValdEntry(entry); setValdEntryIdx(idx)
     setRedigerar(false); setVy('detalj')
   }
 
-  const FLIK_BTN = (id, label, icon) => (
-    <button onClick={() => setVy(id)} style={{
-      padding: '8px 16px', fontSize: 13, fontWeight: vy === id ? 600 : 400,
-      background: 'none', border: 'none', cursor: 'pointer',
-      borderBottom: `2px solid ${vy === id ? 'var(--c-blue)' : 'transparent'}`,
-      color: vy === id ? 'var(--c-text)' : 'var(--c-text2)', marginBottom: -2,
-      display: 'flex', alignItems: 'center', gap: 6,
-    }}>{icon}{label}</button>
-  )
-
-  // ── VY: Alla protokoll ───────────────────────────────────────────────────
+  // ── VY: Alla protokoll ───────────────────────────────────────────────────────
   if (vy === 'alla') {
     const alleProtokoll = objekt
       .filter(o => !o.arkiverad)
@@ -552,6 +574,7 @@ ${entry.signatur ? `<h2>Signatur tekniker</h2>
                 {h.ka > 0 && <span className="badge badge-red">{h.ka} kräver åtgärd</span>}
                 {h.ka === 0 && h.not > 0 && <span className="badge badge-amber">{h.not} notering</span>}
                 {!h.ka && !h.not && <span className="badge badge-teal">OK</span>}
+                {h.kundSignatur && <span style={{ fontSize: 10, color: 'var(--c-teal)', padding: '1px 6px', borderRadius: 4, background: 'var(--c-teal-bg)', fontWeight: 600 }}>Signerad</span>}
               </div>
               <ChevronRight size={15} color="var(--c-text3)" />
             </div>
@@ -561,7 +584,7 @@ ${entry.signatur ? `<h2>Signatur tekniker</h2>
     )
   }
 
-  // ── VY: Protokoll-detalj ─────────────────────────────────────────────────
+  // ── VY: Detalj ───────────────────────────────────────────────────────────────
   if (vy === 'detalj' && valdEntry) {
     const punkter = protokollPunkter[valdEntry.portTyp || valdObjekt?.typ] || protokollPunkter['Vikport']
 
@@ -676,17 +699,29 @@ ${entry.signatur ? `<h2>Signatur tekniker</h2>
           </div>
         )}
 
-        {valdEntry.signatur && (
-          <div className="card">
-            <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 8 }}>Signatur</div>
-            <img src={valdEntry.signatur} alt="Signatur" style={{ maxWidth: 260, border: '1px solid var(--c-border)', borderRadius: 6 }} />
+        {(valdEntry.signatur || valdEntry.kundSignatur) && (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+              {valdEntry.signatur && (
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>Signatur tekniker</div>
+                  <img src={valdEntry.signatur} alt="Signatur tekniker" style={{ maxWidth: 240, border: '1px solid var(--c-border)', borderRadius: 6 }} />
+                </div>
+              )}
+              {valdEntry.kundSignatur && (
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>Signatur kund</div>
+                  <img src={valdEntry.kundSignatur} alt="Signatur kund" style={{ maxWidth: 240, border: '1px solid var(--c-border)', borderRadius: 6 }} />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
     )
   }
 
-  // ── VY: Sparat (efter inlämning) ──────────────────────────────────────────
+  // ── VY: Sparat ───────────────────────────────────────────────────────────────
   if (vy === 'sparat' && sparatMsg) {
     const inp = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }
     return (
@@ -751,24 +786,41 @@ ${entry.signatur ? `<h2>Signatur tekniker</h2>
     )
   }
 
-  // ── VY: Nytt protokoll (formulär) ────────────────────────────────────────
+  // ── VY: Formulär (nytt protokoll) ────────────────────────────────────────────
   if (vy === 'form' && valdObjekt) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <img src={logo} alt="" style={{ height: 60, display: 'block', flexShrink: 0 }} />
-          <button className="btn" onClick={() => setVy('lista')}>← Välj annan port</button>
-          <div>
-            <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Nytt protokoll</h1>
-            <p style={{ fontSize: 12, color: 'var(--c-text2)', margin: '2px 0 0' }}>{valdObjekt.namn} · {valdObjekt.kund}</p>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={() => setVy('lista')} style={{ flexShrink: 0 }}>← Tillbaka</button>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Port</div>
+            <select
+              value={valdObjekt.id}
+              onChange={e => {
+                const n = objekt.find(o => o.id === e.target.value)
+                if (n) setValdObjekt(n)
+              }}
+              style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)' }}
+            >
+              {objekt.filter(o => !o.arkiverad).sort((a, b) => a.namn.localeCompare(b.namn, 'sv')).map(o => (
+                <option key={o.id} value={o.id}>{o.namn} — {o.kund}</option>
+              ))}
+            </select>
           </div>
+          <div style={{ fontSize: 12, color: 'var(--c-text2)', paddingBottom: 8, flexShrink: 0 }}>{valdObjekt.typ}</div>
         </div>
-        <ProtokollForm objekt={valdObjekt} tekniker={tekniker} mallar={protokollPunkter} onSpara={sparaProtokoll} />
+        <ProtokollForm
+          key={valdObjekt.id}
+          objekt={valdObjekt}
+          tekniker={tekniker}
+          mallar={protokollPunkter}
+          onSpara={sparaProtokoll}
+        />
       </div>
     )
   }
 
-  // ── VY: Lista / Startsida ────────────────────────────────────────────────
+  // ── VY: Lista ────────────────────────────────────────────────────────────────
   const aktivaObjekt = objekt.filter(o => !o.arkiverad)
   const filtrerade   = aktivaObjekt.filter(o => {
     if (!sokText) return true
@@ -803,8 +855,9 @@ ${entry.signatur ? `<h2>Signatur tekniker</h2>
         <div className="card">
           {filtrerade.length === 0 && <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Inga portar matchar sökningen.</p>}
           {filtrerade.map(o => {
-            const hist = (o.historik || []).filter(h => h.typ !== 'montering')
+            const hist    = (o.historik || []).filter(h => h.typ !== 'montering')
             const senaste = hist[hist.length - 1]
+            const utfall  = sistaUtfall(o.historik)
             return (
               <div key={o.id} className="row-item" style={{ cursor: 'pointer' }} onClick={() => valjObjektForNytt(o)}>
                 <div className="row-main">
@@ -812,6 +865,7 @@ ${entry.signatur ? `<h2>Signatur tekniker</h2>
                   <div className="row-sub">{o.plats ? `${o.plats} · ` : ''}{o.kund} · {o.typ}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                  {utfall && <span className={`badge ${utfall.cls}`}>{utfall.label}</span>}
                   {hist.length > 0 && (
                     <button
                       onClick={e => { e.stopPropagation(); oppnaDetalj(o, hist[hist.length - 1], hist.length - 1) }}
