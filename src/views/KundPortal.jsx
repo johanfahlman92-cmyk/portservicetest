@@ -104,22 +104,26 @@ export default function KundPortal({ user, onLoggaUt }) {
   useEffect(() => {
     async function ladda() {
       if (!kundId && !kundNamn) { setLaddas(false); return }
-      const [kRes, fRes, oRes, aRes, soRes] = await Promise.all([
-        kundId
-          ? supabase.from('kunder').select('*').eq('id', kundId).maybeSingle()
-          : { data: null },
-        supabase.from('fastigheter').select('*').order('namn'),
-        supabase.from('objekt').select('*').order('namn'),
-        supabase.from('arenden').select('*').order('created_at', { ascending: false }),
-        supabase.from('serviceorder').select('*').order('datum', { ascending: false }),
+
+      // Hämta kund-post först för att få det definitiva namnet
+      let namn = kundNamn
+      if (kundId) {
+        const { data: k } = await supabase.from('kunder').select('*').eq('id', kundId).maybeSingle()
+        if (k) { setKund(k); namn = k.namn || kundNamn }
+      }
+
+      // Hämta BARA denna kunds data — filtrering sker i databasen, inte i klienten
+      const [fRes, oRes, aRes, soRes] = await Promise.all([
+        supabase.from('fastigheter').select('*').eq('kund', namn).order('namn'),
+        supabase.from('objekt').select('*').eq('kund', namn).order('namn'),
+        supabase.from('arenden').select('*').eq('kund', namn).order('created_at', { ascending: false }),
+        supabase.from('serviceorder').select('*').eq('kund', namn).eq('status', 'avslutad').order('datum', { ascending: false }),
       ])
-      const k = kRes.data
-      setKund(k)
-      const namn = k?.namn || kundNamn
-      if (fRes.data)  setFastigheter(fRes.data.filter(f => f.kund === namn && !f.arkiverad))
-      if (oRes.data)  setPortar(oRes.data.filter(o => o.kund === namn && !o.arkiverad))
-      if (aRes.data)  setArenden(aRes.data.filter(a => a.kund === namn))
-      if (soRes.data) setServiceorder(soRes.data.filter(s => s.kund === namn && s.status === 'avslutad'))
+
+      if (fRes.data)  setFastigheter(fRes.data.filter(f => !f.arkiverad))
+      if (oRes.data)  setPortar(oRes.data.filter(o => !o.arkiverad))
+      if (aRes.data)  setArenden(aRes.data)
+      if (soRes.data) setServiceorder(soRes.data)
       setLaddas(false)
     }
     ladda()
