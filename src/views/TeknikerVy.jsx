@@ -582,28 +582,43 @@ function MontageRiskFormular({ order, namn, onSpara, onBack }) {
   )
 }
 
-// ── MontageFormular (2 steg: Egenkontroll → Signatur) ────────────────────────
+// ── MontageFormular (3 steg: Egenkontroll → Portuppgifter → Signatur) ─────────
 function MontageFormular({ order, namn, onSlutfor, onBack }) {
   const porttyp=order.porttyp||order.portTyp||'Vikport'
   const egP=EGENKONTROLL[porttyp]||EGENKONTROLL['Vikport']||[]
   const [steg,setSteg]=useState(1)
   const [eg,setEg]=useState({}); const [egN,setEgN]=useState({})
+  const [fabrikat,setFabrikat]=useState(''); const [annatFabrikat,setAnnatFabrikat]=useState('')
+  const [serienr,setSerienr]=useState(''); const [ordernr,setOrdernr]=useState(order.nr||'')
   const [sig,setSig]=useState(null); const [godk,setGodk]=useState('godkand')
   const [sparar,setSparar]=useState(false)
-  // Befintlig riskdata från besök 1 skickas med i slutförandet
-  const slutfor=async()=>{ setSparar(true); await onSlutfor({datum:idag(),tekniker:namn,portTyp:porttyp,kund:order.kund,adress:order.adress||'',egenkontroll:eg,egenNoteringar:egN,egenRisker:[],signatur:sig,godkannande:godk,ok:Object.values(eg).filter(s=>s==='OK').length,ej:Object.values(eg).filter(s=>s==='EJ').length,na:Object.values(eg).filter(s=>s==='NA').length}); setSparar(false) }
-  const STEG_LBL=['','Egenkontroll','Signatur']
-  const STEG_SUB=['','Efter montage','Avsluta']
+  const fabrikVal = fabrikat==='Annat' ? annatFabrikat : fabrikat
+  const slutfor=async()=>{
+    setSparar(true)
+    await onSlutfor({
+      datum:idag(),tekniker:namn,portTyp:porttyp,kund:order.kund,adress:order.adress||'',
+      egenkontroll:eg,egenNoteringar:egN,egenRisker:[],
+      signatur:sig,godkannande:godk,
+      ok:Object.values(eg).filter(s=>s==='OK').length,
+      ej:Object.values(eg).filter(s=>s==='EJ').length,
+      na:Object.values(eg).filter(s=>s==='NA').length,
+      // Portuppgifter – används vid auto-skapande i registret
+      portFabrikat:fabrikVal, portSerienr:serienr, portOrdernr:ordernr,
+    })
+    setSparar(false)
+  }
+  const STEG_LBL=['','Egenkontroll','Portuppgifter','Signatur']
+  const STEG_SUB=['','Efter montage','Registrering','Avsluta']
   return(
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
         <button className="btn" onClick={steg===1?onBack:()=>setSteg(s=>s-1)} style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:5}}><ChevronLeft size={16}/>{steg===1?'Avbryt':'Tillbaka'}</button>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:600}}>{STEG_LBL[steg]}</div>
-          <div style={{fontSize:12,color:'var(--c-text2)'}}>Steg {steg}/2 · {STEG_SUB[steg]}</div>
+          <div style={{fontSize:12,color:'var(--c-text2)'}}>Steg {steg}/3 · {STEG_SUB[steg]}</div>
         </div>
       </div>
-      <div style={{display:'flex',gap:4,marginBottom:16}}>{[1,2].map(s=><div key={s} style={{flex:1,height:5,borderRadius:3,background:s<=steg?'var(--c-blue)':'var(--c-border)',transition:'background 0.2s'}}/>)}</div>
+      <div style={{display:'flex',gap:4,marginBottom:16}}>{[1,2,3].map(s=><div key={s} style={{flex:1,height:5,borderRadius:3,background:s<=steg?'var(--c-blue)':'var(--c-border)',transition:'background 0.2s'}}/>)}</div>
 
       {/* Steg 1: Egenkontroll */}
       {steg===1&&(<div>
@@ -620,11 +635,33 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
           </div>
           {s==='EJ'&&<input type="text" placeholder="Beskriv avvikelsen…" value={egN[i]||''} onChange={e=>setEgN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
         </div>)})}
-        <button onClick={()=>setSteg(2)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Signatur →</button>
+        <button onClick={()=>setSteg(2)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Portuppgifter →</button>
       </div>)}
 
-      {/* Steg 2: Signatur */}
+      {/* Steg 2: Portuppgifter */}
       {steg===2&&(<div>
+        <div style={{background:'var(--c-blue-bg,#eff6ff)',border:'1px solid var(--c-blue)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',gap:8,alignItems:'center'}}>
+          <span style={{fontSize:16}}>🗄️</span>
+          <span style={{fontSize:13,color:'var(--c-blue)',fontWeight:500}}>Fyll i portuppgifter för registret</span>
+        </div>
+        <div className="card" style={{marginBottom:12}}>
+          <label style={LBL}>Fabrikat</label>
+          <select value={fabrikat} onChange={e=>setFabrikat(e.target.value)} style={INP}>
+            <option value="">– Välj fabrikat –</option>
+            {FASTA_FABRIKAT.map(f=><option key={f} value={f}>{f}</option>)}
+            <option value="Annat">Annat / okänt</option>
+          </select>
+          {fabrikat==='Annat'&&<input type="text" value={annatFabrikat} onChange={e=>setAnnatFabrikat(e.target.value)} placeholder="Ange fabrikat" style={{...INP,marginTop:6}}/>}
+          <label style={LBL}>Serienummer</label>
+          <input type="text" value={serienr} onChange={e=>setSerienr(e.target.value)} placeholder="Serienr på porten…" style={INP}/>
+          <label style={LBL}>Ordernummer</label>
+          <input type="text" value={ordernr} onChange={e=>setOrdernr(e.target.value)} placeholder="Ordernr / projektnr…" style={INP}/>
+        </div>
+        <button onClick={()=>setSteg(3)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Signatur →</button>
+      </div>)}
+
+      {/* Steg 3: Signatur */}
+      {steg===3&&(<div>
         <div className="card" style={{marginBottom:12}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Kundgodkännande</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
@@ -673,9 +710,9 @@ function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, on
       const nyPort={
         id:'p'+Date.now(), typ:porttyp, namn:portNamn,
         kund:order.kund||'', kundTyp:'foretag',
-        fabrikat:'', ar:new Date().getFullYear(),
+        fabrikat:prot.portFabrikat||'', ar:new Date().getFullYear(),
         adress:order.adress||'', plats:'', fastighetId:null,
-        ordernummer:order.nr||'', serienummer:'',
+        ordernummer:prot.portOrdernr||order.nr||'', serienummer:prot.portSerienr||'',
         serviceIntervall:12, senaste:'', nasta, intervallProcent:0, status:'ny',
         protokoll:porttyp, punkter:0, arkiverad:false,
         historik:[{typ:'montering',datum:now,tekniker:namn,portTyp:porttyp,kund:order.kund}],
