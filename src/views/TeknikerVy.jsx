@@ -4,7 +4,6 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER } from '../data/store.js'
-import Planeringstavla from './Planeringstavla.jsx'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 const PRIO_CONF = {
@@ -602,6 +601,199 @@ function RegisterFlik({ objekt, kunder, fastigheter, onLaggTillObjekt }) {
 }
 
 
+// ── MobilKalender ─────────────────────────────────────────────────────────────
+const EV_TYP = {
+  bokning_service:    { label:'Service',      color:'#1D9E75', bg:'rgba(29,158,117,0.1)'  },
+  bokning_felanmalan: { label:'Felanmälan',   color:'#ea580c', bg:'#fff7ed'               },
+  bokning_mote:       { label:'Möte/Övrigt',  color:'#7c3aed', bg:'#faf5ff'               },
+  bokning_montering:  { label:'Möte/Övrigt',  color:'#7c3aed', bg:'#faf5ff'               },
+  serviceorder:       { label:'Serviceorder', color:'#2563eb', bg:'#eff6ff'               },
+  montageorder:       { label:'Montageorder', color:'#7c3aed', bg:'#faf5ff'               },
+  arende:             { label:'Felanmälan',   color:'#ea580c', bg:'#fff7ed'               },
+}
+const getVeckonr = (s) => {
+  const d=new Date(s+'T12:00:00'); d.setDate(d.getDate()+3-((d.getDay()+6)%7))
+  const v1=new Date(d.getFullYear(),0,4)
+  return 1+Math.round(((d-v1)/86400000-3+((v1.getDay()+6)%7))/7)
+}
+const fmtKort = (s) => { const [y,m,day]=s.split('-').map(Number); return new Date(y,m-1,day).toLocaleDateString('sv-SE',{day:'numeric',month:'short'}) }
+
+function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, montageorder, namn, onLaggTillBokning, onTaBortBokning }) {
+  const todayStr = idag()
+  const [offset, setOffset] = useState(0)
+  const [valdDag, setValdDag] = useState(todayStr)
+  const [visaNy,  setVisaNy]  = useState(false)
+  const [form,    setForm]    = useState({ namn:'', kund:'', tid:'08:00', typ:'service' })
+  const [sparar,  setSparar]  = useState(false)
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}))
+
+  const dagar   = getVeckoDagar(offset)
+  const veckonr = getVeckonr(dagar[0])
+
+  const eventerDag = (dag) => {
+    const ev = []
+    ;(bokningar[dag]||[]).forEach((b,idx)=>{
+      if(!namn||(Array.isArray(b.tek)?b.tek.includes(namn):b.tek===namn))
+        ev.push({...b,_typ:'bokning',_idx:idx,_sort:b.tid||'08:00'})
+    })
+    serviceorderArr.filter(so=>so.datum===dag&&so.status!=='avslutad'&&(!namn||so.tekniker===namn))
+      .forEach(so=>ev.push({...so,_typ:'serviceorder',_sort:'07:00'}))
+    montageorder.filter(mo=>(mo.datum_planerat||mo.datum)===dag&&mo.status!=='utford'&&(!namn||mo.tekniker===namn))
+      .forEach(mo=>ev.push({...mo,_typ:'montageorder',_sort:'07:30'}))
+    arenden.filter(a=>a.besok===dag&&a.status!=='atgardad'&&!a.arkiverad&&(!namn||a.tekniker===namn))
+      .forEach(a=>ev.push({...a,_typ:'arende',_sort:'08:00'}))
+    return ev.sort((a,b)=>(a._sort||'').localeCompare(b._sort||''))
+  }
+
+  const dagEv = eventerDag(valdDag)
+  const getTypCfg = (ev) => EV_TYP[ev._typ==='bokning'?'bokning_'+(ev.typ||'service'):ev._typ] || EV_TYP.serviceorder
+
+  const spara = async() => {
+    if(!form.namn.trim()) return
+    setSparar(true)
+    await onLaggTillBokning(valdDag,{...form,tek:namn?[namn]:[]})
+    setForm({namn:'',kund:'',tid:'08:00',typ:'service'})
+    setVisaNy(false); setSparar(false)
+  }
+
+  return (
+    <div>
+      {/* Veckonavigering */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:700,margin:0}}>Planering</div>
+          <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>v{veckonr} · {fmtKort(dagar[0])} – {fmtKort(dagar[6])}</div>
+        </div>
+        <div style={{display:'flex',gap:5}}>
+          <button onClick={()=>setOffset(v=>v-1)} style={{padding:'7px 11px',borderRadius:8,border:'1px solid var(--c-border)',background:'transparent',cursor:'pointer',fontSize:16}}>‹</button>
+          {offset!==0&&<button onClick={()=>{setOffset(0);setValdDag(todayStr)}} style={{padding:'7px 10px',borderRadius:8,border:'1px solid var(--c-border)',background:'transparent',cursor:'pointer',fontSize:12,fontWeight:600}}>Idag</button>}
+          <button onClick={()=>setOffset(v=>v+1)} style={{padding:'7px 11px',borderRadius:8,border:'1px solid var(--c-border)',background:'transparent',cursor:'pointer',fontSize:16}}>›</button>
+        </div>
+      </div>
+
+      {/* Veckostrip */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:16,background:'var(--c-surface)',borderRadius:13,padding:6,border:'1px solid var(--c-border)'}}>
+        {dagar.map((d,i)=>{
+          const aktiv=d===valdDag, erIdag=d===todayStr, antal=eventerDag(d).length
+          return(
+            <div key={d} onClick={()=>setValdDag(d)}
+              style={{textAlign:'center',cursor:'pointer',padding:'8px 2px',borderRadius:9,transition:'all 0.15s',
+                background:aktiv?'#1C3461':erIdag?'var(--c-teal-bg)':'transparent',
+                border:`1.5px solid ${aktiv?'#1C3461':erIdag?'var(--c-teal)':'transparent'}`}}>
+              <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:2,
+                color:aktiv?'rgba(255,255,255,0.7)':erIdag?'var(--c-teal-text)':'var(--c-text3)'}}>
+                {DAG_NAMN[i].slice(0,2)}
+              </div>
+              <div style={{fontSize:17,fontWeight:700,lineHeight:1,
+                color:aktiv?'#fff':erIdag?'var(--c-teal-text)':'var(--c-text)'}}>
+                {d.slice(8)}
+              </div>
+              <div style={{height:6,display:'flex',justifyContent:'center',gap:2,alignItems:'center',marginTop:3}}>
+                {antal>0&&[...Array(Math.min(antal,3))].map((_,j)=>(
+                  <div key={j} style={{width:5,height:5,borderRadius:'50%',
+                    background:aktiv?'rgba(255,255,255,0.8)':'var(--c-blue)'}}/>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Dag-header + ny bokning */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div style={{fontSize:14,fontWeight:600,textTransform:'capitalize',color:'var(--c-text2)'}}>{formatDag(valdDag)}</div>
+        <button onClick={()=>setVisaNy(v=>!v)}
+          style={{display:'flex',alignItems:'center',gap:5,padding:'7px 13px',fontSize:12,fontWeight:600,borderRadius:8,cursor:'pointer',
+            border:'1.5px solid var(--c-blue)',background:visaNy?'var(--c-blue)':'transparent',color:visaNy?'#fff':'var(--c-blue)'}}>
+          {visaNy?<X size={12}/>:<Plus size={12}/>} Bokning
+        </button>
+      </div>
+
+      {/* Ny bokning-form */}
+      {visaNy&&(
+        <div className="card" style={{marginBottom:14}}>
+          <div style={{fontWeight:600,fontSize:14,marginBottom:10}}>Ny bokning</div>
+          <label style={LBL}>Beskrivning *</label>
+          <input type="text" value={form.namn} onChange={e=>setF('namn',e.target.value)} placeholder="t.ex. Servicebesök Lager A" style={INP}/>
+          <label style={LBL}>Kund</label>
+          {kunder.length>0
+            ?<select value={form.kund} onChange={e=>setF('kund',e.target.value)} style={INP}>
+               <option value="">– Välj kund –</option>
+               {kunder.map(k=><option key={k.id} value={k.namn}>{k.namn}</option>)}
+             </select>
+            :<input type="text" value={form.kund} onChange={e=>setF('kund',e.target.value)} placeholder="Kund" style={INP}/>
+          }
+          <label style={LBL}>Tid</label>
+          <input type="time" value={form.tid} onChange={e=>setF('tid',e.target.value)} style={{...INP,colorScheme:'light'}}/>
+          <label style={LBL}>Typ</label>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginTop:4}}>
+            {[['service','🟢 Service'],['felanmalan','🟠 Felanm.'],['mote','🟣 Övrigt']].map(([id,lab])=>{
+              const tc=EV_TYP['bokning_'+id]
+              return(
+                <button key={id} onClick={()=>setF('typ',id)}
+                  style={{padding:'10px 4px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',
+                    border:`2px solid ${form.typ===id?tc.color:'var(--c-border)'}`,
+                    background:form.typ===id?tc.bg:'transparent',
+                    color:form.typ===id?tc.color:'var(--c-text3)'}}>
+                  {lab}
+                </button>
+              )
+            })}
+          </div>
+          <div style={{display:'flex',gap:8,marginTop:12}}>
+            <button onClick={spara} disabled={sparar||!form.namn.trim()}
+              style={{flex:1,padding:13,borderRadius:9,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,
+                cursor:sparar||!form.namn.trim()?'not-allowed':'pointer',opacity:sparar||!form.namn.trim()?0.55:1}}>
+              {sparar?'Sparar…':'Spara bokning'}
+            </button>
+            <button className="btn" onClick={()=>setVisaNy(false)}>Avbryt</button>
+          </div>
+        </div>
+      )}
+
+      {/* Händelselista */}
+      {dagEv.length===0?(
+        <div style={{textAlign:'center',padding:'40px 20px',color:'var(--c-text3)'}}>
+          <CalendarDays size={38} style={{margin:'0 auto 12px',display:'block',opacity:0.4}}/>
+          <div style={{fontSize:14}}>Inget schemalagt denna dag</div>
+        </div>
+      ):dagEv.map((ev,i)=>{
+        const t=getTypCfg(ev)
+        let titel='',kund='',tid='',extra=''
+        if(ev._typ==='bokning'){
+          titel=ev.namn; kund=ev.kund; tid=ev.tid
+        } else if(ev._typ==='serviceorder'){
+          const port=(ev.objekt_ids||[]).map(id=>objekt.find(o=>o.id===id)).filter(Boolean)[0]
+          titel=port?.namn||ev.kund||`SO #${ev.nr}`; kund=ev.kund; extra=port?.typ||''
+        } else if(ev._typ==='montageorder'){
+          titel=ev.kund||`Montage #${ev.nr}`; kund=ev.porttyp||ev.portTyp||''; extra=ev.adress||''
+        } else if(ev._typ==='arende'){
+          titel=ev.namn||ev.feltyp||'Felanmälan'; kund=ev.kund; extra=ev.feltyp||''
+        }
+        return(
+          <div key={i} className="card" style={{marginBottom:10,borderLeft:`4px solid ${t.color}`,background:t.bg,padding:'12px 14px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:5}}>
+              <span style={{fontSize:10,fontWeight:700,color:t.color,textTransform:'uppercase',letterSpacing:'0.06em'}}>{t.label}</span>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                {tid&&<span style={{fontSize:12,color:'var(--c-text3)',fontWeight:500}}>⏰ {tid}</span>}
+                {ev._typ==='bokning'&&(
+                  <button onClick={()=>onTaBortBokning(valdDag,ev._idx)}
+                    style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',padding:2,lineHeight:1,display:'flex'}}>
+                    <X size={14}/>
+                  </button>
+                )}
+              </div>
+            </div>
+            <div style={{fontSize:15,fontWeight:600,lineHeight:1.3}}>{titel||'–'}</div>
+            {kund&&<div style={{fontSize:13,color:'var(--c-text2)',marginTop:2}}>{kund}</div>}
+            {extra&&<div style={{fontSize:12,color:'var(--c-text3)',marginTop:1}}>{extra}</div>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Huvud ─────────────────────────────────────────────────────────────────────
 export default function TeknikerVy({
   namn = '',
@@ -766,21 +958,16 @@ export default function TeknikerVy({
 
       case 'kalender':
         return(
-          <Planeringstavla
+          <MobilKalender
             arenden={arenden}
-            tekniker={tekniker}
             bokningar={bokningar}
-            kunder={kunder}
             objekt={objekt}
-            serviceorder={serviceorderArr}
+            kunder={kunder}
+            serviceorderArr={serviceorderArr}
             montageorder={montageorder}
+            namn={namn}
             onLaggTillBokning={onLaggTillBokning}
             onTaBortBokning={onTaBortBokning}
-            onNyKund={undefined}
-            onNavigeraArende={()=>setFlik('felanmalan')}
-            onNavigeraObjekt={()=>setFlik('register')}
-            onNavigeraServiceorder={()=>setFlik('service')}
-            onNavigeraMontering={()=>setFlik('montage')}
           />
         )
 
@@ -802,8 +989,8 @@ export default function TeknikerVy({
       </div>
 
       {/* Innehåll */}
-      <div style={{flex:1,padding: flik==='kalender' ? '12px 8px' : '20px 16px',overflowY:'auto'}}>
-        <div style={{maxWidth: flik==='kalender' ? '100%' : 560,margin:'0 auto'}}>{renderContent()}</div>
+      <div style={{flex:1,padding:'20px 16px',overflowY:'auto'}}>
+        <div style={{maxWidth:560,margin:'0 auto'}}>{renderContent()}</div>
       </div>
 
       {/* Bottom nav – 6 flikar */}
