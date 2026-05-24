@@ -68,6 +68,7 @@ function SnabbFelanmalan({ kunder, objekt, onSpara, onStäng }) {
     const idag = new Date().toISOString().slice(0, 10)
     const nr   = idag.replace(/-/g, '').slice(2) + '-' + Math.floor(Math.random() * 90 + 10)
     const valdKund = kunder.find(k => k.namn === kund)
+    const portObj  = portarForKund.find(o => o.namn === port)
     await onSpara({
       nr, typ: 'felanmalan',
       namn:       port || 'Okänd port',
@@ -79,6 +80,7 @@ function SnabbFelanmalan({ kunder, objekt, onSpara, onStäng }) {
       prioritet,
       tekniker:   null,
       besok:      null,
+      objekt_id:  portObj?.id || null,
     })
     setSparar(false)
     setKlar(true)

@@ -313,6 +313,8 @@ function NyServiceorderForm({ objekt, kunder, namn, tekniker: tekLista=[], onSpa
       await onSpara({
         nr:genNr(), datum, status:'planerad',
         tekniker:namn, kund:kund.trim()||port?.kund||'',
+        fastighet_id: port?.fastighetId || null,
+        fastighet_namn: port?.plats || '',
         objekt_ids: objektId?[objektId]:[],
         protokoll:{},
         ...(notering.trim()?{notering:notering.trim()}:{}),
@@ -1362,7 +1364,7 @@ export default function TeknikerVy({
               <button key={id} onClick={()=>setArendeFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${arendeFilter===id?'var(--c-navy, #1C3461)':'var(--c-border)'}`,background:arendeFilter===id?'var(--c-navy, #1C3461)':'transparent',color:arendeFilter===id?'#fff':'var(--c-text2)',whiteSpace:'nowrap'}}>{lab}</button>
             ))}
           </div>
-          {visaNyArende&&<NyArendeForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(a)=>{await onLaggTillArende?.(a);setVisaNyArende(false)}} onAvbryt={()=>setVisaNyArende(false)}/>}
+          {visaNyArende&&<NyArendeForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(a)=>{const r=await onLaggTillArende?.(a);if(r)setVisaNyArende(false)}} onAvbryt={()=>setVisaNyArende(false)}/>}
           {sortedArenden.length===0?(
             <div className="card" style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga {arendeFilter==='mina'?'tilldelade':arendeFilter==='otilldelade'?'otilldelade':'öppna'} ärenden!</div></div>
           ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} onUppdatera={onUppdateraArende}/>)}</div>}

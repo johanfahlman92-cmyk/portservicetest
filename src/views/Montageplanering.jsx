@@ -437,7 +437,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                 <span style={{ fontSize: 11, color: 'var(--c-text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Lock size={11} /> Utförd – status låst
                 </span>
-                <button onClick={() => onUppdatera(order.id, { ...order, arkiverad: true })}
+                <button onClick={() => onUppdatera(order.id, { arkiverad: true })}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px',
                     borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 500,
                     background: 'var(--c-amber-bg)', color: 'var(--c-amber-text)',
@@ -454,7 +454,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                 {['ej_planerad', 'planerad'].map(k => {
                   const s = STATUS_CFG[k]
                   return (
-                    <button key={k} onClick={() => onUppdatera(order.id, { ...order, status: k })}
+                    <button key={k} onClick={() => onUppdatera(order.id, { status: k })}
                       style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
                         fontWeight: order.status === k ? 600 : 400,
                         background: order.status === k ? s.bg : 'var(--c-surface)',
@@ -609,7 +609,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                     {order.porttyp}{order.kund ? ` · ${order.kund}` : ''}{order.protokoll_data?.datum ? ` · ${order.protokoll_data.datum}` : ''}
                   </div>
                 </div>
-                <button onClick={() => onUppdatera(order.id, { ...order, arkiverad: false })}
+                <button onClick={() => onUppdatera(order.id, { arkiverad: false })}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
                     borderRadius: 6, fontSize: 11, cursor: 'pointer',
                     background: 'var(--c-surface)', color: 'var(--c-text2)',
