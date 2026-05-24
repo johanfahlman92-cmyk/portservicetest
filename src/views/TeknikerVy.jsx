@@ -1207,11 +1207,17 @@ function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, mo
           ? (Array.isArray(ev.tek)?ev.tek.join(', '):ev.tek||'')
           : (ev.tekniker||'')
         const ärMin = teknikNamn && (teknikNamn===namn || (Array.isArray(ev.tek)&&ev.tek.includes(namn)))
-        const navigerbar = (ev._typ==='serviceorder'&&onNavigeraServiceorder)||(ev._typ==='montageorder'&&onNavigeraMontageorder)||(ev._typ==='arende'&&onNavigeraArende)
+        const navigerbar = (ev._typ==='serviceorder'&&onNavigeraServiceorder)
+          ||(ev._typ==='montageorder'&&onNavigeraMontageorder)
+          ||(ev._typ==='arende'&&onNavigeraArende)
+          ||(ev._typ==='bokning'&&ev.typ==='service'&&onNavigeraServiceorder)
+          ||(ev._typ==='bokning'&&ev.typ==='felanmalan'&&onNavigeraArende)
         const hanteraKlick = () => {
           if(ev._typ==='serviceorder'&&onNavigeraServiceorder) onNavigeraServiceorder(ev)
           else if(ev._typ==='montageorder'&&onNavigeraMontageorder) onNavigeraMontageorder(ev)
           else if(ev._typ==='arende'&&onNavigeraArende) onNavigeraArende(ev)
+          else if(ev._typ==='bokning'&&ev.typ==='service'&&onNavigeraServiceorder) onNavigeraServiceorder(null)
+          else if(ev._typ==='bokning'&&ev.typ==='felanmalan'&&onNavigeraArende) onNavigeraArende(null)
         }
         return(
           <div key={i} className="card" onClick={navigerbar?hanteraKlick:undefined}
