@@ -38,13 +38,20 @@ export function öppnaPrintFönster(html, titel = 'Skriv ut') {
  */
 export const PDF_CSS = `
 *{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,sans-serif;padding:32px 40px;color:#1a1917;font-size:12px}
+body{font-family:system-ui,-apple-system,sans-serif;padding:32px 40px 72px;color:#1a1917;font-size:12px}
 
 /* ── Dokument-header ── */
 .doc-header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1C3461;padding-bottom:16px;margin-bottom:28px}
-.doc-type{font-size:11px;color:#888;margin-top:4px}
+.doc-type{font-size:11px;color:#888;margin-top:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .doc-ref{font-size:22px;font-weight:700;color:#1C3461;text-align:right;line-height:1.1}
 .doc-ref-sub{font-size:12px;color:#888;text-align:right;margin-top:3px}
+
+/* ── Sidfot ── */
+.doc-footer{position:fixed;bottom:0;left:0;right:0;border-top:2px solid #1C3461;
+  padding:10px 40px;display:flex;justify-content:space-between;align-items:center;
+  background:#fff;font-size:9px;color:#888;gap:16px}
+.doc-footer strong{color:#1C3461;font-size:10px}
+@media print{.doc-footer{position:fixed;bottom:0}}
 
 /* ── Sektionsrubrik ── */
 .slbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:22px 0 10px}
@@ -112,26 +119,31 @@ tr:last-child td{border-bottom:none}
  * @param {string} docRefSub  - Liten undertext (datum etc.), visas höger
  */
 export function pdfHeader(logoBase64, docType, docRef = '', docRefSub = '') {
-  const cc = _companyConfig
-  const ort      = [cc.postnr, cc.ort].filter(Boolean).join(' ')
-  const adressRad  = [cc.adress, ort].filter(Boolean).join(', ')
-  const kontaktRad = [cc.telefon, cc.epost].filter(Boolean).join(' · ')
-  const visaNamn = !!(cc.namn && logoBase64)   // visa namn under logotypen
-
   return `<div class="doc-header">
     <div>
       ${logoBase64
-        ? `<img src="${logoBase64}" style="height:${visaNamn ? 36 : 52}px;display:block" alt="${cc.namn || 'Portservice'}"/>`
-        : `<div style="font-size:20px;font-weight:800;color:#1C3461;line-height:1">${cc.namn || 'NMV Portservice'}</div>`}
-      ${visaNamn   ? `<div style="font-size:12px;font-weight:700;color:#1C3461;margin-top:3px">${cc.namn}</div>` : ''}
-      ${adressRad  ? `<div style="font-size:10px;color:#888;margin-top:1px">${adressRad}</div>`                  : ''}
-      ${kontaktRad ? `<div style="font-size:10px;color:#888">${kontaktRad}</div>`                                : ''}
+        ? `<img src="${logoBase64}" style="height:48px;display:block" alt="Portservice"/>`
+        : `<div style="font-size:20px;font-weight:800;color:#1C3461;line-height:1">NMV Portservice</div>`}
       <div class="doc-type">${docType}</div>
     </div>
     <div>
       ${docRef    ? `<div class="doc-ref">${docRef}</div>`         : ''}
       ${docRefSub ? `<div class="doc-ref-sub">${docRefSub}</div>` : ''}
     </div>
+  </div>`
+}
+
+/** Genererar sidfot med företagsuppgifter. */
+export function pdfFooter() {
+  const cc = _companyConfig
+  const ort      = [cc.postnr, cc.ort].filter(Boolean).join(' ')
+  const adress   = [cc.adress, ort].filter(Boolean).join(', ')
+  const kontakt  = [cc.telefon, cc.epost, cc.webbplats].filter(Boolean).join('  ·  ')
+  if (!cc.namn && !adress && !kontakt) return ''
+  return `<div class="doc-footer">
+    <div><strong>${cc.namn || ''}</strong>${cc.orgnr ? `<span style="margin-left:8px;color:#aaa">Org.nr ${cc.orgnr}</span>` : ''}</div>
+    ${adress  ? `<div>${adress}</div>` : ''}
+    ${kontakt ? `<div>${kontakt}</div>` : ''}
   </div>`
 }
 
@@ -151,7 +163,7 @@ export function pdfMetaGrid(cells) {
  * Omsluter body-HTML i ett komplett HTML-dokument med delad CSS.
  */
 export function pdfDoc(title, bodyHtml) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${PDF_CSS}</style></head><body>${bodyHtml}</body></html>`
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${PDF_CSS}</style></head><body>${bodyHtml}${pdfFooter()}</body></html>`
 }
 
 // ── Standardmallar för egenkontroll (används om inga anpassade mallar finns) ──
