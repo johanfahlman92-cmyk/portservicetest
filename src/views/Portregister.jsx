@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle, Check, Wrench, Minus, Save } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
-import { statusConfig, protokollTyper, protokollPunkter, RISKPUNKTER } from '../data/store.js'
+import { statusConfig, protokollTyper, protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt, EGENKONTROLL_DEFAULT } from '../utils/pdf.js'
 
 const filterOpts = [
@@ -22,7 +22,7 @@ const PROT_STATUSES = [
 const PROT_STATUS_MAP = Object.fromEntries(PROT_STATUSES.map(s => [s.kod, s]))
 
 // ── Montageprotokoll-detalj (läsonly – visa fullständigt protokoll + skriv ut) ─
-function MontageProtokollDetalj({ p: pRaw, onBack }) {
+function MontageProtokollDetalj({ p: pRaw, onBack, riskpunkter }) {
   // Normalisera fältnamn – historik-poster kan ha porttyp/teknikerNamn istf portTyp/tekniker
   const p = {
     ...pRaw,
@@ -30,10 +30,11 @@ function MontageProtokollDetalj({ p: pRaw, onBack }) {
     tekniker: pRaw.tekniker || pRaw.teknikerNamn   || '',
   }
   const punkter = EGENKONTROLL_DEFAULT[p.portTyp] || []
+  const RISKPUNKTER = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER_DEFAULT
 
   const skrivUt = async () => {
     const logoBase64 = await hämtaLogo()
-    const html = pdfMontageProt(p, logoBase64)
+    const html = pdfMontageProt(p, logoBase64, {}, riskpunkter)
     const win = window.open('', '_blank', 'width=860,height=1100')
     win.document.write(html); win.document.close()
     setTimeout(() => win.print(), 400)
@@ -638,6 +639,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
       <MontageProtokollDetalj
         p={monteringProtoData}
         onBack={() => setVisaMontageDetalj(false)}
+        riskpunkter={RISKPUNKTER}
       />
     )
   }
@@ -1155,7 +1157,8 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], arenden = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, onLaggTillServiceorder, onNavigeraArende, onNavigeraServiceorder, initialObjektId, onInitialObjektHandled, onNyArende }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], arenden = [], riskpunkter, onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, onLaggTillServiceorder, onNavigeraArende, onNavigeraServiceorder, initialObjektId, onInitialObjektHandled, onNyArende }) {
+  const RISKPUNKTER = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER_DEFAULT
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { UserPlus, Trash2, Shield, User, RefreshCw, Copy,
          ChevronDown, ChevronUp, Plus, GripVertical, Check, ClipboardList,
-         Building2, Users as UsersIcon } from 'lucide-react'
+         Building2, Users as UsersIcon, AlertTriangle } from 'lucide-react'
 
 const ROLL_LABEL  = { admin: 'Admin', tekniker: 'Tekniker', kontorist: 'Kontorist', kund: 'Kundportal' }
 const ROLL_FÄRG   = { admin: '#f59e0b', tekniker: 'var(--c-blue)', kontorist: '#a78bfa', kund: 'var(--c-teal)' }
@@ -246,6 +246,159 @@ function ProtokollMallar({ mallar = {}, onSpara, titel = 'Protokollmallar', besk
   )
 }
 
+// ── Riskbedömning-editor (platt lista med drag-and-drop) ─────────────────────
+function RiskbedömningEditor({ punkter = [], onSpara }) {
+  const [lokala,      setLokala]      = useState([...punkter])
+  const [sparar,      setSparar]      = useState(false)
+  const [sparat,      setSparat]      = useState(false)
+  const [andringar,   setAndringar]   = useState(false)
+  const [dragIdx,     setDragIdx]     = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
+  const andringarRef = useRef(false)
+
+  const markAndrad = () => { setAndringar(true); setSparat(false); andringarRef.current = true }
+
+  useEffect(() => {
+    if (!andringarRef.current) setLokala([...punkter])
+  }, [punkter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const laggTillPunkt = () => { setLokala(p => [...p, '']); markAndrad() }
+  const laggTillRubrik = () => { setLokala(p => [...p, '## Ny rubrik']); markAndrad() }
+
+  const uppdatera = (idx, val) => {
+    setLokala(p => {
+      const ny = [...p]
+      const isHdr = (ny[idx] || '').startsWith('## ')
+      ny[idx] = isHdr ? '## ' + val : val
+      return ny
+    })
+    markAndrad()
+  }
+
+  const taBort = (idx) => {
+    setLokala(p => p.filter((_, i) => i !== idx))
+    markAndrad()
+  }
+
+  const handleDrop = (toIdx) => {
+    if (dragIdx === null || dragIdx === toIdx) { setDragIdx(null); setDragOverIdx(null); return }
+    setLokala(p => {
+      const ny = [...p]
+      const [moved] = ny.splice(dragIdx, 1)
+      ny.splice(toIdx, 0, moved)
+      return ny
+    })
+    markAndrad()
+    setDragIdx(null); setDragOverIdx(null)
+  }
+
+  const spara = async () => {
+    setSparar(true)
+    await onSpara(lokala)
+    setSparar(false)
+    setAndringar(false)
+    andringarRef.current = false
+    setSparat(true)
+    setTimeout(() => setSparat(false), 2500)
+  }
+
+  let punktNr = 0
+
+  return (
+    <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginTop: 24 }}>
+      {/* Header */}
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertTriangle size={15} color="#f59e0b" /> Riskbedömning
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
+            Frågor som tekniker besvarar innan montage påbörjas (OK / Åtgärd krävs / Ej aktuellt)
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {sparat && !andringar && (
+            <span style={{ fontSize: 12, color: 'var(--c-teal)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Check size={13} /> Sparat
+            </span>
+          )}
+          {andringar && (
+            <button onClick={spara} disabled={sparar}
+              style={{ padding: '8px 18px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {sparar ? 'Sparar…' : <><Check size={13} /> Spara ändringar</>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div style={{ padding: '12px 20px 4px', background: 'var(--c-bg)' }}>
+        <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <GripVertical size={11} /> Dra rader för att ändra ordning · Rubriker (§) visas som sektioner i protokollet
+        </div>
+        {lokala.map((punkt, idx) => {
+          const isHdr      = punkt.startsWith('## ')
+          const visText    = isHdr ? punkt.slice(3) : punkt
+          const isDragging = dragIdx === idx
+          const isOver     = dragOverIdx === idx && dragIdx !== null && dragIdx !== idx
+          if (!isHdr) punktNr++
+          return (
+            <div key={idx}
+              draggable
+              onDragStart={() => setDragIdx(idx)}
+              onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx) }}
+              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
+              onDrop={(e) => { e.preventDefault(); handleDrop(idx) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                marginBottom: 4,
+                borderTop: isOver ? '2px solid var(--c-blue)' : '2px solid transparent',
+                opacity: isDragging ? 0.35 : 1,
+                transition: 'opacity 0.15s, border-color 0.1s',
+              }}
+            >
+              <GripVertical size={14} color="var(--c-text3)" style={{ flexShrink: 0, cursor: 'grab', opacity: 0.55 }} />
+              {isHdr
+                ? <span style={{ fontSize: 10, color: '#f59e0b', minWidth: 16, fontWeight: 700 }}>§</span>
+                : <span style={{ fontSize: 11, color: 'var(--c-text3)', minWidth: 22, textAlign: 'right' }}>{punktNr}.</span>
+              }
+              <input
+                value={visText}
+                onChange={e => uppdatera(idx, e.target.value)}
+                style={{
+                  flex: 1, padding: '6px 10px', fontSize: 12,
+                  border: `1px solid ${isHdr ? '#f59e0b' : 'var(--c-border)'}`,
+                  borderRadius: 6,
+                  background: isHdr ? '#1e2a3a' : 'var(--c-surface)',
+                  color: isHdr ? '#f59e0b' : 'var(--c-text)',
+                  fontWeight: isHdr ? 700 : 400,
+                  outline: 'none',
+                }}
+              />
+              <button onClick={() => taBort(idx)}
+                style={{ background: 'none', border: 'none', color: 'var(--c-text3)', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}>
+                <Trash2 size={13} />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Knappar */}
+      <div style={{ padding: '8px 20px 16px', background: 'var(--c-bg)', display: 'flex', gap: 8 }}>
+        <button onClick={laggTillPunkt}
+          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px dashed var(--c-border)', borderRadius: 6, color: 'var(--c-text3)', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
+          <Plus size={13} /> Lägg till fråga
+        </button>
+        <button onClick={laggTillRubrik}
+          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px dashed #f59e0b', borderRadius: 6, color: '#f59e0b', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
+          <Plus size={13} /> Lägg till rubrik
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Medarbetare ───────────────────────────────────────────────────────────────
 function TeknikerPanel({ tekniker = [], onLaggTill, onTaBort }) {
   const [nyNamn,       setNyNamn]       = useState('')
@@ -443,6 +596,7 @@ export default function Installningar({
   kunder,
   protokollMallar = {}, onSparaProtokollMallar,
   montagemallar = {}, onSparaMontagemallar,
+  riskpunkter = [], onSparaRiskpunkter,
   tekniker = [], onLaggTillTekniker, onTaBortTekniker,
   foretagConfig = {}, onSparaForetagConfig,
 }) {
@@ -800,6 +954,10 @@ export default function Installningar({
             onSpara={onSparaMontagemallar}
             titel="Monteringsmallar – Egenkontroll"
             beskrivning="Egenkontroll-checklistor per porttyp som används vid monteringsprotokoll"
+          />
+          <RiskbedömningEditor
+            punkter={riskpunkter}
+            onSpara={onSparaRiskpunkter}
           />
         </>
       )}

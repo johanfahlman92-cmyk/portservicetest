@@ -3,7 +3,7 @@ import { CheckCircle, Printer, ChevronRight, Upload, FileText, X as XIcon, Alert
          ChevronLeft, Edit2, Save, List, PlusCircle, Check } from 'lucide-react'
 import KundVäljare from '../components/KundVäljare.jsx'
 import { supabase } from '../lib/supabase.js'
-import { RISKPUNKTER as RISKPUNKTER_SHARED } from '../data/store.js'
+import { RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
 
 // ── Signaturpad ───────────────────────────────────────────────────────────────
@@ -45,8 +45,9 @@ function SignaturPad({ onChange }) {
   )
 }
 
-// ── Riskbedömning – punkter (importeras från store.js) ───────────────────────
-const RISKPUNKTER = RISKPUNKTER_SHARED
+// ── Riskbedömning – punkter (prop från App, fallback till store.js) ──────────
+// OBS: Ersätts av prop nedan inuti komponenten — detta är bara fallback
+const _RISKPUNKTER_MODUL_DEFAULT = RISKPUNKTER_DEFAULT
 
 const RISKSTATUS = [
   { id: 'ok',          label: '✓ OK',            color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  txt: 'var(--c-teal-text)' },
@@ -501,7 +502,8 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 }
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
-export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder, onTillbaka, standardIntervall = 12 }) {
+export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, riskpunkter, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder, onTillbaka, standardIntervall = 12 }) {
+  const RISKPUNKTER = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : _RISKPUNKTER_MODUL_DEFAULT
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
   const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']

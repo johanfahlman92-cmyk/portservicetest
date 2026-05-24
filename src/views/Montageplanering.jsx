@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, Archive, ArchiveRestore, Lock, Trash2 } from 'lucide-react'
-import { protokollTyper, RISKPUNKTER } from '../data/store.js'
+import { protokollTyper } from '../data/store.js'
 import KundVäljare from '../components/KundVäljare.jsx'
 import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt } from '../utils/pdf.js'
 
@@ -31,7 +31,7 @@ const TOMFORM = {
   onskat_montagedag: '', tekniker: '', status: 'ej_planerad', notering: '',
 }
 
-export default function Montageplanering({ kunder = [], fastigheter = [], montageorder = [], tekniker = [], objekt = [], onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering, onNyttEjPlaneratMontage }) {
+export default function Montageplanering({ kunder = [], fastigheter = [], montageorder = [], tekniker = [], objekt = [], riskpunkter, onLaggTill, onUppdatera, onTaBort, onNyKund, onNavigeraMontering, onNyttEjPlaneratMontage }) {
   const [vy,            setVy]            = useState('lista')
   const [valt,          setValt]          = useState(null)
   const [form,          setForm]          = useState(TOMFORM)
@@ -430,7 +430,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                 <button className="btn" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
                   onClick={async () => {
                     const logoBase64 = await hämtaLogoBase64()
-                    const html = pdfMontageProt(order.protokoll_data, logoBase64)
+                    const html = pdfMontageProt(order.protokoll_data, logoBase64, {}, riskpunkter)
                     const win = window.open('', '_blank', 'width=860,height=1100')
                     win.document.write(html); win.document.close()
                     setTimeout(() => win.print(), 400)

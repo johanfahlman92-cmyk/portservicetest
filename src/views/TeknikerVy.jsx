@@ -3,7 +3,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays } from 'lucide-react'
 import logo from '../logo.png'
-import { protokollPunkter, RISKPUNKTER } from '../data/store.js'
+import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 const PRIO_CONF = {
@@ -1280,7 +1280,9 @@ export default function TeknikerVy({
   onTaBortBokning,
   onLoggaUt,
   onTillAdmin,
+  riskpunkter,
 }) {
+  const RISKPUNKTER = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER_DEFAULT
   const [flik,             setFlik]             = useState('idag')
   const [valdServiceorder, setValdServiceorder] = useState(null)
   const [valdMontage,      setValdMontage]      = useState(null)

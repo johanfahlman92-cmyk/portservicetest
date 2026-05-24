@@ -182,12 +182,13 @@ export const EGENKONTROLL_DEFAULT = {
  * @param {string} logoBase64   – logo som base64-data-URL
  * @param {object} montagemallar – anpassade egenkontrollmallar (valfritt)
  */
-export function pdfMontageProt(p, logoBase64, montagemallar = {}) {
+export function pdfMontageProt(p, logoBase64, montagemallar = {}, riskpunkter = null) {
   const mallar  = Object.keys(montagemallar).length > 0 ? montagemallar : EGENKONTROLL_DEFAULT
   const punkter = mallar[p.portTyp] || []
 
   // ── Riskbedömning ────────────────────────────────────────────────────────────
-  const riskRows = RISKPUNKTER.map((punkt, i) => {
+  const aktivaRiskpunkter = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER
+  const riskRows = aktivaRiskpunkter.map((punkt, i) => {
     if (punkt.startsWith('## ')) {
       return `<tr class="tbl-group"><td colspan="3">${punkt.slice(3)}</td></tr>`
     }
