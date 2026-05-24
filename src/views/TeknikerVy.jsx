@@ -977,7 +977,7 @@ export default function TeknikerVy({
   }
 
   return (
-    <div style={{minHeight:'100vh',background:'var(--c-bg)',display:'flex',flexDirection:'column',paddingBottom:70}}>
+    <div style={{height:'100dvh',background:'var(--c-bg)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       {/* Header */}
       <div style={{background:'#1C3461',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -997,7 +997,7 @@ export default function TeknikerVy({
       </div>
 
       {/* Innehåll */}
-      <div style={{flex:1,padding:'20px 16px',overflowY:'auto'}}>
+      <div style={{flex:1,padding:'20px 16px 80px',overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
         <div style={{maxWidth:560,margin:'0 auto'}}>{renderContent()}</div>
       </div>
 
