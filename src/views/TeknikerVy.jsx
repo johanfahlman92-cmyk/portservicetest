@@ -274,6 +274,8 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
   const [sparar,  setSparar]  = useState(false)
   const [felMsg,  setFelMsg]  = useState('')
 
+  const SEC = {fontSize:11,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:12,paddingBottom:8,borderBottom:'1px solid var(--c-border)'}
+
   const hits = sok.length > 1
     ? objekt.filter(o => !o.arkiverad && (o.namn?.toLowerCase().includes(sok.toLowerCase()) || o.kund?.toLowerCase().includes(sok.toLowerCase()))).slice(0,6)
     : []
@@ -286,7 +288,7 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
         nr: genNr(), datum, status: 'planerad',
         tekniker: namn, kund: port?.kund || friKund.trim(),
         objekt_ids: port ? [port.id] : [],
-        protokoll: {}, // krävs av DB-schemat
+        protokoll: {},
         ...(notering.trim() ? { notering: notering.trim() } : {}),
       })
     } catch(e) { setFelMsg(e.message||'Kunde inte spara'); setSparar(false); return }
@@ -294,56 +296,69 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
   }
 
   return (
-    <div className="card" style={{marginBottom:16}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-        <div style={{fontWeight:600,fontSize:15}}>Ny serviceorder</div>
-        <button className="btn" onClick={onAvbryt} style={{padding:'4px 8px'}}><X size={14}/></button>
+    <div style={{marginBottom:16}}>
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <h2 style={{fontSize:18,fontWeight:700,margin:0}}>Ny serviceorder</h2>
+        <button className="btn" onClick={onAvbryt} style={{padding:'6px 10px'}}><X size={14}/></button>
       </div>
-      <label style={LBL}>Sök och välj port</label>
-      {port ? (
-        <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',background:'var(--c-teal-bg)',border:'1px solid var(--c-teal)',borderRadius:9,marginBottom:8}}>
-          <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:600,color:'var(--c-teal-text)'}}>{port.namn}</div>
-            <div style={{fontSize:12,color:'var(--c-text2)'}}>{port.kund} · {port.typ}</div>
-          </div>
-          <button onClick={()=>{setPort(null);setSok('')}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)'}}><X size={14}/></button>
-        </div>
-      ) : (
-        <div style={{position:'relative',marginBottom:8}}>
-          <Search size={14} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--c-text3)',pointerEvents:'none'}}/>
-          <input type="text" placeholder="Sök portnamn eller kund…" value={sok} onChange={e=>setSok(e.target.value)}
-            style={{...INP,paddingLeft:32}}/>
-          {hits.length>0&&(
-            <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:9,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',marginTop:4}}>
-              {hits.map(o=>(
-                <div key={o.id} onClick={()=>{setPort(o);setSok('')}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:'1px solid var(--c-border)',fontSize:13}}
-                  onMouseEnter={e=>e.currentTarget.style.background='var(--c-bg)'}
-                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <div style={{fontWeight:600}}>{o.namn}</div>
-                  <div style={{fontSize:12,color:'var(--c-text2)'}}>{o.kund} · {o.typ}</div>
-                </div>
-              ))}
+
+      {/* Sektion 1: Välj port */}
+      <div className="card" style={{marginBottom:12}}>
+        <div style={SEC}>Välj port</div>
+        {port ? (
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'var(--c-teal-bg)',border:'1px solid var(--c-teal)',borderRadius:10}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:700,color:'var(--c-teal-text)'}}>{port.namn}</div>
+              <div style={{fontSize:13,color:'var(--c-text2)',marginTop:2}}>{port.kund} · {port.typ}{port.adress?' · '+port.adress:''}</div>
             </div>
-          )}
+            <button onClick={()=>{setPort(null);setSok('')}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',padding:4}}><X size={14}/></button>
+          </div>
+        ) : (
+          <div style={{position:'relative'}}>
+            <Search size={15} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--c-text3)',pointerEvents:'none'}}/>
+            <input type="text" placeholder="Sök portnamn eller kund…" value={sok} onChange={e=>setSok(e.target.value)}
+              style={{...INP,paddingLeft:36}}/>
+            {hits.length>0&&(
+              <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:10,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',marginTop:4,overflow:'hidden'}}>
+                {hits.map(o=>(
+                  <div key={o.id} onClick={()=>{setPort(o);setSok('')}}
+                    style={{padding:'11px 14px',cursor:'pointer',borderBottom:'1px solid var(--c-border)'}}
+                    onMouseEnter={e=>e.currentTarget.style.background='var(--c-bg)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{fontSize:14,fontWeight:600}}>{o.namn}</div>
+                    <div style={{fontSize:12,color:'var(--c-text2)',marginTop:2}}>{o.kund} · {o.typ}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sektion 2: Kund (om ingen port vald) */}
+      {!port&&(
+        <div className="card" style={{marginBottom:12}}>
+          <div style={SEC}>Kund</div>
+          <NyKundSektion kunder={kunder} value={friKund} onChange={setFriKund} onNyKund={onNyKund}/>
         </div>
       )}
-      {/* Kund – manuell inmatning om ingen port valts */}
-      {!port && (
-        <>
-          <label style={LBL}>Kund (valfritt om ingen port valts)</label>
-          <NyKundSektion kunder={kunder} value={friKund} onChange={setFriKund} onNyKund={onNyKund}/>
-        </>
-      )}
-      <label style={LBL}>Datum</label>
-      <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} style={{...INP,colorScheme:'light'}}/>
-      <label style={LBL}>Notering</label>
-      <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={2} placeholder="Vad ska göras…" style={{...INP,resize:'vertical'}}/>
-      {felMsg&&<div style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:8,padding:'8px 12px',fontSize:13,color:'var(--c-red-text)',marginTop:8}}>⚠ {felMsg}</div>}
-      <div style={{display:'flex',gap:8,marginTop:14}}>
-        <button className="btn btn-primary" onClick={spara} disabled={sparar||!datum} style={{flex:1,padding:13,fontSize:14}}>
+
+      {/* Sektion 3: Planering & notering */}
+      <div className="card" style={{marginBottom:12}}>
+        <div style={SEC}>Planering</div>
+        <label style={LBL}>Datum *</label>
+        <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} style={{...INP,colorScheme:'light'}}/>
+        <label style={{...LBL,marginTop:12}}>Notering</label>
+        <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={3} placeholder="Vad ska göras, specifikationer…" style={{...INP,resize:'vertical'}}/>
+      </div>
+
+      {felMsg&&<div style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:8,padding:'8px 12px',fontSize:13,color:'var(--c-red-text)',marginBottom:10}}>⚠ {felMsg}</div>}
+      <div style={{display:'flex',gap:8}}>
+        <button className="btn btn-primary" onClick={spara} disabled={sparar||!datum} style={{flex:1,padding:14,fontSize:14}}>
           {sparar?'Sparar…':<><ClipboardList size={15}/> Skapa serviceorder</>}
         </button>
-        <button className="btn" onClick={onAvbryt}>Avbryt</button>
+        <button className="btn" onClick={onAvbryt} style={{padding:'14px 18px'}}>Avbryt</button>
       </div>
     </div>
   )

@@ -348,21 +348,26 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
       if (alleMarkerade) setFormPortar(prev => prev.filter(id => !filtrerade.some(o => o.id === id)))
       else setFormPortar(prev => [...new Set([...prev, ...filtrerade.map(o => o.id)])])
     }
-    const inp = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }
+    const inp = { width: '100%', padding: '9px 11px', fontSize: 14, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }
+    const lbl = { fontSize: 12, fontWeight: 500, color: 'var(--c-blue-text)', display: 'block', marginBottom: 5, marginTop: 14 }
+    const secHdr = { fontSize: 15, fontWeight: 700, color: 'var(--c-text)', marginBottom: 16, paddingBottom: 12, borderBottom: '2px solid var(--c-border)' }
 
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <button className="btn" onClick={() => setVy('lista')}>← Tillbaka</button>
-          <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
             {valdOrder ? 'Redigera serviceorder' : 'Ny serviceorder'}
           </h1>
         </div>
         <div style={{ maxWidth: 700 }}>
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+
+          {/* ── Serviceorderinformation ── */}
+          <div className="card" style={{ marginBottom: 16, padding: '20px 24px' }}>
+            <div style={secHdr}>Serviceorderinformation</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
               <div>
-                <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 4 }}>Fastighet</label>
+                <label style={lbl}>Fastighet</label>
                 <select value={formFastighet} onChange={e => { setFormFastighet(e.target.value); setFormPortar([]) }} style={inp}>
                   <option value="">– Ingen fastighet –</option>
                   {fastigheter.filter(f => !f.arkiverad).map(f => (
@@ -371,73 +376,93 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 4 }}>Tekniker</label>
+                <label style={lbl}>Ansvarig tekniker</label>
                 <select value={formTekniker} onChange={e => setFormTekniker(e.target.value)} style={inp}>
-                  <option value="">– Välj –</option>
+                  <option value="">– Ej tilldelad –</option>
                   {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 4 }}>Datum</label>
-              <input type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)}
-                style={{ ...inp, maxWidth: 180 }} />
+              <div>
+                <label style={lbl}>Datum *</label>
+                <input type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Kund</label>
+                <input type="text" value={valdFastighet?.kund || ''} readOnly
+                  placeholder="Hämtas från fastighet"
+                  style={{ ...inp, color: valdFastighet?.kund ? 'var(--c-text)' : 'var(--c-text3)', cursor: 'default' }} />
+              </div>
             </div>
           </div>
 
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={SECTION}>Välj portar ({formPortar.length} valda)</div>
+          {/* ── Välj portar ── */}
+          <div className="card" style={{ marginBottom: 16, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...secHdr }}>
+              <span>
+                Välj portar
+                {formPortar.length > 0 && (
+                  <span style={{ marginLeft: 8, fontSize: 13, color: 'var(--c-teal)', fontWeight: 700 }}>
+                    ({formPortar.length} {formPortar.length === 1 ? 'vald' : 'valda'})
+                  </span>
+                )}
+              </span>
               {filtrerade.length > 0 && (
-                <button className="btn" style={{ fontSize: 11 }} onClick={toggleAlla}>
+                <button className="btn" style={{ fontSize: 12, padding: '5px 12px' }} onClick={toggleAlla}>
                   {alleMarkerade ? 'Avmarkera alla' : 'Markera alla'}
                 </button>
               )}
             </div>
-            <div style={{ position: 'relative', marginBottom: 10 }}>
-              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
-              <input type="text" placeholder="Sök port…" value={formSok} onChange={e => setFormSok(e.target.value)}
-                style={{ ...inp, paddingLeft: 28 }} />
+            <div style={{ position: 'relative', marginBottom: 14 }}>
+              <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
+              <input type="text" placeholder="Sök port eller kund…" value={formSok} onChange={e => setFormSok(e.target.value)}
+                style={{ ...inp, paddingLeft: 32 }} />
             </div>
             {filtrerade.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--c-text3)', padding: '8px 0' }}>
-                {formFastighet ? 'Inga portar kopplade till denna fastighet.' : 'Välj en fastighet eller sök bland alla portar ovan.'}
+              <div style={{ fontSize: 13, color: 'var(--c-text3)', padding: '16px 0', textAlign: 'center' }}>
+                {formFastighet ? 'Inga portar kopplade till denna fastighet.' : 'Välj en fastighet ovan eller sök bland alla portar.'}
               </div>
             ) : (
               filtrerade.map(o => {
                 const vald = formPortar.includes(o.id)
                 return (
                   <div key={o.id} onClick={() => togglePort(o.id)} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 6px', marginLeft: -6, marginRight: -6,
-                    borderRadius: 8, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 8px', marginLeft: -8, marginRight: -8,
+                    borderRadius: 9, cursor: 'pointer',
                     background: vald ? 'var(--c-teal-bg)' : 'transparent',
                     borderBottom: '1px solid var(--c-border)',
                     transition: 'background 0.12s',
                   }}>
                     <div style={{
-                      width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                      width: 20, height: 20, borderRadius: 5, flexShrink: 0,
                       border: `2px solid ${vald ? 'var(--c-teal)' : 'var(--c-border)'}`,
                       background: vald ? 'var(--c-teal)' : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.12s',
                     }}>
-                      {vald && <Check size={11} color="#fff" />}
+                      {vald && <Check size={12} color="#fff" strokeWidth={3} />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{o.namn}</div>
-                      <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>{o.typ}{o.plats ? ' · ' + o.plats : ''}</div>
+                      <div style={{ fontSize: 14, fontWeight: 500 }}>{o.namn}</div>
+                      <div style={{ fontSize: 12, color: 'var(--c-text2)', marginTop: 1 }}>
+                        {o.typ}{o.kund ? ' · ' + o.kund : ''}{o.plats ? ' · ' + o.plats : ''}
+                      </div>
                     </div>
-                    {o.senaste && <span style={{ fontSize: 11, color: 'var(--c-text3)', flexShrink: 0 }}>Senast {o.senaste}</span>}
+                    {o.senaste && (
+                      <span style={{ fontSize: 11, color: 'var(--c-text3)', flexShrink: 0 }}>Senast {o.senaste}</span>
+                    )}
                   </div>
                 )
               })
             )}
           </div>
 
-          <button className="btn btn-teal" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          <button className="btn btn-teal" style={{ width: '100%', padding: 14, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             onClick={sparaForm} disabled={sparar || formPortar.length === 0}>
-            <CheckCircle size={14} />
-            {sparar ? 'Sparar…' : valdOrder ? 'Spara ändringar' : `Skapa serviceorder (${formPortar.length} port${formPortar.length !== 1 ? 'ar' : ''})`}
+            <CheckCircle size={16} />
+            {sparar ? 'Sparar…' : valdOrder
+              ? 'Spara ändringar'
+              : `Skapa serviceorder${formPortar.length > 0 ? ` (${formPortar.length} port${formPortar.length !== 1 ? 'ar' : ''})` : ''}`}
           </button>
         </div>
       </div>
