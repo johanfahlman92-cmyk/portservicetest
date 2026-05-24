@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase.js'
 import {
   LogOut, AlertCircle, CheckCircle, Clock, Building2,
-  ChevronDown, ChevronUp, DoorOpen, Wrench, User,
+  ChevronDown, ChevronUp, DoorOpen, Wrench, FileText,
+  ChevronRight, X, Filter,
 } from 'lucide-react'
 import logo from '../image-1779305303942.png'
+import { hämtaLogoBase64, pdfHeader, pdfDoc, PDF_CSS } from '../utils/pdf.js'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const PRIO_LABEL = { normal: 'Normal', hog: 'Hög', akut: 'Akut' }
@@ -12,20 +14,81 @@ const PRIO_COLOR = { normal: 'var(--c-teal)', hog: '#f59e0b', akut: 'var(--c-red
 const STATUS_LABEL = { ny: 'Ny', pagaende: 'Pågår', atgardad: 'Åtgärdad' }
 const STATUS_COLOR = { ny: '#f59e0b', pagaende: 'var(--c-blue)', atgardad: 'var(--c-teal)' }
 
-const FÄLT = { fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--c-border)', background: 'var(--c-surface)', color: 'var(--c-text)', width: '100%', boxSizing: 'border-box', outline: 'none' }
-const BTN_PRI = { padding: '9px 20px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
-const BTN_SEC = { padding: '9px 16px', background: 'transparent', color: 'var(--c-text2)', border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }
+const FÄLT = {
+  fontSize: 13, padding: '8px 12px', borderRadius: 8,
+  border: '1px solid var(--c-border)', background: 'var(--c-surface)',
+  color: 'var(--c-text)', width: '100%', boxSizing: 'border-box', outline: 'none',
+}
+const BTN_PRI = {
+  padding: '10px 22px', background: 'var(--c-teal)', color: '#fff',
+  border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+}
+const BTN_SEC = {
+  padding: '10px 16px', background: 'transparent', color: 'var(--c-text2)',
+  border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+}
 
+// ── PDF: serviceprotokoll ──────────────────────────────────────────────────────
+async function öppnaServicePDF(so, portNamn) {
+  const logoB64 = await hämtaLogoBase64()
+  const prot = so.protokoll || {}
+  const punkter = Object.entries(prot)
+  const rows = punkter.length
+    ? punkter.map(([k, v]) => {
+        const cls = v === 'OK' ? 's-ok' : v === 'EJ' ? 's-ka' : v === 'AF' ? 's-af' : 's-ej'
+        const lbl = v === 'OK' ? '✓ OK' : v === 'EJ' ? '✗ Ej OK' : v === 'AF' ? 'Åtgärdas' : v || '–'
+        return `<tr><td>${k}</td><td class="${cls}">${lbl}</td></tr>`
+      }).join('')
+    : '<tr><td colspan="2" style="color:#888">Inga protokollpunkter</td></tr>'
+
+  const sigHtml = (so.signatur_tekniker || so.signatur_kund)
+    ? `<div class="sig-section">
+        ${so.signatur_tekniker ? `<div class="sig-box"><div class="sig-label">Tekniker</div><img src="${so.signatur_tekniker}"/><div class="sig-date">${so.datum||''}</div></div>` : ''}
+        ${so.signatur_kund     ? `<div class="sig-box"><div class="sig-label">Kund</div><img src="${so.signatur_kund}"/><div class="sig-date">${so.datum||''}</div></div>` : ''}
+      </div>` : ''
+
+  const notHtml = so.notering
+    ? `<div class="slbl">Notering</div><div class="desc-box">${so.notering}</div>` : ''
+
+  const body = `
+    ${pdfHeader(logoB64, 'Serviceprotokoll', portNamn || so.kund || '', so.datum || '')}
+    <div class="slbl">Information</div>
+    <div class="meta">
+      <div class="cell"><div class="lbl">Kund</div><div class="val">${so.kund||'–'}</div></div>
+      <div class="cell"><div class="lbl">Fastighet</div><div class="val">${so.fastighet_namn||'–'}</div></div>
+      <div class="cell"><div class="lbl">Datum</div><div class="val">${so.datum||'–'}</div></div>
+      <div class="cell"><div class="lbl">Tekniker</div><div class="val">${so.tekniker||'–'}</div></div>
+    </div>
+    <div class="slbl">Kontrollpunkter</div>
+    <table><thead><tr><th>Punkt</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+    ${notHtml}
+    ${sigHtml}
+  `
+  const win = window.open('', '_blank', 'width=860,height=1100')
+  if (!win) return
+  win.document.title = 'Serviceprotokoll'
+  win.document.write(pdfDoc('Serviceprotokoll', body))
+  win.document.close()
+  setTimeout(() => win.print(), 400)
+}
+
+// ── Huvud ──────────────────────────────────────────────────────────────────────
 export default function KundPortal({ user, onLoggaUt }) {
-  const [kund,        setKund]        = useState(null)
-  const [fastigheter, setFastigheter] = useState([])
-  const [portar,      setPortar]      = useState([])
-  const [arenden,     setArenden]     = useState([])
-  const [laddas,      setLaddas]      = useState(true)
-  const [visaForm,    setVisaForm]    = useState(false)
-  const [visaPortar,  setVisaPortar]  = useState(false)
+  const [kund,         setKund]         = useState(null)
+  const [fastigheter,  setFastigheter]  = useState([])
+  const [portar,       setPortar]       = useState([])
+  const [arenden,      setArenden]      = useState([])
+  const [serviceorder, setServiceorder] = useState([])
+  const [laddas,       setLaddas]       = useState(true)
 
-  // Felanmälan-state
+  // Navigation
+  const [flik,           setFlik]           = useState('oversikt')
+  const [valdFastighet,  setValdFastighet]  = useState('alla')
+  const [arendeFilter,   setArendeFilter]   = useState('oppna')
+  const [expanderat,     setExpanderat]     = useState(null)
+
+  // Felanmälan
+  const [visaFel,     setVisaFel]     = useState(false)
   const [valdPort,    setValdPort]    = useState('')
   const [feltyp,      setFeltyp]      = useState('')
   const [prioritet,   setPrioritet]   = useState('normal')
@@ -37,33 +100,32 @@ export default function KundPortal({ user, onLoggaUt }) {
   const kundId   = user.user_metadata?.kund_id
   const kundNamn = user.user_metadata?.kund_namn || ''
 
-  // ── Ladda data ─────────────────────────────────────────────────────────────
+  // ── Ladda data ───────────────────────────────────────────────────────────────
   useEffect(() => {
     async function ladda() {
       if (!kundId && !kundNamn) { setLaddas(false); return }
-
-      const [kRes, fRes, oRes, aRes] = await Promise.all([
+      const [kRes, fRes, oRes, aRes, soRes] = await Promise.all([
         kundId
           ? supabase.from('kunder').select('*').eq('id', kundId).maybeSingle()
           : { data: null },
         supabase.from('fastigheter').select('*').order('namn'),
         supabase.from('objekt').select('*').order('namn'),
         supabase.from('arenden').select('*').order('created_at', { ascending: false }),
+        supabase.from('serviceorder').select('*').order('datum', { ascending: false }),
       ])
-
       const k = kRes.data
       setKund(k)
-
       const namn = k?.namn || kundNamn
-      if (fRes.data) setFastigheter(fRes.data.filter(f => f.kund === namn && !f.arkiverad))
-      if (oRes.data) setPortar(oRes.data.filter(o => o.kund === namn && !o.arkiverad))
-      if (aRes.data) setArenden(aRes.data.filter(a => a.kund === namn))
+      if (fRes.data)  setFastigheter(fRes.data.filter(f => f.kund === namn && !f.arkiverad))
+      if (oRes.data)  setPortar(oRes.data.filter(o => o.kund === namn && !o.arkiverad))
+      if (aRes.data)  setArenden(aRes.data.filter(a => a.kund === namn))
+      if (soRes.data) setServiceorder(soRes.data.filter(s => s.kund === namn && s.status === 'avslutad'))
       setLaddas(false)
     }
     ladda()
   }, [kundId, kundNamn])
 
-  // ── Skicka felanmälan ──────────────────────────────────────────────────────
+  // ── Felanmälan ───────────────────────────────────────────────────────────────
   const skickaFel = async () => {
     if (!valdPort || !feltyp) { setFeldMsg('Välj port och feltyp.'); return }
     setSparar(true); setFeldMsg('')
@@ -71,141 +133,377 @@ export default function KundPortal({ user, onLoggaUt }) {
     const kundnamn = kund?.namn || kundNamn
     const now = new Date()
     const { error } = await supabase.from('arenden').insert({
-      namn:        port?.namn || 'Okänd port',
-      kund:        kundnamn,
-      objekt_id:   port?.id || null,
-      feltyp,
-      prioritet,
-      beskrivning,
-      status:      'ny',
-      datum:       now.toISOString().slice(0, 10),
-      nr:          now.getTime(),
+      namn:      port?.namn || 'Okänd port',
+      kund:      kundnamn,
+      objekt_id: port?.id || null,
+      feltyp, prioritet, beskrivning,
+      status:    'ny',
+      datum:     now.toISOString().slice(0, 10),
+      nr:        now.getTime(),
     })
     setSparar(false)
     if (error) { setFeldMsg('Något gick fel: ' + error.message); return }
     setSparad(true)
     setValdPort(''); setFeltyp(''); setBeskrivning(''); setPrioritet('normal')
-    // Uppdatera ärenden i listan
-    const { data } = await supabase
-      .from('arenden').select('*')
+    const { data } = await supabase.from('arenden').select('*')
       .eq('kund', kundnamn).order('created_at', { ascending: false })
     if (data) setArenden(data)
-    setTimeout(() => { setSparad(false); setVisaForm(false) }, 3500)
+    setTimeout(() => { setSparad(false); setVisaFel(false) }, 3000)
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Filter-hjälpare ──────────────────────────────────────────────────────────
+  const filterFastighet = items => {
+    if (valdFastighet === 'alla') return items
+    const f = fastigheter.find(f => f.id === valdFastighet)
+    if (!f) return items
+    return items.filter(item =>
+      item.fastighet_id === f.id ||
+      item.fastighet_namn === f.namn ||
+      item.plats === f.namn ||
+      portar.filter(p => p.fastighetId === f.id || p.plats === f.namn)
+        .some(p => p.id === item.objekt_id || (item.objekt_ids||[]).includes(p.id))
+    )
+  }
+
+  const filterPortar = ps =>
+    valdFastighet === 'alla' ? ps
+      : ps.filter(p => {
+          const f = fastigheter.find(f => f.id === valdFastighet)
+          return f && (p.fastighetId === f.id || p.plats === f.namn)
+        })
+
+  // ── Beräknade värden ─────────────────────────────────────────────────────────
   if (laddas) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--c-bg)' }}>
-      <span style={{ color: 'var(--c-text3)', fontSize: 14 }}>Laddar…</span>
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--c-bg)' }}>
+      <span style={{ color:'var(--c-text3)', fontSize:14 }}>Laddar…</span>
     </div>
   )
 
-  const displayNamn = kund?.namn || kundNamn || user.email
-  const öppnaArenden  = arenden.filter(a => a.status !== 'atgardad')
-  const stängdaArenden = arenden.filter(a => a.status === 'atgardad')
-  const nästaService  = portar.flatMap(p => p.nasta ? [p.nasta] : []).sort()[0]
+  const displayNamn   = kund?.namn || kundNamn || user.email
+  const filtPortar    = filterPortar(portar)
+  const filtArenden   = filterFastighet(arenden)
+  const filtSO        = filterFastighet(serviceorder)
+  const öppnaArenden  = filtArenden.filter(a => a.status !== 'atgardad')
+  const nästaService  = filtPortar.flatMap(p => p.nasta ? [p.nasta] : []).sort()[0]
+  const harFlerFastig = fastigheter.length > 1
 
-  const serviceHistorik = portar
-    .flatMap(p => (p.historik || []).map(h => ({ ...h, portNamn: p.namn })))
-    .filter(h => h.datum) // inkludera alla historik-poster som har datum (service + montering)
-    .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
+  // Ärenden-filter
+  const visadeArenden = arendeFilter === 'oppna'
+    ? filtArenden.filter(a => a.status !== 'atgardad')
+    : arendeFilter === 'atgardade'
+    ? filtArenden.filter(a => a.status === 'atgardad')
+    : filtArenden
 
+  // Protokoll: serviceorders med protokolldata, grupperade per port
+  const protokollPerPort = filtPortar.map(port => {
+    const soLista = filtSO.filter(so =>
+      (so.objekt_ids || []).includes(port.id) ||
+      so.fastighet_namn === port.plats
+    )
+    return { port, soLista }
+  }).filter(x => x.soLista.length > 0)
+
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--c-bg)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight:'100vh', background:'var(--c-bg)', display:'flex', flexDirection:'column' }}>
 
       {/* Header */}
       <header style={{
-        background: '#1C3461', padding: '0 24px', height: 56,
-        display: 'flex', alignItems: 'center', gap: 12,
-        borderBottom: '1px solid var(--c-border)', flexShrink: 0,
+        background:'#1C3461', padding:'0 20px', height:56,
+        display:'flex', alignItems:'center', gap:12, flexShrink:0,
+        borderBottom:'1px solid rgba(255,255,255,0.08)',
       }}>
-        <img src={logo} alt="NMV Portservice" style={{ height: 32, display: 'block', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', flex: 1 }}>Kundportal</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, color: 'var(--c-text3)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
-          <button onClick={onLoggaUt} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'none', border: '1px solid var(--c-border)', borderRadius: 6,
-            color: 'var(--c-text2)', fontSize: 12, padding: '5px 10px', cursor: 'pointer',
-          }}>
-            <LogOut size={13} /> Logga ut
-          </button>
-        </div>
-      </header>
+        <img src={logo} alt="NMV Portservice"
+          style={{ height:30, display:'block', objectFit:'contain', filter:'brightness(0) invert(1)', flexShrink:0 }} />
 
-      {/* Main */}
-      <main style={{ flex: 1, padding: '28px 24px', maxWidth: 780, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-
-        {/* Välkomstrad */}
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--c-text)' }}>{displayNamn}</h1>
-          <p style={{ fontSize: 13, color: 'var(--c-text2)', margin: '4px 0 0' }}>
-            Din portserviceöversikt
-          </p>
-        </div>
-
-        {/* KPI-kort */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 28 }}>
-          {[
-            { label: 'Portar', value: portar.length, icon: DoorOpen, color: 'var(--c-blue)' },
-            { label: 'Aktiva ärenden', value: öppnaArenden.length, icon: AlertCircle, color: öppnaArenden.length > 0 ? 'var(--c-red)' : 'var(--c-teal)' },
-            { label: 'Utförda uppdrag', value: serviceHistorik.length, icon: Wrench, color: 'var(--c-purple)' },
-            { label: 'Nästa service', value: nästaService || '–', icon: Clock, color: '#a78bfa', small: !!nästaService },
-          ].map(({ label, value, icon: Icon, color, small }) => (
-            <div key={label} style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: '16px 18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-                <div style={{ width: 28, height: 28, background: color + '22', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={14} color={color} />
-                </div>
-              </div>
-              <div style={{ fontSize: small ? 15 : 24, fontWeight: 700, color: 'var(--c-text)' }}>{value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Felanmälan-sektion */}
-        <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginBottom: 20, overflow: 'hidden' }}>
-          <button
-            onClick={() => setVisaForm(v => !v)}
+        {/* Fastighetsvälj – bara om >1 fastighet */}
+        {harFlerFastig && (
+          <select
+            value={valdFastighet}
+            onChange={e => setValdFastighet(e.target.value)}
             style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px', background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--c-text)', fontSize: 14, fontWeight: 600,
+              fontSize:12, padding:'5px 10px', borderRadius:7,
+              border:'1px solid rgba(255,255,255,0.2)',
+              background:'rgba(255,255,255,0.1)', color:'#fff',
+              cursor:'pointer', outline:'none', maxWidth:200,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <AlertCircle size={16} color="var(--c-red)" />
-              Anmäl fel
-            </div>
-            {visaForm ? <ChevronUp size={16} color="var(--c-text3)" /> : <ChevronDown size={16} color="var(--c-text3)" />}
-          </button>
+            <option value="alla">Alla fastigheter</option>
+            {fastigheter.map(f => <option key={f.id} value={f.id}>{f.namn}</option>)}
+          </select>
+        )}
 
-          {visaForm && (
-            <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--c-border)' }}>
-              {sparad ? (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
-                  background: '#12302b', border: '1px solid var(--c-teal)', borderRadius: 10, marginTop: 16,
-                  color: '#6ee7b7', fontSize: 13, fontWeight: 500,
+        <div style={{ flex:1 }} />
+
+        <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {user.email}
+        </span>
+        <button onClick={onLoggaUt} style={{
+          display:'flex', alignItems:'center', gap:5,
+          background:'none', border:'1px solid rgba(255,255,255,0.2)',
+          borderRadius:6, color:'rgba(255,255,255,0.7)', fontSize:12,
+          padding:'5px 10px', cursor:'pointer', flexShrink:0,
+        }}>
+          <LogOut size={12} /> Logga ut
+        </button>
+      </header>
+
+      {/* Flikar */}
+      <div style={{
+        background:'var(--c-surface)', borderBottom:'1px solid var(--c-border)',
+        display:'flex', padding:'0 20px', gap:0, flexShrink:0,
+      }}>
+        {[
+          { id:'oversikt',  label:'Översikt'  },
+          { id:'arenden',   label:`Ärenden${öppnaArenden.length ? ` (${öppnaArenden.length})` : ''}` },
+          { id:'protokoll', label:'Protokoll' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setFlik(t.id)} style={{
+            padding:'13px 18px', fontSize:13, fontWeight:flik===t.id?700:400,
+            background:'none', border:'none', cursor:'pointer',
+            color: flik===t.id ? 'var(--c-teal-text)' : 'var(--c-text2)',
+            borderBottom: flik===t.id ? '2px solid var(--c-teal)' : '2px solid transparent',
+            transition:'all 0.15s',
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* Main */}
+      <main style={{ flex:1, padding:'24px 20px', maxWidth:800, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
+
+        {/* ── ÖVERSIKT ── */}
+        {flik === 'oversikt' && (
+          <>
+            {/* Välkomst */}
+            <div style={{ marginBottom:20 }}>
+              <h1 style={{ fontSize:20, fontWeight:700, margin:0 }}>{displayNamn}</h1>
+              <p style={{ fontSize:13, color:'var(--c-text2)', margin:'3px 0 0' }}>Din portserviceöversikt</p>
+            </div>
+
+            {/* KPI */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10, marginBottom:20 }}>
+              {[
+                { label:'Portar',         value:filtPortar.length,    icon:DoorOpen,    color:'var(--c-blue)'   },
+                { label:'Aktiva ärenden', value:öppnaArenden.length,  icon:AlertCircle, color:öppnaArenden.length>0?'var(--c-red)':'var(--c-teal)' },
+                { label:'Protokoll',      value:filtSO.length,        icon:FileText,    color:'var(--c-purple)' },
+                { label:'Nästa service',  value:nästaService||'–',    icon:Clock,       color:'#a78bfa', small:!!nästaService },
+              ].map(({ label, value, icon:Icon, color, small }) => (
+                <div key={label} style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, padding:'14px 16px' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                    <span style={{ fontSize:10, fontWeight:600, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</span>
+                    <div style={{ width:26, height:26, background:color+'22', borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <Icon size={13} color={color} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize:small?14:22, fontWeight:700 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Anmäl fel-knapp */}
+            <button onClick={() => setVisaFel(true)} style={{
+              width:'100%', padding:'14px', borderRadius:10, marginBottom:20,
+              background:'var(--c-red)', color:'#fff', border:'none',
+              fontSize:14, fontWeight:700, cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            }}>
+              <AlertCircle size={16} /> Anmäl fel
+            </button>
+
+            {/* Aktiva ärenden – kompakt */}
+            <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:20 }}>
+              <div style={{ padding:'12px 18px', borderBottom:'1px solid var(--c-border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontSize:13, fontWeight:600 }}>Aktiva ärenden</span>
+                {öppnaArenden.length > 0 && (
+                  <span style={{ background:'var(--c-red)', color:'#fff', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10 }}>
+                    {öppnaArenden.length}
+                  </span>
+                )}
+              </div>
+              {öppnaArenden.length === 0 ? (
+                <div style={{ padding:'18px', display:'flex', alignItems:'center', gap:8, color:'var(--c-text3)', fontSize:13 }}>
+                  <CheckCircle size={14} color="var(--c-teal)" /> Inga aktiva ärenden.
+                </div>
+              ) : öppnaArenden.slice(0, 3).map((a, i) => (
+                <div key={a.id} style={{
+                  padding:'11px 18px', display:'flex', alignItems:'center', gap:10,
+                  borderBottom: i < Math.min(öppnaArenden.length, 3) - 1 ? '1px solid var(--c-border)' : 'none',
                 }}>
+                  <div style={{ width:7, height:7, borderRadius:'50%', flexShrink:0, background:PRIO_COLOR[a.prioritet]||'var(--c-text3)' }} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:500 }}>{a.namn}</div>
+                    <div style={{ fontSize:11, color:'var(--c-text3)' }}>{a.feltyp} · {a.datum}</div>
+                  </div>
+                  <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:6,
+                    background:(STATUS_COLOR[a.status]||'#888')+'22', color:STATUS_COLOR[a.status]||'#888' }}>
+                    {STATUS_LABEL[a.status]||a.status}
+                  </span>
+                </div>
+              ))}
+              {öppnaArenden.length > 3 && (
+                <button onClick={() => setFlik('arenden')} style={{
+                  width:'100%', padding:'10px', background:'none', border:'none',
+                  borderTop:'1px solid var(--c-border)', color:'var(--c-teal-text)',
+                  fontSize:12, cursor:'pointer', fontWeight:600,
+                }}>
+                  Visa alla {öppnaArenden.length} ärenden →
+                </button>
+              )}
+            </div>
+
+            {/* Portar per fastighet */}
+            <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12 }}>
+              <div style={{ padding:'12px 18px', borderBottom:'1px solid var(--c-border)', display:'flex', alignItems:'center', gap:8 }}>
+                <DoorOpen size={14} color="var(--c-blue)" />
+                <span style={{ fontSize:13, fontWeight:600 }}>Portar ({filtPortar.length})</span>
+              </div>
+              {filtPortar.length === 0 ? (
+                <div style={{ padding:'18px', color:'var(--c-text3)', fontSize:13 }}>Inga portar.</div>
+              ) : (
+                fastigheter.filter(f => valdFastighet === 'alla' || f.id === valdFastighet).map(f => {
+                  const fps = filtPortar.filter(p => p.fastighetId === f.id || p.plats === f.namn)
+                  if (!fps.length) return null
+                  return (
+                    <div key={f.id}>
+                      <div style={{ padding:'7px 18px', background:'var(--c-bg)', display:'flex', alignItems:'center', gap:6 }}>
+                        <Building2 size={11} color="var(--c-text3)" />
+                        <span style={{ fontSize:10, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{f.namn}</span>
+                      </div>
+                      {fps.map((p, i) => <PortRad key={p.id} port={p} sista={i===fps.length-1} />)}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── ÄRENDEN ── */}
+        {flik === 'arenden' && (
+          <>
+            <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
+              {[['oppna','Öppna'],['atgardade','Åtgärdade'],['alla','Alla']].map(([v,l]) => (
+                <button key={v} onClick={() => setArendeFilter(v)} style={{
+                  padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer',
+                  border:`1px solid ${arendeFilter===v?'var(--c-teal)':'var(--c-border)'}`,
+                  background: arendeFilter===v?'var(--c-teal-bg)':'transparent',
+                  color: arendeFilter===v?'var(--c-teal-text)':'var(--c-text2)',
+                }}>{l}{v==='oppna'&&öppnaArenden.length>0?` (${öppnaArenden.length})`:''}</button>
+              ))}
+            </div>
+
+            {visadeArenden.length === 0 ? (
+              <div style={{ padding:'40px 20px', textAlign:'center', color:'var(--c-text3)', fontSize:13 }}>
+                Inga ärenden att visa.
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {visadeArenden.map(a => (
+                  <ArendeKort
+                    key={a.id} arende={a}
+                    expanderat={expanderat===a.id}
+                    onToggle={() => setExpanderat(p => p===a.id?null:a.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── PROTOKOLL ── */}
+        {flik === 'protokoll' && (
+          <>
+            {protokollPerPort.length === 0 ? (
+              <div style={{ padding:'40px 20px', textAlign:'center', color:'var(--c-text3)', fontSize:13 }}>
+                Inga protokoll tillgängliga ännu.
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                {protokollPerPort.map(({ port, soLista }) => (
+                  <div key={port.id} style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, overflow:'hidden' }}>
+                    <div style={{ padding:'12px 18px', background:'var(--c-bg)', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid var(--c-border)' }}>
+                      <DoorOpen size={13} color="var(--c-blue)" />
+                      <span style={{ fontSize:13, fontWeight:600 }}>{port.namn}</span>
+                      <span style={{ fontSize:11, color:'var(--c-text3)' }}>{port.typ}{port.fabrikat?` · ${port.fabrikat}`:''}</span>
+                    </div>
+                    {soLista.map((so, i) => (
+                      <div key={so.id} style={{
+                        padding:'12px 18px', display:'flex', alignItems:'center', gap:12,
+                        borderBottom: i<soLista.length-1?'1px solid var(--c-border)':'none',
+                      }}>
+                        <div style={{ width:34, height:34, borderRadius:8, background:'var(--c-blue-bg)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <FileText size={15} color="var(--c-blue)" />
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:500 }}>Serviceprotokoll</div>
+                          <div style={{ fontSize:11, color:'var(--c-text3)' }}>
+                            {so.datum||'–'}{so.tekniker?` · ${so.tekniker}`:''}
+                            {so.signatur_tekniker ? ' · Signerat ✓' : ''}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => öppnaServicePDF(so, port.namn)}
+                          style={{ ...BTN_SEC, padding:'6px 14px', fontSize:12, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}
+                        >
+                          <FileText size={12} /> Öppna PDF
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+      </main>
+
+      {/* ── Felanmälan-modal ── */}
+      {visaFel && (
+        <div style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,0.55)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          zIndex:1000, padding:'16px',
+        }}
+          onClick={e => { if(e.target===e.currentTarget) setVisaFel(false) }}>
+          <div style={{
+            background:'var(--c-surface)', borderRadius:14, width:'100%', maxWidth:500,
+            border:'1px solid var(--c-border)', boxShadow:'0 20px 60px rgba(0,0,0,0.4)',
+            overflow:'hidden',
+          }}>
+            <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--c-border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <AlertCircle size={16} color="var(--c-red)" />
+                <span style={{ fontSize:15, fontWeight:700 }}>Anmäl fel</span>
+              </div>
+              <button onClick={() => setVisaFel(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--c-text3)', display:'flex' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding:'20px' }}>
+              {sparad ? (
+                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px',
+                  background:'#12302b', border:'1px solid var(--c-teal)', borderRadius:10, color:'#6ee7b7', fontSize:13, fontWeight:500 }}>
                   <CheckCircle size={16} /> Felanmälan skickad! Vi återkommer inom kort.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 16 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                     <div>
-                      <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Port *</label>
+                      <label style={{ fontSize:12, color:'var(--c-text2)', display:'block', marginBottom:5 }}>Port *</label>
                       <select value={valdPort} onChange={e => setValdPort(e.target.value)} style={FÄLT}>
                         <option value="">Välj port…</option>
-                        {portar.map(p => <option key={p.id} value={p.id}>{p.namn} {p.plats ? `(${p.plats})` : ''}</option>)}
+                        {(harFlerFastig && valdFastighet!=='alla' ? filterPortar(portar) : portar).map(p =>
+                          <option key={p.id} value={p.id}>{p.namn}{p.plats?` (${p.plats})`:''}</option>
+                        )}
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Feltyp *</label>
+                      <label style={{ fontSize:12, color:'var(--c-text2)', display:'block', marginBottom:5 }}>Feltyp *</label>
                       <select value={feltyp} onChange={e => setFeltyp(e.target.value)} style={FÄLT}>
                         <option value="">Välj feltyp…</option>
-                        {['Öppnar inte', 'Stänger inte', 'Ovanligt ljud', 'Fjärrkontroll fungerar inte', 'Mekaniskt fel', 'Elfel', 'Övrigt'].map(f =>
+                        {['Öppnar inte','Stänger inte','Ovanligt ljud','Fjärrkontroll fungerar inte','Mekaniskt fel','Elfel','Övrigt'].map(f =>
                           <option key={f} value={f}>{f}</option>
                         )}
                       </select>
@@ -213,229 +511,111 @@ export default function KundPortal({ user, onLoggaUt }) {
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Prioritet</label>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {['normal', 'hog', 'akut'].map(p => (
+                    <label style={{ fontSize:12, color:'var(--c-text2)', display:'block', marginBottom:6 }}>Prioritet</label>
+                    <div style={{ display:'flex', gap:8 }}>
+                      {['normal','hog','akut'].map(p => (
                         <button key={p} onClick={() => setPrioritet(p)} style={{
-                          padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          border: `1px solid ${prioritet === p ? PRIO_COLOR[p] : 'var(--c-border)'}`,
-                          background: prioritet === p ? PRIO_COLOR[p] + '22' : 'transparent',
-                          color: prioritet === p ? PRIO_COLOR[p] : 'var(--c-text2)',
-                          transition: 'all 0.15s',
+                          flex:1, padding:'7px 0', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer',
+                          border:`1px solid ${prioritet===p?PRIO_COLOR[p]:'var(--c-border)'}`,
+                          background: prioritet===p?PRIO_COLOR[p]+'22':'transparent',
+                          color: prioritet===p?PRIO_COLOR[p]:'var(--c-text2)',
+                          transition:'all 0.15s',
                         }}>{PRIO_LABEL[p]}</button>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Beskrivning</label>
-                    <textarea
-                      value={beskrivning}
-                      onChange={e => setBeskrivning(e.target.value)}
-                      placeholder="Beskriv felet mer detaljerat…"
-                      rows={3}
-                      style={{ ...FÄLT, resize: 'vertical', fontFamily: 'inherit' }}
-                    />
+                    <label style={{ fontSize:12, color:'var(--c-text2)', display:'block', marginBottom:5 }}>Beskrivning</label>
+                    <textarea value={beskrivning} onChange={e => setBeskrivning(e.target.value)}
+                      placeholder="Beskriv felet mer detaljerat…" rows={3}
+                      style={{ ...FÄLT, resize:'vertical', fontFamily:'inherit' }} />
                   </div>
 
-                  {feldMsg && <div style={{ fontSize: 12, color: 'var(--c-red)' }}>{feldMsg}</div>}
+                  {feldMsg && <div style={{ fontSize:12, color:'var(--c-red)' }}>{feldMsg}</div>}
 
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <button style={BTN_SEC} onClick={() => setVisaForm(false)}>Avbryt</button>
-                    <button style={{ ...BTN_PRI, opacity: sparar ? 0.6 : 1 }} onClick={skickaFel} disabled={sparar}>
+                  <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                    <button style={BTN_SEC} onClick={() => setVisaFel(false)}>Avbryt</button>
+                    <button style={{ ...BTN_PRI, opacity:sparar?0.6:1 }} onClick={skickaFel} disabled={sparar}>
                       {sparar ? 'Skickar…' : 'Skicka felanmälan'}
                     </button>
                   </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        {/* Aktiva ärenden */}
-        <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginBottom: 20 }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>Aktiva ärenden</span>
-            {öppnaArenden.length > 0 && (
-              <span style={{ background: 'var(--c-red)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>
-                {öppnaArenden.length}
-              </span>
-            )}
           </div>
-          {öppnaArenden.length === 0 ? (
-            <div style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--c-text3)', fontSize: 13 }}>
-              <CheckCircle size={14} color="var(--c-teal)" /> Inga aktiva ärenden just nu.
-            </div>
-          ) : (
-            <div>
-              {öppnaArenden.map((a, i) => (
-                <div key={a.id} style={{
-                  padding: '12px 20px',
-                  borderBottom: i < öppnaArenden.length - 1 ? '1px solid var(--c-border)' : 'none',
-                  display: 'flex', alignItems: 'center', gap: 12,
-                }}>
-                  <div style={{
-                    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                    background: PRIO_COLOR[a.prioritet] || 'var(--c-text3)',
-                  }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--c-text)' }}>{a.namn}</div>
-                    <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
-                      {a.feltyp} · {a.datum}
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6,
-                    background: STATUS_COLOR[a.status] + '22', color: STATUS_COLOR[a.status],
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {STATUS_LABEL[a.status] || a.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-
-        {/* Portar */}
-        <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
-          <button
-            onClick={() => setVisaPortar(v => !v)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--c-text)', fontSize: 13, fontWeight: 600, borderRadius: 12,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <DoorOpen size={15} color="var(--c-blue)" />
-              Dina portar ({portar.length})
-            </div>
-            {visaPortar ? <ChevronUp size={15} color="var(--c-text3)" /> : <ChevronDown size={15} color="var(--c-text3)" />}
-          </button>
-
-          {visaPortar && portar.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--c-border)' }}>
-              {/* Fastigheter-gruppering */}
-              {fastigheter.length > 0 ? (
-                fastigheter.map(f => {
-                  const fps = portar.filter(p => p.fastighetId === f.id || p.plats === f.namn)
-                  if (!fps.length) return null
-                  return (
-                    <div key={f.id}>
-                      <div style={{ padding: '8px 20px', background: 'var(--c-bg)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Building2 size={12} color="var(--c-text3)" />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{f.namn}</span>
-                      </div>
-                      {fps.map((p, i) => <PortRad key={p.id} port={p} sista={i === fps.length - 1} />)}
-                    </div>
-                  )
-                })
-              ) : (
-                portar.map((p, i) => <PortRad key={p.id} port={p} sista={i === portar.length - 1} />)
-              )}
-            </div>
-          )}
-
-          {visaPortar && portar.length === 0 && (
-            <div style={{ padding: '16px 20px', color: 'var(--c-text3)', fontSize: 13, borderTop: '1px solid var(--c-border)' }}>
-              Inga registrerade portar.
-            </div>
-          )}
-        </div>
-
-        {/* Utfört arbete – servicehistorik */}
-        {serviceHistorik.length > 0 && (
-          <div style={{ marginTop: 20, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Wrench size={15} color="var(--c-blue)" />
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Utfört arbete ({serviceHistorik.length})</span>
-            </div>
-            {serviceHistorik.slice(0, 15).map((h, i) => (
-              <div key={i} style={{
-                padding: '11px 20px',
-                borderBottom: i < Math.min(serviceHistorik.length, 15) - 1 ? '1px solid var(--c-border)' : 'none',
-                display: 'flex', alignItems: 'center', gap: 12,
-              }}>
-                <div style={{
-                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                  background: h.typ === 'montering' ? 'var(--c-purple-bg)' : 'var(--c-blue-bg)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Wrench size={14} color={h.typ === 'montering' ? 'var(--c-purple)' : 'var(--c-blue)'} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--c-text)' }}>{h.portNamn}</div>
-                  <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
-                    {h.typ === 'montering' ? 'Montering' : 'Service'} · {h.tekniker || '–'} · {h.datum}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                  {h.ok > 0 && (
-                    <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 8, background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)', fontWeight: 600 }}>
-                      ✓ {h.ok}
-                    </span>
-                  )}
-                  {h.ej > 0 && (
-                    <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 8, background: 'var(--c-red-bg)', color: 'var(--c-red-text)', fontWeight: 600 }}>
-                      ✗ {h.ej}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Åtgärdade ärenden */}
-        {stängdaArenden.length > 0 && (
-          <div style={{ marginTop: 20, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)' }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>Åtgärdade ärenden ({stängdaArenden.length})</span>
-            </div>
-            {stängdaArenden.slice(0, 5).map((a, i) => (
-              <div key={a.id} style={{
-                padding: '11px 20px', borderBottom: i < Math.min(stängdaArenden.length, 5) - 1 ? '1px solid var(--c-border)' : 'none',
-                display: 'flex', alignItems: 'center', gap: 10, opacity: 0.7,
-              }}>
-                <CheckCircle size={13} color="var(--c-teal)" />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 13, color: 'var(--c-text)' }}>{a.namn}</span>
-                  <span style={{ fontSize: 11, color: 'var(--c-text3)', marginLeft: 8 }}>{a.datum}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-      </main>
+      )}
     </div>
   )
 }
 
+// ── ArendeKort ─────────────────────────────────────────────────────────────────
+function ArendeKort({ arende: a, expanderat, onToggle }) {
+  const stängd = a.status === 'atgardad'
+  return (
+    <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, overflow:'hidden', opacity:stängd?0.8:1 }}>
+      <button onClick={onToggle} style={{
+        width:'100%', display:'flex', alignItems:'center', gap:12,
+        padding:'13px 16px', background:'none', border:'none', cursor:'pointer', textAlign:'left',
+      }}>
+        <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:PRIO_COLOR[a.prioritet]||'var(--c-text3)' }} />
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'var(--c-text)' }}>{a.namn}</div>
+          <div style={{ fontSize:11, color:'var(--c-text3)', marginTop:2 }}>{a.feltyp} · {a.datum}</div>
+        </div>
+        <span style={{ fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:6, flexShrink:0,
+          background:(STATUS_COLOR[a.status]||'#888')+'22', color:STATUS_COLOR[a.status]||'#888' }}>
+          {STATUS_LABEL[a.status]||a.status}
+        </span>
+        {expanderat ? <ChevronUp size={14} color="var(--c-text3)" /> : <ChevronDown size={14} color="var(--c-text3)" />}
+      </button>
+
+      {expanderat && (
+        <div style={{ padding:'0 16px 16px', borderTop:'1px solid var(--c-border)' }}>
+          {a.beskrivning && (
+            <div style={{ marginTop:12 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'var(--c-text3)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em' }}>Beskrivning</div>
+              <div style={{ fontSize:13, color:'var(--c-text2)', lineHeight:1.6 }}>{a.beskrivning}</div>
+            </div>
+          )}
+          {a.atgard && (
+            <div style={{ marginTop:12, padding:'10px 12px', background:'var(--c-teal-bg)', borderRadius:8, border:'1px solid var(--c-teal)' }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'var(--c-teal-text)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em' }}>Åtgärd</div>
+              <div style={{ fontSize:13, color:'var(--c-teal-text)', lineHeight:1.6 }}>{a.atgard}</div>
+            </div>
+          )}
+          {a.tekniker && (
+            <div style={{ marginTop:10, fontSize:12, color:'var(--c-text3)' }}>
+              👤 Ansvarig: <strong style={{ color:'var(--c-text2)' }}>{a.tekniker}</strong>
+            </div>
+          )}
+          {a.besok && (
+            <div style={{ marginTop:6, fontSize:12, color:'var(--c-text3)' }}>
+              📅 Besök: <strong style={{ color:'var(--c-text2)' }}>{a.besok}</strong>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── PortRad ────────────────────────────────────────────────────────────────────
 function PortRad({ port, sista }) {
-  const statusFärg = {
-    ok:         'var(--c-teal)',
-    varning:    '#f59e0b',
-    försenad:   'var(--c-red)',
-    okänd:      'var(--c-text3)',
-  }
+  const statusFärg = { ok:'var(--c-teal)', varning:'#f59e0b', försenad:'var(--c-red)', okänd:'var(--c-text3)' }
   const färg = statusFärg[port.status] || statusFärg.okänd
   return (
-    <div style={{
-      padding: '11px 20px',
-      borderBottom: sista ? 'none' : '1px solid var(--c-border)',
-      display: 'flex', alignItems: 'center', gap: 10,
-    }}>
-      <div style={{ width: 7, height: 7, borderRadius: '50%', background: färg, flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--c-text)' }}>{port.namn}</div>
-        <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>{port.typ} {port.fabrikat ? `· ${port.fabrikat}` : ''}</div>
+    <div style={{ padding:'10px 18px', borderBottom:sista?'none':'1px solid var(--c-border)', display:'flex', alignItems:'center', gap:10 }}>
+      <div style={{ width:7, height:7, borderRadius:'50%', background:färg, flexShrink:0 }} />
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:13, fontWeight:500 }}>{port.namn}</div>
+        <div style={{ fontSize:11, color:'var(--c-text3)' }}>{port.typ}{port.fabrikat?` · ${port.fabrikat}`:''}</div>
       </div>
       {port.nasta && (
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontSize: 10, color: 'var(--c-text3)' }}>Nästa service</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-text2)' }}>{port.nasta}</div>
+        <div style={{ textAlign:'right', flexShrink:0 }}>
+          <div style={{ fontSize:10, color:'var(--c-text3)' }}>Nästa service</div>
+          <div style={{ fontSize:12, fontWeight:600, color:'var(--c-text2)' }}>{port.nasta}</div>
         </div>
       )}
     </div>
