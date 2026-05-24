@@ -374,7 +374,74 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
   )
 }
 
-// ── Huvudkomponent ─────────────────────────────────────
+// ── Frånvaro-formulär ──────────────────────────────────
+function FranvaroForm({ tekniker, onSpara, onAvbryt }) {
+  const [tekArr, setTekArr] = useState([])
+  const [subtyp, setSubtyp] = useState('Semester')
+  const [fran,   setFran]   = useState(new Date().toISOString().slice(0,10))
+  const [till,   setTill]   = useState(new Date().toISOString().slice(0,10))
+  const [nott,   setNott]   = useState('')
+  const [sparar, setSparar] = useState(false)
+  const SUBTYPER = ['Semester', 'Sjukdom', 'VAB', 'Föräldraledighet', 'Möte', 'Övrigt']
+  const inp = { width:'100%', padding:'6px 10px', fontSize:12, border:'1px solid var(--c-border2)', borderRadius:6, background:'var(--c-bg)', color:'var(--c-text)' }
+  const lbl = { fontSize:11, color:'var(--c-text2)', marginBottom:3, display:'block' }
+  const submit = async () => {
+    if (!tekArr.length || !fran || !till) return
+    setSparar(true)
+    const cur = new Date(fran + 'T12:00:00'), end = new Date(till + 'T12:00:00')
+    while (cur <= end) {
+      const d = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`
+      await onSpara(d, { tid:'', typ:'franvaro', namn:subtyp, kund:nott, tek:tekArr })
+      cur.setDate(cur.getDate() + 1)
+    }
+    setSparar(false); onAvbryt()
+  }
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}
+      onClick={onAvbryt}>
+      <div className="card" style={{ width:420, padding:20, maxHeight:'90vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+          <div style={{ fontWeight:600, fontSize:14 }}>🚫 Planerad frånvaro</div>
+          <button className="btn" onClick={onAvbryt} style={{ padding:'3px 7px' }}><X size={13}/></button>
+        </div>
+        <div style={{ marginBottom:10 }}>
+          <label style={lbl}>Typ av frånvaro</label>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {SUBTYPER.map(s => (
+              <button key={s} type="button" onClick={() => setSubtyp(s)}
+                style={{ padding:'4px 12px', fontSize:12, borderRadius:20, cursor:'pointer', fontWeight:subtyp===s?600:400,
+                  border:`1.5px solid ${subtyp===s?'#6b7280':'var(--c-border)'}`,
+                  background:subtyp===s?'#f3f4f6':'transparent', color:subtyp===s?'#374151':'var(--c-text2)' }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 12px' }}>
+          <div style={{ marginBottom:10 }}><label style={lbl}>Fr.o.m.</label><input type="date" value={fran} onChange={e=>setFran(e.target.value)} style={inp}/></div>
+          <div style={{ marginBottom:10 }}><label style={lbl}>T.o.m.</label><input type="date" value={till} onChange={e=>setTill(e.target.value)} style={inp}/></div>
+        </div>
+        <div style={{ marginBottom:10 }}>
+          <label style={lbl}>Medarbetare *</label>
+          <TeknikerVäljare tekniker={tekniker} value={tekArr} onChange={setTekArr}/>
+        </div>
+        <div style={{ marginBottom:12 }}>
+          <label style={lbl}>Notering (valfritt)</label>
+          <input type="text" value={nott} onChange={e=>setNott(e.target.value)} placeholder="t.ex. sommarsemester" style={inp}/>
+        </div>
+        {!tekArr.length && <div style={{ fontSize:11, color:'var(--c-red)', marginBottom:8 }}>Välj minst en medarbetare.</div>}
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="btn btn-primary" onClick={submit} disabled={sparar||!tekArr.length||!fran||!till} style={{ fontSize:12 }}>
+            <Plus size={13}/> {sparar?'Sparar…':'Lägg till'}
+          </button>
+          <button className="btn" onClick={onAvbryt} style={{ fontSize:12 }}>Avbryt</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Huvudkomponent ──────────────────────────────────────
 export default function Kalender({
   arenden = [], tekniker = [], bokningar = {}, kunder = [], objekt = [],
   serviceorder = [], montageorder = [],
@@ -388,11 +455,14 @@ export default function Kalender({
   const [visaObokade,  setVisaObokade]  = useState(true)
   const [filtTekniker, setFiltTekniker] = useState('')
   const [visaDetalj,   setVisaDetalj]   = useState(null)
+  const [visaHelg,     setVisaHelg]     = useState(() => JSON.parse(localStorage.getItem('ps_visa_helg') ?? 'false'))
+  const [formFranvaro, setFormFranvaro] = useState(false)
+  const toggleHelg = () => setVisaHelg(v => { const n = !v; localStorage.setItem('ps_visa_helg', n); return n })
 
   const måndag  = getMåndag(veckoOffset)
   const veckonr = getVeckonummer(måndag)
 
-  const dagar = Array.from({ length: 7 }, (_, i) => {
+  const dagar = Array.from({ length: visaHelg ? 7 : 5 }, (_, i) => {
     const d = new Date(måndag)
     d.setDate(måndag.getDate() + i)
     // Lokal tid – toISOString() ger UTC-datum som kan vara en dag fel i t.ex. Sverige
@@ -480,10 +550,24 @@ export default function Kalender({
           <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Kalender</h1>
           <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Vecka {veckonr} · {friStart}–{friSlut}</p>
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn" onClick={() => setVeckoOffset(v => v - 1)} style={{ padding: '6px 10px' }}><ChevronLeft size={15} /></button>
           {veckoOffset !== 0 && <button className="btn" onClick={() => setVeckoOffset(0)} style={{ fontSize: 12 }}>Idag</button>}
           <button className="btn" onClick={() => setVeckoOffset(v => v + 1)} style={{ padding: '6px 10px' }}><ChevronRight size={15} /></button>
+          <button onClick={toggleHelg}
+            style={{ fontSize: 11, padding: '5px 11px', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+              border: `1.5px solid ${visaHelg ? 'var(--c-blue)' : 'var(--c-border)'}`,
+              background: visaHelg ? 'var(--c-blue-bg)' : 'transparent',
+              color: visaHelg ? 'var(--c-navy)' : 'var(--c-text2)' }}>
+            Lör–Sön
+          </button>
+          {onLaggTillBokning && (
+            <button onClick={() => setFormFranvaro(true)}
+              style={{ fontSize: 11, padding: '5px 11px', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+                border: '1.5px solid #6b7280', background: 'transparent', color: '#6b7280' }}>
+              🚫 Frånvaro
+            </button>
+          )}
         </div>
       </div>
 
@@ -539,16 +623,32 @@ export default function Kalender({
         {/* Dagheader */}
         <div style={{ display: 'flex', borderBottom: '2px solid var(--c-border)' }}>
           <div style={{ width: 52, flexShrink: 0, borderRight: '1px solid var(--c-border)' }} />
-          {dagar.map(dag => (
-            <div key={dag.nyckel} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: '1px solid var(--c-border)' }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{dag.namn}</div>
-              <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 4 }}>{formatDatum(dag.datum)}</div>
-              <button onClick={() => setFormDag(dag.namn)} className="btn"
-                style={{ fontSize: 10, padding: '2px 8px', display: 'inline-flex', gap: 3 }}>
-                <Plus size={10} /> Lägg till
-              </button>
-            </div>
-          ))}
+          {dagar.map(dag => {
+            const franvaro = (bokningar[dag.nyckel] || []).map((b,i) => ({...b,_idx:i})).filter(b => b.typ === 'franvaro')
+            return (
+              <div key={dag.nyckel} style={{ flex: 1, padding: '8px 4px', textAlign: 'center', borderLeft: '1px solid var(--c-border)' }}>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{dag.namn}</div>
+                <div style={{ fontSize: 11, color: 'var(--c-text3)', marginBottom: 4 }}>{formatDatum(dag.datum)}</div>
+                <button onClick={() => setFormDag(dag.namn)} className="btn"
+                  style={{ fontSize: 10, padding: '2px 8px', display: 'inline-flex', gap: 3 }}>
+                  <Plus size={10} /> Lägg till
+                </button>
+                {franvaro.map(f => (
+                  <div key={f._idx} style={{ marginTop: 4, padding: '2px 6px', background: '#f3f4f6', border: '1px solid #e5e7eb',
+                    borderRadius: 6, fontSize: 9, fontWeight: 600, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span>🚫</span>
+                    <span style={{ flex:1, textAlign:'left', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {f.namn} · {Array.isArray(f.tek) ? f.tek.join(', ') : f.tek}
+                    </span>
+                    <button onClick={() => onTaBortBokning(dag.nyckel, f._idx)}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:1, lineHeight:1, display:'flex', flexShrink:0 }}>
+                      <X size={9}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
         </div>
 
         {/* Tidsaxel + kolumner */}
@@ -566,7 +666,7 @@ export default function Kalender({
           </div>
 
           {dagar.map(dag => {
-            const items = [...(bokningar[dag.nyckel] || []), ...(virtualDag[dag.nyckel] || [])]
+            const items = [...(bokningar[dag.nyckel] || []).filter(b => b.typ !== 'franvaro'), ...(virtualDag[dag.nyckel] || [])]
             const lagd  = layoutBokningar(items, filtTekniker)
             return (
               <div key={dag.nyckel} style={{ flex: 1, position: 'relative', borderLeft: '1px solid var(--c-border)' }}>
@@ -642,6 +742,14 @@ export default function Kalender({
 
       {bokArende && (
         <BokArendeDialog arende={bokArende} dagar={dagar} tekniker={tekniker} onSpara={bokaNed} onAvbryt={() => setBokArende(null)} />
+      )}
+
+      {formFranvaro && (
+        <FranvaroForm
+          tekniker={tekniker}
+          onSpara={(datum, b) => onLaggTillBokning(datum, b)}
+          onAvbryt={() => setFormFranvaro(false)}
+        />
       )}
 
       {visaDetalj && (

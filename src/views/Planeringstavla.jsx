@@ -296,6 +296,79 @@ function BokArendeDialog({ arende, dagar, tekniker, onSpara, onAvbryt }) {
   )
 }
 
+function FranvaroForm({ tekniker, dagar, onSpara, onAvbryt }) {
+  const [tekArr, setTekArr] = useState([])
+  const [subtyp, setSubtyp] = useState('Semester')
+  const [fran,   setFran]   = useState(dagar[0]?.nyckel || '')
+  const [till,   setTill]   = useState(dagar[dagar.length - 1]?.nyckel || '')
+  const [nott,   setNott]   = useState('')
+  const [sparar, setSparar] = useState(false)
+  const SUBTYPER = ['Semester', 'Sjukdom', 'VAB', 'Föräldraledighet', 'Möte', 'Övrigt']
+  const inp = { width:'100%', padding:'6px 10px', fontSize:12, border:'1px solid var(--c-border2)', borderRadius:6, background:'var(--c-bg)', color:'var(--c-text)' }
+  const lbl = { fontSize:11, color:'var(--c-text2)', marginBottom:3, display:'block' }
+  const submit = async () => {
+    if (!tekArr.length || !fran || !till) return
+    setSparar(true)
+    const cur = new Date(fran + 'T12:00:00'), end = new Date(till + 'T12:00:00')
+    while (cur <= end) {
+      const d = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`
+      await onSpara(d, { tid:'', typ:'franvaro', namn:subtyp, kund:nott, tek:tekArr })
+      cur.setDate(cur.getDate() + 1)
+    }
+    setSparar(false); onAvbryt()
+  }
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}
+      onClick={onAvbryt}>
+      <div className="card" style={{ width:420, padding:20, maxHeight:'90vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+          <div style={{ fontWeight:600, fontSize:14 }}>🚫 Planerad frånvaro</div>
+          <button className="btn" onClick={onAvbryt} style={{ padding:'3px 7px' }}><X size={13}/></button>
+        </div>
+        <div style={{ marginBottom:10 }}>
+          <label style={lbl}>Typ av frånvaro</label>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {SUBTYPER.map(s => (
+              <button key={s} type="button" onClick={() => setSubtyp(s)}
+                style={{ padding:'4px 12px', fontSize:12, borderRadius:20, cursor:'pointer', fontWeight:subtyp===s?600:400,
+                  border:`1.5px solid ${subtyp===s?'#6b7280':'var(--c-border)'}`,
+                  background:subtyp===s?'#f3f4f6':'transparent',
+                  color:subtyp===s?'#374151':'var(--c-text2)' }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 12px' }}>
+          <div style={{ marginBottom:10 }}>
+            <label style={lbl}>Fr.o.m.</label>
+            <input type="date" value={fran} onChange={e => setFran(e.target.value)} style={inp}/>
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <label style={lbl}>T.o.m.</label>
+            <input type="date" value={till} onChange={e => setTill(e.target.value)} style={inp}/>
+          </div>
+        </div>
+        <div style={{ marginBottom:10 }}>
+          <label style={lbl}>Medarbetare *</label>
+          <TeknikerVäljare tekniker={tekniker} value={tekArr} onChange={setTekArr}/>
+        </div>
+        <div style={{ marginBottom:12 }}>
+          <label style={lbl}>Notering (valfritt)</label>
+          <input type="text" value={nott} onChange={e => setNott(e.target.value)} placeholder="t.ex. sommarsemester" style={inp}/>
+        </div>
+        {!tekArr.length && <div style={{ fontSize:11, color:'var(--c-red)', marginBottom:8 }}>Välj minst en medarbetare.</div>}
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="btn btn-primary" onClick={submit} disabled={sparar||!tekArr.length||!fran||!till} style={{ fontSize:12 }}>
+            <Plus size={13}/> {sparar?'Sparar…':'Lägg till'}
+          </button>
+          <button className="btn" onClick={onAvbryt} style={{ fontSize:12 }}>Avbryt</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EventKort({ ev, tekFärger, onClick }) {
   const s = TYPE_CFG[ev.type]
   const tekFärg = ev.tekniker ? (tekFärger[ev.tekniker] || '#888') : null
@@ -335,28 +408,31 @@ export default function Planeringstavla({
   onNyKund, onNavigeraObjekt,
 }) {
   const [veckosta,     setVeckosta]     = useState(() => getMonday(new Date()))
-  const [dagVy,        setDagVy]        = useState(null)   // null = vecka, 'YYYY-MM-DD' = dagvy
+  const [dagVy,        setDagVy]        = useState(null)
   const [typFilter,    setTypFilter]    = useState({ montage: true, service: true, arende: true, akut: true, kalender: true, serviceorder: true })
   const [tekFilter,    setTekFilter]    = useState('alla')
-  const [filtTekniker, setFiltTekniker] = useState('')     // dagvy-filter
+  const [filtTekniker, setFiltTekniker] = useState('')
   const [formDag,      setFormDag]      = useState(null)
   const [redigerar,    setRedigerar]    = useState(null)
   const [bokArende,    setBokArende]    = useState(null)
   const [visaDetalj,   setVisaDetalj]   = useState(null)
   const [visaObokade,  setVisaObokade]  = useState(true)
   const [visaKommandeSO, setVisaKommandeSO] = useState(true)
+  const [visaHelg,     setVisaHelg]     = useState(() => JSON.parse(localStorage.getItem('ps_visa_helg') ?? 'false'))
+  const [formFranvaro, setFormFranvaro] = useState(false)
+  const toggleHelg = () => setVisaHelg(v => { const n = !v; localStorage.setItem('ps_visa_helg', n); return n })
 
   const idag = toYMD(new Date())
 
-  // Veckodagar mån–sön
-  const dagar = Array.from({ length: 7 }, (_, i) => {
+  // Veckodagar mån–sön (eller mån–fre beroende på inställning)
+  const antalDagar = visaHelg ? 7 : 5
+  const dagar = Array.from({ length: antalDagar }, (_, i) => {
     const d = new Date(veckosta)
     d.setDate(d.getDate() + i)
     return { namn: DAGNAMN_KORT[i], lång: DAGNAMN_LÅNG[i], datum: d, nyckel: toYMD(d) }
   })
 
   const veckaNr = getWeekNum(veckosta)
-  const slutdag = new Date(veckosta); slutdag.setDate(slutdag.getDate() + 4)
 
   const prevVecka = () => { setVeckosta(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n }); setDagVy(null) }
   const nextVecka = () => { setVeckosta(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n }); setDagVy(null) }
@@ -395,6 +471,7 @@ export default function Planeringstavla({
         typLabel: a.feltyp || null, tekniker: a.tekniker || null, raw: a })
     })
     ;(bokningar[ymd] || []).forEach((b, idx) => {
+      if (b.typ === 'franvaro') return   // visas som heldagsbanner, inte som event
       const typ = b.typ === 'service' ? 'service' : b.typ === 'arende' ? 'arende' : 'kalender'
       if (!typFilter[typ]) return
       evs.push({ type: typ, id: `b_${ymd}_${idx}`, title: b.namn, sub: b.kund || null,
@@ -417,8 +494,9 @@ export default function Planeringstavla({
   const alleEvents = dagar.flatMap(d => eventsForDay(d.datum))
   const räkna = type => alleEvents.filter(e => e.type === type).length
 
+  const sistaDag = dagar[dagar.length - 1].datum
   const startStr = `${dagar[0].datum.getDate()} ${månNamn(dagar[0].datum).slice(0, 3)}`
-  const slutStr  = `${slutdag.getDate()} ${månNamn(slutdag).slice(0, 3)} ${slutdag.getFullYear()}`
+  const slutStr  = `${sistaDag.getDate()} ${månNamn(sistaDag).slice(0, 3)} ${sistaDag.getFullYear()}`
 
   // Aktiv dag i dagvy
   const activeDag = dagVy ? dagar.find(d => d.nyckel === dagVy) : null
@@ -502,6 +580,21 @@ export default function Planeringstavla({
             Idag
           </button>
         )}
+        <button onClick={toggleHelg}
+          style={{ fontSize: 11, padding: '5px 11px', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+            border: `1.5px solid ${visaHelg ? 'var(--c-blue)' : 'var(--c-border)'}`,
+            background: visaHelg ? 'var(--c-blue-bg)' : 'transparent',
+            color: visaHelg ? 'var(--c-navy)' : 'var(--c-text2)' }}>
+          Lör–Sön
+        </button>
+        {onLaggTillBokning && (
+          <button onClick={() => setFormFranvaro(true)}
+            style={{ fontSize: 11, padding: '5px 11px', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+              border: '1.5px solid #6b7280', background: 'transparent', color: '#6b7280',
+              display: 'flex', alignItems: 'center', gap: 4 }}>
+            🚫 Frånvaro
+          </button>
+        )}
         {/* Dagväljare (visas bara i dagvy) */}
         {dagVy && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -573,7 +666,7 @@ export default function Planeringstavla({
           )}
 
           {/* Veckogrid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 9 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${antalDagar}, 1fr)`, gap: 9 }}>
             {dagar.map((dag, idx) => {
               const erIdag = dag.nyckel === idag
               const evs    = eventsForDay(dag.datum)
@@ -618,6 +711,22 @@ export default function Planeringstavla({
                       )}
                     </div>
                   </div>
+
+                  {/* Frånvaro-banners */}
+                  {(bokningar[dag.nyckel] || []).map((b, idx) => b.typ !== 'franvaro' ? null : (
+                    <div key={idx} style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px',
+                      background:'#f3f4f6', borderBottom:'1px solid #e5e7eb', fontSize:10, fontWeight:600, color:'#4b5563' }}>
+                      <span>🚫</span>
+                      <span style={{ flex:1 }}>{b.namn}{b.kund ? ` · ${b.kund}` : ''}</span>
+                      <span style={{ color:'#6b7280' }}>{Array.isArray(b.tek) ? b.tek.join(', ') : b.tek}</span>
+                      {onTaBortBokning && (
+                        <button onClick={e => { e.stopPropagation(); onTaBortBokning(dag.nyckel, idx) }}
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:2, lineHeight:1, display:'flex' }}>
+                          <X size={10}/>
+                        </button>
+                      )}
+                    </div>
+                  ))}
 
                   {/* Events */}
                   <div style={{ padding: 7 }}>
@@ -933,6 +1042,15 @@ export default function Planeringstavla({
           tekniker={tekniker}
           onSpara={bokaNed}
           onAvbryt={() => setBokArende(null)}
+        />
+      )}
+
+      {formFranvaro && (
+        <FranvaroForm
+          tekniker={tekniker}
+          dagar={dagar}
+          onSpara={(datum, b) => onLaggTillBokning?.(datum, b)}
+          onAvbryt={() => setFormFranvaro(false)}
         />
       )}
 
