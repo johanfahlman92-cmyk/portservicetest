@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle, Check, Wrench, Minus, Save } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import { statusConfig, protokollTyper, protokollPunkter, RISKPUNKTER } from '../data/store.js'
@@ -383,6 +384,7 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
 // ── Snabb-bokningsmodal ───────────────────────────────────────────────────────
 function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraArende, onStäng }) {
   const idag = new Date().toISOString().slice(0, 10)
+  const datoPlus = (n) => { const d = new Date(idag); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const [datum,          setDatum]          = useState(obj.nasta && obj.nasta >= idag ? obj.nasta : idag)
   const [tid,            setTid]            = useState('08:00')
   const [tek,            setTek]            = useState(tekniker[0] || '')
@@ -436,11 +438,11 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
     setKlar(true)
   }
 
-  const inp = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border2)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }
+  const inp = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border2)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box', outline: 'none' }
   const lbl = { fontSize: 11, color: 'var(--c-text2)', marginBottom: 3, display: 'block' }
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
       <div className="card" style={{ width: '100%', maxWidth: 400, padding: 22 }}>
 
         {klar ? (
@@ -491,14 +493,38 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px', marginBottom: 12 }}>
-              <div>
-                <label style={lbl}>Besöksdatum</label>
-                <input type="date" value={datum} onChange={e => setDatum(e.target.value)} style={inp} />
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+                <div>
+                  <label style={lbl}>Besöksdatum</label>
+                  <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
+                    style={{ ...inp, colorScheme: 'light' }} />
+                </div>
+                <div>
+                  <label style={lbl}>Tid</label>
+                  <input type="time" value={tid} onChange={e => setTid(e.target.value)}
+                    style={{ ...inp, colorScheme: 'light' }} />
+                </div>
               </div>
-              <div>
-                <label style={lbl}>Tid</label>
-                <input type="time" value={tid} onChange={e => setTid(e.target.value)} style={inp} />
+              {/* Snabb-datum-knappar */}
+              <div style={{ display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Idag',       val: idag           },
+                  { label: '+7 dagar',   val: datoPlus(7)    },
+                  { label: '+14 dagar',  val: datoPlus(14)   },
+                  { label: '+30 dagar',  val: datoPlus(30)   },
+                  ...(obj.nasta && obj.nasta > idag ? [{ label: 'Nästa service', val: obj.nasta }] : []),
+                ].map(({ label, val }) => (
+                  <button key={label} type="button" onClick={() => setDatum(val)} style={{
+                    padding: '2px 8px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+                    border: `1px solid ${datum === val ? 'var(--c-navy)' : 'var(--c-border2)'}`,
+                    background: datum === val ? 'var(--c-navy)' : 'transparent',
+                    color: datum === val ? '#fff' : 'var(--c-text2)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -539,7 +565,8 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
