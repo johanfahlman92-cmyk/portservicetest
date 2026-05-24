@@ -63,13 +63,17 @@ function SignaturPad({ onChange }) {
 
 // ── ArendeKort ────────────────────────────────────────────────────────────────
 function ArendeKort({ a, namn, onUppdatera }) {
-  const [utv,     setUtv]     = useState(false)
-  const [notering,setNotering]= useState(a.notering || '')
-  const [sparar,  setSparar]  = useState(false)
-  const [klarad,  setKlarad]  = useState(false)
-  const [tagen,   setTagen]   = useState(false)
+  const [utv,      setUtv]      = useState(false)
+  const [notering, setNotering] = useState(a.notering || '')
+  const [sparar,   setSparar]   = useState(false)
+  const [klarad,   setKlarad]   = useState(false)
+  const [tagen,    setTagen]    = useState(false)
+  const [visaRisk, setVisaRisk] = useState(false)
+  const [risk,     setRisk]     = useState({})
+  const [riskN,    setRiskN]    = useState({})
 
-  const otilldelad = !a.tekniker
+  const otilldelad  = !a.tekniker
+  const riskGjord   = Object.keys(risk).length > 0
 
   if (klarad) return (
     <div className="card" style={{display:'flex',alignItems:'center',gap:12,background:'var(--c-teal-bg)',border:'1px solid var(--c-teal)'}}>
@@ -93,6 +97,7 @@ function ArendeKort({ a, namn, onUppdatera }) {
             <span className={`badge ${prio.badge}`}>{prio.label}</span>
             {otilldelad && <span style={{fontSize:11,background:'#f0eeeb',color:'#666',padding:'2px 7px',borderRadius:10}}>Otilldelad</span>}
             {a.tekniker && a.tekniker !== namn && <span style={{fontSize:11,background:'var(--c-bg)',color:'var(--c-text2)',padding:'2px 7px',borderRadius:10}}>👤 {a.tekniker}</span>}
+            {riskGjord && <span style={{fontSize:11,background:'#f0fdf4',color:'#166534',padding:'2px 7px',borderRadius:10,border:'1px solid #bbf7d0'}}>🛡️ Risk</span>}
           </div>
           <div style={{fontSize:15,fontWeight:600}}>{a.kund}</div>
           <div style={{fontSize:13,color:'var(--c-text2)'}}>{a.namn||a.feltyp||'Felanmälan'}</div>
@@ -108,22 +113,62 @@ function ArendeKort({ a, namn, onUppdatera }) {
             <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={2} placeholder="Beskriv utförd åtgärd…"
               style={{...INP,resize:'vertical',marginBottom:10}}/>
           </>}
-          <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
-            {/* Ta på mig */}
+
+          {/* Valfri riskbedömning */}
+          {!otilldelad && (
+            <div style={{marginBottom:8}}>
+              <button onClick={()=>setVisaRisk(v=>!v)}
+                style={{width:'100%',padding:'10px 14px',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',
+                  border:`1.5px solid ${riskGjord?'#16a34a':'var(--c-border)'}`,
+                  background:riskGjord?'#f0fdf4':'transparent',
+                  color:riskGjord?'#166534':'var(--c-text2)',
+                  display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span>🛡️ Riskbedömning {riskGjord?'(klar)':'(valfritt)'}</span>
+                <span>{visaRisk?'▲':'▼'}</span>
+              </button>
+              {visaRisk&&(
+                <div style={{marginTop:8}}>
+                  {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(
+                    <div key={i} className="card" style={{marginBottom:6,padding:'10px 12px'}}>
+                      <div style={{fontSize:12,marginBottom:8,lineHeight:1.4,color:'var(--c-text)'}}><span style={{color:'var(--c-text3)',marginRight:5}}>{i+1}.</span>{p}</div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:5}}>
+                        {RISK_STATUS.map(({id,label,bg,txt,border})=>(
+                          <button key={id} onClick={()=>setRisk(prev=>({...prev,[i]:s===id?undefined:id}))}
+                            style={{padding:'9px 4px',borderRadius:7,fontSize:10,fontWeight:600,cursor:'pointer',
+                              border:`2px solid ${s===id?border:'var(--c-border)'}`,
+                              background:s===id?bg:'transparent',color:s===id?txt:'var(--c-text3)'}}>{label}</button>
+                        ))}
+                      </div>
+                      {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:6,width:'100%',padding:'7px 10px',fontSize:12,border:'1px solid var(--c-border)',borderRadius:7,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
+                    </div>
+                  )})}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
             {otilldelad && (
               <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{tekniker:namn});setTagen(true);setSparar(false)}}
                 style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
                 ✋ Ta på mig
               </button>
             )}
-            {!otilldelad && a.status==='ny'&&(
+            {!otilldelad && a.status==='ny' && (
               <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'pagAr'});setSparar(false)}}
                 style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
                 <Play size={16} fill="#fff"/> Starta arbete
               </button>
             )}
-            {!otilldelad && (a.status==='ny'||a.status==='pagAr')&&(
-              <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'atgardad',notering});setKlarad(true);setSparar(false)}}
+            {/* Ångra start */}
+            {!otilldelad && a.status==='pagAr' && (
+              <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'ny'});setSparar(false)}}
+                style={{width:'100%',padding:10,borderRadius:10,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                ↩ Ångra start
+              </button>
+            )}
+            {!otilldelad && (a.status==='ny'||a.status==='pagAr') && (
+              <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'atgardad',notering,...(riskGjord?{riskKontroll:risk,riskNoteringar:riskN}:{})});setKlarad(true);setSparar(false)}}
                 style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
                 <CheckCircle size={16}/> Markera klar
               </button>
@@ -346,8 +391,8 @@ function NyPortForm({ kunder, fastigheter, onSpara, onAvbryt }) {
 }
 
 // ── Serviceprotokoll-formulär ─────────────────────────────────────────────────
-// ServiceProtokollFormular: 3 steg – Riskbedömning → Protokoll → Signatur
-function ServiceProtokollFormular({ port, namn, onSlutfor, onBack }) {
+// ServiceProtokollFormular: 2 eller 3 steg beroende på inkluderaRisk
+function ServiceProtokollFormular({ port, namn, inkluderaRisk=true, onSlutfor, onBack }) {
   const punkter = protokollPunkter[port?.typ] || []
   const [steg,    setSteg]  = useState(1)
   const [risk,    setRisk]  = useState({}); const [riskN,setRiskN]=useState({})
@@ -358,9 +403,15 @@ function ServiceProtokollFormular({ port, namn, onSlutfor, onBack }) {
   const g=Object.values(statuses).filter(s=>s==='G').length,j=Object.values(statuses).filter(s=>s==='J').length,a=Object.values(statuses).filter(s=>s==='A').length
   const ifyllda=g+j+a,total=punkter.filter(p=>!String(p).startsWith('## ')).length,pct=total>0?Math.round(ifyllda/total*100):0
   const godkannAlla=()=>{ const n={}; punkter.forEach((p,i)=>{if(!String(p).startsWith('## '))n[i]='G'}); setSt(n) }
-  const slutfor=async()=>{ setSparar(true); await onSlutfor({datum:idag(),tekniker:namn,statuses,noteringar:noter,signatur:sig,g,j,a,portTyp:port?.typ,portNamn:port?.namn,kund:port?.kund,riskKontroll:risk,riskNoteringar:riskN}); setSparar(false) }
-  const STEG_LBL=['','Riskbedömning','Serviceprotokoll','Signatur']
-  const STEG_SUB=['','Före arbete','Under/efter service','Avsluta']
+  const slutfor=async()=>{ setSparar(true); await onSlutfor({datum:idag(),tekniker:namn,statuses,noteringar:noter,signatur:sig,g,j,a,portTyp:port?.typ,portNamn:port?.namn,kund:port?.kund,...(inkluderaRisk?{riskKontroll:risk,riskNoteringar:riskN}:{})}); setSparar(false) }
+  const totalSteg = inkluderaRisk ? 3 : 2
+  // inkluderaRisk=true : steg 1=Risk, 2=Protokoll, 3=Signatur
+  // inkluderaRisk=false: steg 1=Protokoll, 2=Signatur
+  const STEG_LBL = inkluderaRisk ? ['','Riskbedömning','Serviceprotokoll','Signatur'] : ['','Serviceprotokoll','Signatur']
+  const STEG_SUB = inkluderaRisk ? ['','Före arbete','Under/efter service','Avsluta']  : ['','Under/efter service','Avsluta']
+  const visaRisk      = inkluderaRisk && steg===1
+  const visaProtokoll = inkluderaRisk ? steg===2 : steg===1
+  const visaSignatur  = inkluderaRisk ? steg===3 : steg===2
   let nr=0
   return (
     <div>
@@ -368,13 +419,13 @@ function ServiceProtokollFormular({ port, namn, onSlutfor, onBack }) {
         <button className="btn" onClick={steg===1?onBack:()=>setSteg(s=>s-1)} style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:5}}><ChevronLeft size={16}/>{steg===1?'Avbryt':'Tillbaka'}</button>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:600}}>{STEG_LBL[steg]}</div>
-          <div style={{fontSize:12,color:'var(--c-text2)'}}>Steg {steg}/3 · {STEG_SUB[steg]}</div>
+          <div style={{fontSize:12,color:'var(--c-text2)'}}>Steg {steg}/{totalSteg} · {STEG_SUB[steg]}</div>
         </div>
       </div>
-      <div style={{display:'flex',gap:4,marginBottom:16}}>{[1,2,3].map(s=><div key={s} style={{flex:1,height:5,borderRadius:3,background:s<=steg?'var(--c-blue)':'var(--c-border)',transition:'background 0.2s'}}/>)}</div>
+      <div style={{display:'flex',gap:4,marginBottom:16}}>{Array.from({length:totalSteg},(_,i)=><div key={i} style={{flex:1,height:5,borderRadius:3,background:(i+1)<=steg?'var(--c-blue)':'var(--c-border)',transition:'background 0.2s'}}/>)}</div>
 
-      {/* Steg 1: Riskbedömning */}
-      {steg===1&&(<div>
+      {/* Steg 1: Riskbedömning (valfritt) */}
+      {visaRisk&&(<div>
         <div style={{background:'var(--c-amber-bg,#fffbeb)',border:'1px solid var(--c-amber)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',gap:8,alignItems:'center'}}>
           <span style={{fontSize:16}}>⚠️</span>
           <span style={{fontSize:13,color:'var(--c-amber-text,#92400e)',fontWeight:500}}>Utför riskbedömningen innan arbetet påbörjas</span>
@@ -388,11 +439,11 @@ function ServiceProtokollFormular({ port, namn, onSlutfor, onBack }) {
           </div>
           {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
         </div>)})}
-        <button onClick={()=>setSteg(2)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Serviceprotokoll →</button>
+        <button onClick={()=>setSteg(s=>s+1)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Serviceprotokoll →</button>
       </div>)}
 
-      {/* Steg 2: Protokollpunkter */}
-      {steg===2&&(<div>
+      {/* Protokollpunkter */}
+      {visaProtokoll&&(<div>
         <div style={{background:'var(--c-blue-bg,#eff6ff)',border:'1px solid var(--c-blue)',borderRadius:10,padding:'10px 14px',marginBottom:12,display:'flex',gap:8,alignItems:'center'}}>
           <span style={{fontSize:16}}>📋</span>
           <span style={{fontSize:13,color:'var(--c-blue)',fontWeight:500}}>{port?.namn} · {port?.typ}</span>
@@ -421,11 +472,11 @@ function ServiceProtokollFormular({ port, namn, onSlutfor, onBack }) {
             {(s==='J'||s==='A')&&<input type="text" placeholder="Notering…" value={noter[i]||''} onChange={e=>setNot(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
           </div>)
         })}
-        <button onClick={()=>setSteg(3)} disabled={ifyllda===0} style={{width:'100%',padding:16,borderRadius:12,background:ifyllda===0?'var(--c-border)':'var(--c-blue)',color:ifyllda===0?'var(--c-text3)':'#fff',border:'none',fontSize:15,fontWeight:700,cursor:ifyllda===0?'not-allowed':'pointer',marginBottom:80}}>Nästa: Signatur →</button>
+        <button onClick={()=>setSteg(s=>s+1)} disabled={ifyllda===0} style={{width:'100%',padding:16,borderRadius:12,background:ifyllda===0?'var(--c-border)':'var(--c-blue)',color:ifyllda===0?'var(--c-text3)':'#fff',border:'none',fontSize:15,fontWeight:700,cursor:ifyllda===0?'not-allowed':'pointer',marginBottom:80}}>Nästa: Signatur →</button>
       </div>)}
 
-      {/* Steg 3: Signatur */}
-      {steg===3&&(<div>
+      {/* Signatur */}
+      {visaSignatur&&(<div>
         <div className="card" style={{marginBottom:80}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Signatur tekniker</div>
           <SignaturPad onChange={setSig}/>
@@ -441,6 +492,7 @@ function ServiceProtokollFormular({ port, namn, onSlutfor, onBack }) {
 // ── ServiceorderDetalj ────────────────────────────────────────────────────────
 function ServiceorderDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onBack }) {
   const [vy,setVy]=useState('info')
+  const [inkluderaRisk,setInkluderaRisk]=useState(false)
   const port=(order.objekt_ids||[]).map(id=>objekt.find(o=>o.id===id)).filter(Boolean)[0]||null
   const hanteraSlutfort=async(prot)=>{
     const now=idag()
@@ -452,7 +504,7 @@ function ServiceorderDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjek
     }
     setVy('klar')
   }
-  if(vy==='protokoll')return(<ServiceProtokollFormular port={port} namn={namn} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
+  if(vy==='protokoll')return(<ServiceProtokollFormular port={port} namn={namn} inkluderaRisk={inkluderaRisk} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
   if(vy==='klar')return(<div style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={56} color="var(--c-teal)" style={{margin:'0 auto 16px',display:'block'}}/><div style={{fontSize:18,fontWeight:700,color:'var(--c-teal-text)',marginBottom:8}}>Serviceorder klar!</div><div style={{fontSize:14,color:'var(--c-text2)',marginBottom:24}}>{port?.namn} · {idag()}</div><button className="btn btn-primary" onClick={onBack} style={{width:'100%',padding:14,fontSize:15}}>← Tillbaka</button></div>)
   return(
     <div>
@@ -476,57 +528,85 @@ function ServiceorderDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjek
         </div>
       ))}
       {order.status!=='avslutad'&&(
-        <button onClick={()=>port?setVy('protokoll'):alert('Ingen port kopplad.')} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:80}}>
-          <FileText size={18}/> Starta serviceprotokoll
-        </button>
+        <div style={{marginBottom:80}}>
+          {/* Valfri riskbedömning – samma mönster som felanmälan */}
+          <button onClick={()=>setInkluderaRisk(v=>!v)}
+            style={{width:'100%',padding:'10px 14px',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:10,
+              border:`1.5px solid ${inkluderaRisk?'#16a34a':'var(--c-border)'}`,
+              background:inkluderaRisk?'#f0fdf4':'transparent',
+              color:inkluderaRisk?'#166534':'var(--c-text2)',
+              display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <span>🛡️ Inkludera riskbedömning {inkluderaRisk?'(ingår)':'(valfritt)'}</span>
+            <span style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:inkluderaRisk?'#dcfce7':'var(--c-bg)',border:'1px solid currentColor'}}>{inkluderaRisk?'PÅ':'AV'}</span>
+          </button>
+          <button onClick={()=>port?setVy('protokoll'):alert('Ingen port kopplad.')} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            <FileText size={18}/> Starta serviceprotokoll
+          </button>
+        </div>
       )}
     </div>
   )
 }
 
-// ── MontageFormular (3 steg: Riskbedömning → Egenkontroll → Signatur) ──────────
+// ── MontageRiskFormular (separat riskbedömning – besök 1) ────────────────────
+function MontageRiskFormular({ order, namn, onSpara, onBack }) {
+  const [risk,setRisk]=useState({}); const [riskN,setRiskN]=useState({})
+  const [sparar,setSparar]=useState(false)
+  const spara=async()=>{ setSparar(true); await onSpara({riskKontroll:risk,riskNoteringar:riskN}); setSparar(false) }
+  return(
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+        <button className="btn" onClick={onBack} style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:5}}><ChevronLeft size={16}/> Avbryt</button>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:600}}>Riskbedömning</div>
+          <div style={{fontSize:12,color:'var(--c-text2)'}}>{order.kund} · Före arbete</div>
+        </div>
+      </div>
+      <div style={{background:'var(--c-amber-bg,#fffbeb)',border:'1px solid var(--c-amber)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',gap:8,alignItems:'center'}}>
+        <span style={{fontSize:16}}>⚠️</span>
+        <span style={{fontSize:13,color:'var(--c-amber-text,#92400e)',fontWeight:500}}>Utför riskbedömningen innan arbetet påbörjas. Sparas och kan sedan återupptas.</span>
+      </div>
+      {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(<div key={i} className="card" style={{marginBottom:8,padding:'12px 14px'}}>
+        <div style={{fontSize:13,marginBottom:10,lineHeight:1.5}}><span style={{color:'var(--c-text3)',marginRight:6}}>{i+1}.</span>{p}</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+          {RISK_STATUS.map(({id,label,bg,txt,border})=>(
+            <button key={id} onClick={()=>setRisk(prev=>({...prev,[i]:s===id?undefined:id}))} style={{padding:'11px 4px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',border:`2px solid ${s===id?border:'var(--c-border)'}`,background:s===id?bg:'transparent',color:s===id?txt:'var(--c-text3)'}}>{label}</button>
+          ))}
+        </div>
+        {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
+      </div>)})}
+      <button onClick={spara} disabled={sparar} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:80}}>
+        <CheckCircle size={18}/> {sparar?'Sparar…':'Spara riskbedömning'}
+      </button>
+    </div>
+  )
+}
+
+// ── MontageFormular (2 steg: Egenkontroll → Signatur) ────────────────────────
 function MontageFormular({ order, namn, onSlutfor, onBack }) {
   const porttyp=order.porttyp||order.portTyp||'Vikport'
   const egP=EGENKONTROLL[porttyp]||EGENKONTROLL['Vikport']||[]
   const [steg,setSteg]=useState(1)
-  const [risk,setRisk]=useState({}); const [riskN,setRiskN]=useState({})
   const [eg,setEg]=useState({}); const [egN,setEgN]=useState({})
   const [sig,setSig]=useState(null); const [godk,setGodk]=useState('godkand')
   const [sparar,setSparar]=useState(false)
-  const slutfor=async()=>{ setSparar(true); await onSlutfor({datum:idag(),tekniker:namn,portTyp:porttyp,kund:order.kund,adress:order.adress||'',egenkontroll:eg,egenNoteringar:egN,egenRisker:[],riskKontroll:risk,riskNoteringar:riskN,signatur:sig,godkannande:godk,ok:Object.values(eg).filter(s=>s==='OK').length,ej:Object.values(eg).filter(s=>s==='EJ').length,na:Object.values(eg).filter(s=>s==='NA').length}); setSparar(false) }
-  const STEG_LBL=['','Riskbedömning','Egenkontroll','Signatur']
-  const STEG_SUB=['','Före arbete','Efter montage','Avsluta']
+  // Befintlig riskdata från besök 1 skickas med i slutförandet
+  const slutfor=async()=>{ setSparar(true); await onSlutfor({datum:idag(),tekniker:namn,portTyp:porttyp,kund:order.kund,adress:order.adress||'',egenkontroll:eg,egenNoteringar:egN,egenRisker:[],signatur:sig,godkannande:godk,ok:Object.values(eg).filter(s=>s==='OK').length,ej:Object.values(eg).filter(s=>s==='EJ').length,na:Object.values(eg).filter(s=>s==='NA').length}); setSparar(false) }
+  const STEG_LBL=['','Egenkontroll','Signatur']
+  const STEG_SUB=['','Efter montage','Avsluta']
   return(
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
         <button className="btn" onClick={steg===1?onBack:()=>setSteg(s=>s-1)} style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:5}}><ChevronLeft size={16}/>{steg===1?'Avbryt':'Tillbaka'}</button>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:600}}>{STEG_LBL[steg]}</div>
-          <div style={{fontSize:12,color:'var(--c-text2)'}}>Steg {steg}/3 · {STEG_SUB[steg]}</div>
+          <div style={{fontSize:12,color:'var(--c-text2)'}}>Steg {steg}/2 · {STEG_SUB[steg]}</div>
         </div>
       </div>
-      <div style={{display:'flex',gap:4,marginBottom:16}}>{[1,2,3].map(s=><div key={s} style={{flex:1,height:5,borderRadius:3,background:s<=steg?'var(--c-blue)':'var(--c-border)',transition:'background 0.2s'}}/>)}</div>
+      <div style={{display:'flex',gap:4,marginBottom:16}}>{[1,2].map(s=><div key={s} style={{flex:1,height:5,borderRadius:3,background:s<=steg?'var(--c-blue)':'var(--c-border)',transition:'background 0.2s'}}/>)}</div>
 
-      {/* Steg 1: Riskbedömning – FÖRE arbete */}
+      {/* Steg 1: Egenkontroll */}
       {steg===1&&(<div>
-        <div style={{background:'var(--c-amber-bg,#fffbeb)',border:'1px solid var(--c-amber)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',gap:8,alignItems:'center'}}>
-          <span style={{fontSize:16}}>⚠️</span>
-          <span style={{fontSize:13,color:'var(--c-amber-text,#92400e)',fontWeight:500}}>Utför riskbedömningen innan arbetet påbörjas</span>
-        </div>
-        {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(<div key={i} className="card" style={{marginBottom:8,padding:'12px 14px'}}>
-          <div style={{fontSize:13,marginBottom:10,lineHeight:1.5}}><span style={{color:'var(--c-text3)',marginRight:6}}>{i+1}.</span>{p}</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
-            {RISK_STATUS.map(({id,label,bg,txt,border})=>(
-              <button key={id} onClick={()=>setRisk(prev=>({...prev,[i]:s===id?undefined:id}))} style={{padding:'11px 4px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',border:`2px solid ${s===id?border:'var(--c-border)'}`,background:s===id?bg:'transparent',color:s===id?txt:'var(--c-text3)'}}>{label}</button>
-            ))}
-          </div>
-          {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
-        </div>)})}
-        <button onClick={()=>setSteg(2)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Egenkontroll →</button>
-      </div>)}
-
-      {/* Steg 2: Egenkontroll – EFTER montage */}
-      {steg===2&&(<div>
         <div style={{background:'var(--c-blue-bg,#eff6ff)',border:'1px solid var(--c-blue)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',gap:8,alignItems:'center'}}>
           <span style={{fontSize:16}}>✅</span>
           <span style={{fontSize:13,color:'var(--c-blue)',fontWeight:500}}>Egenkontroll efter genomfört montage</span>
@@ -540,11 +620,11 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
           </div>
           {s==='EJ'&&<input type="text" placeholder="Beskriv avvikelsen…" value={egN[i]||''} onChange={e=>setEgN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
         </div>)})}
-        <button onClick={()=>setSteg(3)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Signatur →</button>
+        <button onClick={()=>setSteg(2)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Signatur →</button>
       </div>)}
 
-      {/* Steg 3: Signatur */}
-      {steg===3&&(<div>
+      {/* Steg 2: Signatur */}
+      {steg===2&&(<div>
         <div className="card" style={{marginBottom:12}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Kundgodkännande</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
@@ -565,11 +645,22 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
 // ── MontageDetalj ─────────────────────────────────────────────────────────────
 function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onBack }) {
   const [vy,setVy]=useState('info')
+  const riskSteg = order.protokoll_data?.steg || 0
+  const riskKlar = riskSteg >= 1
+
+  const hanteraRiskSparad=async(riskData)=>{
+    await onUppdatera(order.id,{status:'pagAr',protokoll_data:{steg:1,...riskData}})
+    setVy('info')
+  }
   const hanteraSlutfort=async(prot)=>{
-    const now=idag(); await onUppdatera(order.id,{status:'utford',protokoll_data:prot,datum_utfort:now})
+    const now=idag()
+    // Bevara befintlig riskdata från besök 1
+    const befintligRisk=riskKlar?{riskKontroll:order.protokoll_data?.riskKontroll,riskNoteringar:order.protokoll_data?.riskNoteringar}:{}
+    await onUppdatera(order.id,{status:'utford',protokoll_data:{...befintligRisk,...prot,steg:2},datum_utfort:now})
     if(order.objekt_id){const port=objekt.find(o=>o.id===order.objekt_id);if(port){const nyH=[...(port.historik||[]),{typ:'montering',datum:now,tekniker:namn,portTyp:order.porttyp||'',kund:order.kund}];await onUppdateraObjekt(port.id,{historik:nyH})}}
     setVy('klar')
   }
+  if(vy==='risk')return(<MontageRiskFormular order={order} namn={namn} onSpara={hanteraRiskSparad} onBack={()=>setVy('info')}/>)
   if(vy==='formular')return(<MontageFormular order={order} namn={namn} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
   if(vy==='klar')return(<div style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={56} color="var(--c-teal)" style={{margin:'0 auto 16px',display:'block'}}/><div style={{fontSize:18,fontWeight:700,color:'var(--c-teal-text)',marginBottom:8}}>Montage slutfört!</div><div style={{fontSize:14,color:'var(--c-text2)',marginBottom:24}}>{order.kund} · {idag()}</div><button className="btn btn-primary" onClick={onBack} style={{width:'100%',padding:14,fontSize:15}}>← Tillbaka</button></div>)
   return(
@@ -587,9 +678,30 @@ function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, on
         ))}
       </div>
       {order.status!=='utford'&&(
-        <button onClick={()=>setVy('formular')} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:80}}>
-          <Wrench size={18}/> Starta monteringsprotokoll
-        </button>
+        <div style={{marginBottom:80}}>
+          {/* Riskbedömning klar-badge */}
+          {riskKlar&&(
+            <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10,marginBottom:12}}>
+              <span style={{fontSize:18}}>🛡️</span>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:'#166534'}}>Riskbedömning genomförd</div>
+                <div style={{fontSize:12,color:'#15803d'}}>Besök 1 klar · Klicka nedan för att starta egenkontroll</div>
+              </div>
+            </div>
+          )}
+          {/* Besök 1: Starta riskbedömning */}
+          {!riskKlar&&(
+            <button onClick={()=>setVy('risk')} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-amber)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:10}}>
+              ⚠️ Starta riskbedömning
+            </button>
+          )}
+          {/* Besök 2: Starta egenkontroll (endast när risk är klar) */}
+          {riskKlar&&(
+            <button onClick={()=>setVy('formular')} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+              <Wrench size={18}/> Starta egenkontroll
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -1049,11 +1161,14 @@ export default function TeknikerVy({
             {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} onSpara={async(m)=>{await onLaggTillMontageorder(m);setVisaNyMontage(false)}} onAvbryt={()=>setVisaNyMontage(false)}/>}
             <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeMontageordrar.length===0?'Inga öppna montageordrar':`${visadeMontageordrar.length} öppna`}</p>
             {visadeMontageordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna montageordrar!</div></div>
-            ):visadeMontageordrar.map(m=>{ const ämin=m.tekniker===namn; return(
+            ):visadeMontageordrar.map(m=>{ const ämin=m.tekniker===namn; const mRiskKlar=(m.protokoll_data?.steg||0)>=1; return(
               <div key={m.id} className="card" style={{marginBottom:10,cursor:'pointer',borderLeft:`4px solid ${ämin?'var(--c-amber)':'var(--c-border)'}`}} onClick={()=>setValdMontage(m)}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:15,fontWeight:600}}>{m.kund}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:2}}>
+                      <span style={{fontSize:15,fontWeight:600}}>{m.kund}</span>
+                      {mRiskKlar&&<span style={{fontSize:10,background:'#f0fdf4',color:'#166534',padding:'1px 7px',borderRadius:9,border:'1px solid #bbf7d0',fontWeight:700}}>🛡️ Risk klar</span>}
+                    </div>
                     <div style={{fontSize:13,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.adress||'–'}</div>
                     <div style={{fontSize:12,color:'var(--c-text3)',marginTop:4,display:'flex',gap:8}}>
                       <span>📅 {m.datum_planerat||m.datum||'–'}</span>
