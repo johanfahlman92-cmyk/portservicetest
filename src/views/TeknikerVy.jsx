@@ -643,9 +643,10 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
 }
 
 // ── MontageDetalj ─────────────────────────────────────────────────────────────
-function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onBack }) {
+function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onLaggTillObjekt, onBack }) {
   const [vy,setVy]=useState('info')
   const [visaRiskDetalj,setVisaRiskDetalj]=useState(false)
+  const [skapadPort,setSkapadPort]=useState(null)
   const riskSteg = order.protokoll_data?.steg || 0
   const riskKlar = riskSteg >= 1
   const sparadRisk = order.protokoll_data?.riskKontroll || {}
@@ -657,15 +658,50 @@ function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, on
   }
   const hanteraSlutfort=async(prot)=>{
     const now=idag()
+    const porttyp=order.porttyp||order.portTyp||'Vikport'
     // Bevara befintlig riskdata från besök 1
     const befintligRisk=riskKlar?{riskKontroll:order.protokoll_data?.riskKontroll,riskNoteringar:order.protokoll_data?.riskNoteringar}:{}
     await onUppdatera(order.id,{status:'utford',protokoll_data:{...befintligRisk,...prot,steg:2},datum_utfort:now})
-    if(order.objekt_id){const port=objekt.find(o=>o.id===order.objekt_id);if(port){const nyH=[...(port.historik||[]),{typ:'montering',datum:now,tekniker:namn,portTyp:order.porttyp||'',kund:order.kund}];await onUppdateraObjekt(port.id,{historik:nyH})}}
+    // Om porten redan finns i registret – uppdatera historik
+    if(order.objekt_id){
+      const port=objekt.find(o=>o.id===order.objekt_id)
+      if(port){const nyH=[...(port.historik||[]),{typ:'montering',datum:now,tekniker:namn,portTyp:porttyp,kund:order.kund}];await onUppdateraObjekt(port.id,{historik:nyH})}
+    } else if(onLaggTillObjekt) {
+      // Auto-skapa ny port i registret
+      const portNamn=`${porttyp}${order.adress?' – '+order.adress:order.kund?' ('+order.kund+')':''}`
+      const nasta=(()=>{const d=new Date();d.setMonth(d.getMonth()+12);return d.toISOString().slice(0,10)})()
+      const nyPort={
+        id:'p'+Date.now(), typ:porttyp, namn:portNamn,
+        kund:order.kund||'', kundTyp:'foretag',
+        fabrikat:'', ar:new Date().getFullYear(),
+        adress:order.adress||'', plats:'', fastighetId:null,
+        ordernummer:order.nr||'', serienummer:'',
+        serviceIntervall:12, senaste:'', nasta, intervallProcent:0, status:'ny',
+        protokoll:porttyp, punkter:0, arkiverad:false,
+        historik:[{typ:'montering',datum:now,tekniker:namn,portTyp:porttyp,kund:order.kund}],
+      }
+      await onLaggTillObjekt(nyPort)
+      setSkapadPort(nyPort)
+    }
     setVy('klar')
   }
   if(vy==='risk')return(<MontageRiskFormular order={order} namn={namn} onSpara={hanteraRiskSparad} onBack={()=>setVy('info')}/>)
   if(vy==='formular')return(<MontageFormular order={order} namn={namn} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
-  if(vy==='klar')return(<div style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={56} color="var(--c-teal)" style={{margin:'0 auto 16px',display:'block'}}/><div style={{fontSize:18,fontWeight:700,color:'var(--c-teal-text)',marginBottom:8}}>Montage slutfört!</div><div style={{fontSize:14,color:'var(--c-text2)',marginBottom:24}}>{order.kund} · {idag()}</div><button className="btn btn-primary" onClick={onBack} style={{width:'100%',padding:14,fontSize:15}}>← Tillbaka</button></div>)
+  if(vy==='klar')return(
+    <div style={{textAlign:'center',padding:'48px 20px'}}>
+      <CheckCircle size={56} color="var(--c-teal)" style={{margin:'0 auto 16px',display:'block'}}/>
+      <div style={{fontSize:18,fontWeight:700,color:'var(--c-teal-text)',marginBottom:8}}>Montage slutfört!</div>
+      <div style={{fontSize:14,color:'var(--c-text2)',marginBottom:16}}>{order.kund} · {idag()}</div>
+      {skapadPort&&(
+        <div style={{background:'#eff6ff',border:'1px solid var(--c-blue)',borderRadius:10,padding:'12px 14px',marginBottom:16,textAlign:'left'}}>
+          <div style={{fontSize:13,fontWeight:700,color:'var(--c-blue)',marginBottom:4}}>🗄️ Port skapad i registret</div>
+          <div style={{fontSize:13,color:'var(--c-text)'}}>{skapadPort.namn}</div>
+          <div style={{fontSize:12,color:'var(--c-text2)',marginTop:2}}>Fabrikat och serienr kan kompletteras av admin</div>
+        </div>
+      )}
+      <button className="btn btn-primary" onClick={onBack} style={{width:'100%',padding:14,fontSize:15}}>← Tillbaka</button>
+    </div>
+  )
   return(
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
@@ -1169,7 +1205,7 @@ export default function TeknikerVy({
         )
 
       case 'montage':
-        if(valdMontage)return(<MontageDetalj order={valdMontage} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraMontageorder(id,ch);setValdMontage(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onBack={()=>setValdMontage(null)}/>)
+        if(valdMontage)return(<MontageDetalj order={valdMontage} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraMontageorder(id,ch);setValdMontage(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onLaggTillObjekt={onLaggTillObjekt} onBack={()=>setValdMontage(null)}/>)
         return(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
