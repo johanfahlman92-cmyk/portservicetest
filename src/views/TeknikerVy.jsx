@@ -4,6 +4,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER } from '../data/store.js'
+import Kalender from './Kalender.jsx'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 const PRIO_CONF = {
@@ -600,126 +601,6 @@ function RegisterFlik({ objekt, kunder, fastigheter, onLaggTillObjekt }) {
   )
 }
 
-// ── Kalender-flik ─────────────────────────────────────────────────────────────
-function KalenderFlik({ bokningar, namn, kunder, onLaggTill, onTaBort }) {
-  const todayStr = idag()
-  const [offset,  setOffset]  = useState(0)
-  const [valdDag, setValdDag] = useState(todayStr)
-  const [visaNy,  setVisaNy]  = useState(false)
-  const [form,    setForm]    = useState({namn:'',kund:'',tid:'08:00',typ:'service'})
-  const [sparar,  setSparar]  = useState(false)
-  const set = (k,v) => setForm(p=>({...p,[k]:v}))
-
-  const dagar = getVeckoDagar(offset)
-
-  // Bokningar för vald dag – filtrera på tekniker, behåll originalindex
-  const dagBok = (bokningar[valdDag]||[])
-    .map((b,idx)=>({...b,_idx:idx}))
-    .filter(b=>!namn||(Array.isArray(b.tek)?b.tek.includes(namn):b.tek===namn))
-    .sort((a,b)=>(a.tid||'').localeCompare(b.tid||''))
-
-  // Räkna bokningar per dag (för dot-indikator)
-  const bokPerDag = (d) => (bokningar[d]||[]).filter(b=>!namn||(Array.isArray(b.tek)?b.tek.includes(namn):b.tek===namn)).length
-
-  const spara = async () => {
-    if (!form.namn.trim()) return
-    setSparar(true)
-    await onLaggTill(valdDag, { ...form, tek: namn })
-    setForm({namn:'',kund:'',tid:'08:00',typ:'service'})
-    setVisaNy(false)
-    setSparar(false)
-  }
-
-  const TYP_FARG = { service:'var(--c-teal)', felanmalan:'var(--c-red)', montering:'var(--c-amber)' }
-  const TYP_LBL  = { service:'Service', felanmalan:'Felanmälan', montering:'Montering' }
-
-  return (
-    <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-        <h1 style={{fontSize:22,fontWeight:700,margin:0}}>Kalender</h1>
-        <div style={{display:'flex',gap:6}}>
-          <button onClick={()=>setOffset(v=>v-1)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid var(--c-border)',background:'transparent',cursor:'pointer',fontSize:16}}>‹</button>
-          <button onClick={()=>{setOffset(0);setValdDag(todayStr)}} style={{padding:'6px 10px',borderRadius:8,border:'1px solid var(--c-border)',background:'transparent',cursor:'pointer',fontSize:12,fontWeight:600}}>Idag</button>
-          <button onClick={()=>setOffset(v=>v+1)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid var(--c-border)',background:'transparent',cursor:'pointer',fontSize:16}}>›</button>
-        </div>
-      </div>
-
-      {/* Veckostrip */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:16}}>
-        {dagar.map((d,i)=>{
-          const aktiv=d===valdDag,erIdag=d===todayStr,dots=bokPerDag(d)
-          return(
-            <div key={d} onClick={()=>setValdDag(d)} style={{textAlign:'center',cursor:'pointer',padding:'8px 2px',borderRadius:10,background:aktiv?'var(--c-blue)':erIdag?'var(--c-teal-bg)':'transparent',border:`1px solid ${aktiv?'var(--c-blue)':erIdag?'var(--c-teal)':'transparent'}`,transition:'all 0.15s'}}>
-              <div style={{fontSize:10,fontWeight:600,color:aktiv?'rgba(255,255,255,0.8)':erIdag?'var(--c-teal-text)':'var(--c-text3)',marginBottom:2}}>{DAG_NAMN[i]}</div>
-              <div style={{fontSize:16,fontWeight:700,color:aktiv?'#fff':erIdag?'var(--c-teal-text)':'var(--c-text)',lineHeight:1}}>{d.slice(8)}</div>
-              <div style={{height:5,display:'flex',justifyContent:'center',alignItems:'center',marginTop:3}}>
-                {dots>0&&<div style={{width:6,height:6,background:aktiv?'rgba(255,255,255,0.8)':'var(--c-teal)',borderRadius:'50%'}}/>}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Vald dag header */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <div style={{fontSize:14,fontWeight:600,textTransform:'capitalize'}}>{formatDag(valdDag)}</div>
-        <button onClick={()=>setVisaNy(v=>!v)} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',fontSize:12,fontWeight:600,borderRadius:8,cursor:'pointer',border:'1.5px solid var(--c-blue)',background:visaNy?'var(--c-blue)':'transparent',color:visaNy?'#fff':'var(--c-blue)'}}>
-          {visaNy?<X size={12}/>:<Plus size={12}/>} Bokning
-        </button>
-      </div>
-
-      {/* Ny bokning-form */}
-      {visaNy&&(
-        <div className="card" style={{marginBottom:12}}>
-          <label style={LBL}>Beskrivning *</label>
-          <input type="text" value={form.namn} onChange={e=>set('namn',e.target.value)} placeholder="t.ex. Servicebesök Lager A" style={INP}/>
-          <label style={LBL}>Kund</label>
-          {kunder.length>0
-            ? <select value={form.kund} onChange={e=>set('kund',e.target.value)} style={INP}>
-                <option value="">– Välj kund –</option>
-                {kunder.map(k=><option key={k.id} value={k.namn}>{k.namn}</option>)}
-              </select>
-            : <input type="text" value={form.kund} onChange={e=>set('kund',e.target.value)} placeholder="Kund" style={INP}/>
-          }
-          <label style={LBL}>Tid</label>
-          <input type="time" value={form.tid} onChange={e=>set('tid',e.target.value)} style={{...INP,colorScheme:'light'}}/>
-          <label style={LBL}>Typ</label>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginTop:4}}>
-            {[['service','Service'],['felanmalan','Felanmälan'],['montering','Montering']].map(([id,lab])=>(
-              <button key={id} onClick={()=>set('typ',id)} style={{padding:'10px 4px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',border:`2px solid ${form.typ===id?TYP_FARG[id]:'var(--c-border)'}`,background:form.typ===id?TYP_FARG[id]+'22':'transparent',color:form.typ===id?TYP_FARG[id]:'var(--c-text3)'}}>{lab}</button>
-            ))}
-          </div>
-          <div style={{display:'flex',gap:8,marginTop:12}}>
-            <button onClick={spara} disabled={sparar||!form.namn.trim()} style={{flex:1,padding:12,borderRadius:9,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}}>
-              {sparar?'Sparar…':'Spara bokning'}
-            </button>
-            <button className="btn" onClick={()=>setVisaNy(false)}>Avbryt</button>
-          </div>
-        </div>
-      )}
-
-      {/* Bokningslista */}
-      {dagBok.length===0?(
-        <div style={{textAlign:'center',padding:'32px 20px',color:'var(--c-text3)'}}>
-          <Clock size={32} style={{margin:'0 auto 10px',display:'block'}}/>
-          <div style={{fontSize:13}}>Inga bokningar denna dag</div>
-        </div>
-      ):dagBok.map((b,i)=>(
-        <div key={i} className="card" style={{display:'flex',gap:12,alignItems:'center',padding:'12px 14px',marginBottom:8,borderLeft:`4px solid ${TYP_FARG[b.typ]||'var(--c-border)'}`}}>
-          <div style={{background:TYP_FARG[b.typ]||'var(--c-bg)',color:'#fff',borderRadius:8,padding:'6px 8px',fontSize:13,fontWeight:700,flexShrink:0,minWidth:48,textAlign:'center'}}>{b.tid||'–'}</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:14,fontWeight:600}}>{b.namn}</div>
-            {b.kund&&<div style={{fontSize:12,color:'var(--c-text2)'}}>{b.kund}</div>}
-            <span style={{fontSize:11,color:TYP_FARG[b.typ]||'var(--c-text3)',fontWeight:600}}>{TYP_LBL[b.typ]||b.typ}</span>
-          </div>
-          <button onClick={()=>onTaBort(valdDag,b._idx)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',padding:4}}>
-            <X size={16}/>
-          </button>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ── Huvud ─────────────────────────────────────────────────────────────────────
 export default function TeknikerVy({
@@ -884,7 +765,28 @@ export default function TeknikerVy({
         return(<RegisterFlik objekt={objekt} kunder={kunder} fastigheter={fastigheter} onLaggTillObjekt={onLaggTillObjekt}/>)
 
       case 'kalender':
-        return(<KalenderFlik bokningar={bokningar} namn={namn} kunder={kunder} onLaggTill={onLaggTillBokning} onTaBort={onTaBortBokning}/>)
+        return(
+          <Kalender
+            arenden={arenden}
+            tekniker={tekniker}
+            bokningar={bokningar}
+            kunder={kunder}
+            objekt={objekt}
+            serviceorder={serviceorderArr}
+            montageorder={montageorder}
+            onLaggTillBokning={onLaggTillBokning}
+            onTaBortBokning={onTaBortBokning}
+            onNyKund={undefined}
+            onNavigera={(tab)=>{
+              const m={arenden:'felanmalan',serviceorder:'service',montageplanering:'montage',register:'register'}
+              setFlik(m[tab]||'idag')
+            }}
+            onNavigeraArende={()=>setFlik('felanmalan')}
+            onNavigeraObjekt={()=>setFlik('register')}
+            onNavigeraServiceorder={()=>setFlik('service')}
+            onNavigeraMontage={()=>setFlik('montage')}
+          />
+        )
 
       default: return null
     }
@@ -904,8 +806,8 @@ export default function TeknikerVy({
       </div>
 
       {/* Innehåll */}
-      <div style={{flex:1,padding:'20px 16px',overflowY:'auto'}}>
-        <div style={{maxWidth:560,margin:'0 auto'}}>{renderContent()}</div>
+      <div style={{flex:1,padding: flik==='kalender' ? '12px 8px' : '20px 16px',overflowY:'auto'}}>
+        <div style={{maxWidth: flik==='kalender' ? '100%' : 560,margin:'0 auto'}}>{renderContent()}</div>
       </div>
 
       {/* Bottom nav – 6 flikar */}
