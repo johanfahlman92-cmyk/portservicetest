@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, Archive, ArchiveRestore, Lock } from 'lucide-react'
+import { Plus, Check, Clock, Package, Pencil, Printer, Search, ChevronDown, ChevronUp, ArrowRight, Archive, ArchiveRestore, Lock, Trash2 } from 'lucide-react'
 import { protokollTyper, RISKPUNKTER } from '../data/store.js'
 import KundVäljare from '../components/KundVäljare.jsx'
 import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt } from '../utils/pdf.js'
@@ -377,6 +377,15 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                 {steg >= 1 ? 'Fortsätt' : 'Starta'} <ArrowRight size={11} />
               </button>
             )}
+            {order.status === 'utford' && (
+              <button onClick={() => onUppdatera(order.id, { status: 'arkiverad' })}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                  borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 500,
+                  background: 'var(--c-amber-bg)', color: 'var(--c-amber-text)',
+                  border: '1px solid var(--c-amber)' }}>
+                <Archive size={11} /> Arkivera
+              </button>
+            )}
             <button className="btn" style={{ fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
               onClick={() => skrivUt(order)}>
               <Printer size={11} />
@@ -616,6 +625,15 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                     border: '1px solid var(--c-border)' }}>
                   <ArchiveRestore size={11} /> Återställ
                 </button>
+                {onTaBort && (
+                  <button onClick={() => onTaBort(order.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+                      borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                      background: 'var(--c-red-bg)', color: 'var(--c-red-text)',
+                      border: '1px solid var(--c-red)' }}>
+                    <Trash2 size={11} /> Ta bort
+                  </button>
+                )}
               </div>
             ))}
           </div>
