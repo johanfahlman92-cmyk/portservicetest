@@ -817,6 +817,7 @@ export default function TeknikerVy({
   onLaggTillBokning,
   onTaBortBokning,
   onLoggaUt,
+  onTillAdmin,
 }) {
   const [flik,             setFlik]             = useState('idag')
   const [valdServiceorder, setValdServiceorder] = useState(null)
@@ -983,9 +984,16 @@ export default function TeknikerVy({
           <img src={logo} alt="logo" style={{height:32}}/>
           {namn&&<span style={{color:'rgba(255,255,255,0.65)',fontSize:13,borderLeft:'1px solid rgba(255,255,255,0.2)',paddingLeft:12}}>{namn}</span>}
         </div>
-        <button onClick={onLoggaUt} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-          <LogOut size={14}/> Logga ut
-        </button>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {onTillAdmin && (
+            <button onClick={onTillAdmin} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              ← Admin
+            </button>
+          )}
+          <button onClick={onLoggaUt} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+            <LogOut size={14}/> Logga ut
+          </button>
+        </div>
       </div>
 
       {/* Innehåll */}

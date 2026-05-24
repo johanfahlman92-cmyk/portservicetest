@@ -187,6 +187,8 @@ export default function App() {
   const [user, setUser]               = useState(null)
   const [authLaddas, setAuthLaddas]   = useState(true)
   const [sidomenyÖppen, setSidomenyÖppen] = useState(() => window.innerWidth >= 768)
+  const [fältläge,      setFältläge]      = useState(false)
+  const [adminOverride, setAdminOverride] = useState(false)
 
   const [kunder,        setKunder]        = useState([])
   const [objekt,        setObjekt]        = useState([])
@@ -672,6 +674,10 @@ export default function App() {
   // Rollbaserad routing
   const roll = user.user_metadata?.roll
 
+  const visaFältvy      = roll === 'admin' && ((erMobil && !adminOverride) || fältläge)
+  const aktiverFältläge = () => { setFältläge(true);  setAdminOverride(false) }
+  const tillAdmin       = () => { setFältläge(false); setAdminOverride(true)  }
+
   if (roll === 'kontorist') return (
     <Felanmalan
       kunder={kunder}
@@ -686,7 +692,7 @@ export default function App() {
     <KundPortal user={user} onLoggaUt={loggaUt} />
   )
 
-  if (roll === 'tekniker') return (
+  if (roll === 'tekniker' || visaFältvy) return (
     <TeknikerVy
       namn={user.user_metadata?.namn || user.email || ''}
       arenden={arenden}
@@ -709,6 +715,7 @@ export default function App() {
       onLaggTillBokning={laggTillBokning}
       onTaBortBokning={taBortBokning}
       onLoggaUt={loggaUt}
+      onTillAdmin={visaFältvy ? tillAdmin : undefined}
     />
   )
 
@@ -771,11 +778,22 @@ export default function App() {
               <Menu size={22} />
             </button>
             <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>NMV Portservice</span>
-            {oppnaArenden > 0 && (
-              <span style={{ marginLeft: 'auto', background: '#A32D2D', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
-                {oppnaArenden} ärenden
-              </span>
-            )}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {oppnaArenden > 0 && (
+                <span style={{ background: '#A32D2D', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
+                  {oppnaArenden} ärenden
+                </span>
+              )}
+              {roll === 'admin' && (
+                <button onClick={aktiverFältläge} style={{
+                  background: 'none', border: '1px solid rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.8)',
+                  borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}>
+                  📱 Fältläge
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -793,6 +811,16 @@ export default function App() {
             arenden={arenden}
             onNavigera={navigera}
           />
+          {!erMobil && roll === 'admin' && (
+            <button onClick={aktiverFältläge} style={{
+              marginLeft: 'auto', background: 'none',
+              border: '1px solid var(--c-border)', color: 'var(--c-text-muted)',
+              borderRadius: 7, padding: '6px 14px', fontSize: 13, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+            }}>
+              📱 Fältläge
+            </button>
+          )}
         </div>
 
         <main style={{
