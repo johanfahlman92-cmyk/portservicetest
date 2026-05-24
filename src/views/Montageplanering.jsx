@@ -478,7 +478,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Montering</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Montageordrar</h1>
           <p style={{ color: 'var(--c-text2)', fontSize: 13, margin: 0 }}>Planera, genomför och följ upp monteringsarbeten</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

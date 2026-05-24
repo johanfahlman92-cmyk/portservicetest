@@ -713,7 +713,7 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Serviceorder</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Serviceordrar</h1>
           <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Planera och utför servicebesök på fastigheter</p>
         </div>
         <button className="btn btn-teal" onClick={() => öppnaForm()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

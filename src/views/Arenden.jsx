@@ -622,8 +622,8 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Ärenden</h1>
-          <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Öppna och pågående serviceärenden</p>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>Felanmälningar</h1>
+          <p style={{ color: 'var(--c-text2)', fontSize: 13 }}>Öppna och pågående felanmälningar</p>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {!visaForm && (
