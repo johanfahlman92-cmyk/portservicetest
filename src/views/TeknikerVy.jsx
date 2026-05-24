@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays } from 'lucide-react'
@@ -632,15 +632,15 @@ function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, mo
 
   const eventerDag = (dag) => {
     const ev = []
+    // Visa ALLA händelser för alla tekniker – delad planering
     ;(bokningar[dag]||[]).forEach((b,idx)=>{
-      if(!namn||(Array.isArray(b.tek)?b.tek.includes(namn):b.tek===namn))
-        ev.push({...b,_typ:'bokning',_idx:idx,_sort:b.tid||'08:00'})
+      ev.push({...b,_typ:'bokning',_idx:idx,_sort:b.tid||'08:00'})
     })
-    serviceorderArr.filter(so=>so.datum===dag&&so.status!=='avslutad'&&(!namn||so.tekniker===namn))
+    serviceorderArr.filter(so=>so.datum===dag&&so.status!=='avslutad')
       .forEach(so=>ev.push({...so,_typ:'serviceorder',_sort:'07:00'}))
-    montageorder.filter(mo=>(mo.datum_planerat||mo.datum)===dag&&mo.status!=='utford'&&(!namn||mo.tekniker===namn))
+    montageorder.filter(mo=>(mo.datum_planerat||mo.datum)===dag&&mo.status!=='utford')
       .forEach(mo=>ev.push({...mo,_typ:'montageorder',_sort:'07:30'}))
-    arenden.filter(a=>a.besok===dag&&a.status!=='atgardad'&&!a.arkiverad&&(!namn||a.tekniker===namn))
+    arenden.filter(a=>a.besok===dag&&a.status!=='atgardad'&&!a.arkiverad)
       .forEach(a=>ev.push({...a,_typ:'arende',_sort:'08:00'}))
     return ev.sort((a,b)=>(a._sort||'').localeCompare(b._sort||''))
   }
@@ -770,6 +770,11 @@ function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, mo
         } else if(ev._typ==='arende'){
           titel=ev.namn||ev.feltyp||'Felanmälan'; kund=ev.kund; extra=ev.feltyp||''
         }
+        // Teknikerbricka – vem som är tilldelad
+        const teknikNamn = ev._typ==='bokning'
+          ? (Array.isArray(ev.tek)?ev.tek.join(', '):ev.tek||'')
+          : (ev.tekniker||'')
+        const ärMin = teknikNamn && (teknikNamn===namn || (Array.isArray(ev.tek)&&ev.tek.includes(namn)))
         return(
           <div key={i} className="card" style={{marginBottom:10,borderLeft:`4px solid ${t.color}`,background:t.bg,padding:'12px 14px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:5}}>
@@ -787,6 +792,15 @@ function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, mo
             <div style={{fontSize:15,fontWeight:600,lineHeight:1.3}}>{titel||'–'}</div>
             {kund&&<div style={{fontSize:13,color:'var(--c-text2)',marginTop:2}}>{kund}</div>}
             {extra&&<div style={{fontSize:12,color:'var(--c-text3)',marginTop:1}}>{extra}</div>}
+            {teknikNamn&&(
+              <div style={{marginTop:6}}>
+                <span style={{fontSize:11,padding:'2px 8px',borderRadius:8,fontWeight:ärMin?700:400,
+                  background:ärMin?'rgba(28,52,97,0.12)':'rgba(0,0,0,0.05)',
+                  color:ärMin?'#1C3461':'var(--c-text3)',border:`1px solid ${ärMin?'rgba(28,52,97,0.25)':'var(--c-border)'}`}}>
+                  👤 {teknikNamn}{ärMin?' (du)':''}
+                </span>
+              </div>
+            )}
           </div>
         )
       })}
@@ -823,8 +837,17 @@ export default function TeknikerVy({
   const [valdServiceorder, setValdServiceorder] = useState(null)
   const [valdMontage,      setValdMontage]      = useState(null)
   const [arendeFilter,     setArendeFilter]     = useState('mina')
+  const [serviceFilter,    setServiceFilter]    = useState('mina')
+  const [montageFilter,    setMontageFilter]    = useState('mina')
   const [visaNyService,    setVisaNyService]    = useState(false)
   const [visaNyMontage,    setVisaNyMontage]    = useState(false)
+
+  // Lås body-scroll så sidan inte scrollar utanför appen
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
 
   const todayStr = idag()
 
@@ -839,7 +862,13 @@ export default function TeknikerVy({
   const sortedArenden = [...visadeArenden].sort((a,b)=>({akut:0,hog:1,normal:2}[a.prioritet]??2)-({akut:0,hog:1,normal:2}[b.prioritet]??2))
 
   const minaServiceordrar = serviceorderArr.filter(o=>o.tekniker===namn&&o.status!=='avslutad').sort((a,b)=>(a.datum||'').localeCompare(b.datum||''))
+  const alleServiceordrar = serviceorderArr.filter(o=>o.status!=='avslutad').sort((a,b)=>(a.datum||'').localeCompare(b.datum||''))
+  const visadeServiceordrar = serviceFilter==='mina' ? minaServiceordrar : alleServiceordrar
+
   const minaMontageordrar = montageorder.filter(m=>m.tekniker===namn&&m.status!=='utford').sort((a,b)=>((a.datum_planerat||a.datum)||'').localeCompare((b.datum_planerat||b.datum)||''))
+  const alleMontageordrar = montageorder.filter(m=>m.status!=='utford').sort((a,b)=>((a.datum_planerat||a.datum)||'').localeCompare((b.datum_planerat||b.datum)||''))
+  const visadeMontageordrar = montageFilter==='mina' ? minaMontageordrar : alleMontageordrar
+
   const klaraArenden = arenden.filter(a=>a.tekniker===namn&&a.status==='atgardad').slice(-5).reverse()
 
   const TABS = [
@@ -910,19 +939,32 @@ export default function TeknikerVy({
         if(valdServiceorder)return(<ServiceorderDetalj order={valdServiceorder} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraServiceorder(id,ch);setValdServiceorder(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onBack={()=>setValdServiceorder(null)}/>)
         return(
           <div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
               <h1 style={{fontSize:22,fontWeight:700,margin:0}}>Serviceordrar</h1>
               <button onClick={()=>setVisaNyService(v=>!v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',fontSize:13,fontWeight:600,borderRadius:9,cursor:'pointer',border:'1.5px solid var(--c-blue)',background:visaNyService?'var(--c-blue)':'transparent',color:visaNyService?'#fff':'var(--c-blue)'}}>
                 {visaNyService?<X size={14}/>:<Plus size={14}/>} Ny
               </button>
             </div>
+            {/* Alla/Mina-filter */}
+            <div style={{display:'flex',gap:6,marginBottom:14}}>
+              {[['mina',`Mina (${minaServiceordrar.length})`],['alla',`Alla (${alleServiceordrar.length})`]].map(([id,lab])=>(
+                <button key={id} onClick={()=>setServiceFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${serviceFilter===id?'var(--c-navy,#1C3461)':'var(--c-border)'}`,background:serviceFilter===id?'var(--c-navy,#1C3461)':'transparent',color:serviceFilter===id?'#fff':'var(--c-text2)'}}>{lab}</button>
+              ))}
+            </div>
             {visaNyService&&<NyServiceorderForm objekt={objekt} kunder={kunder} namn={namn} onSpara={async(o)=>{await onLaggTillServiceorder(o);setVisaNyService(false)}} onAvbryt={()=>setVisaNyService(false)}/>}
-            <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{minaServiceordrar.length===0?'Inga öppna serviceordrar':`${minaServiceordrar.length} öppna`}</p>
-            {minaServiceordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna serviceordrar!</div></div>
-            ):minaServiceordrar.map(o=>{ const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]; return(
-              <div key={o.id} className="card" style={{marginBottom:10,cursor:'pointer',borderLeft:'4px solid var(--c-blue)'}} onClick={()=>setValdServiceorder(o)}>
+            <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeServiceordrar.length===0?'Inga öppna serviceordrar':`${visadeServiceordrar.length} öppna`}</p>
+            {visadeServiceordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna serviceordrar!</div></div>
+            ):visadeServiceordrar.map(o=>{ const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]; const ämin=o.tekniker===namn; return(
+              <div key={o.id} className="card" style={{marginBottom:10,cursor:'pointer',borderLeft:`4px solid ${ämin?'var(--c-blue)':'var(--c-border)'}`}} onClick={()=>setValdServiceorder(o)}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                  <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600}}>{o.kund}</div>{port&&<div style={{fontSize:13,color:'var(--c-text2)'}}>{port.namn} · {port.typ}</div>}<div style={{fontSize:12,color:'var(--c-text3)',marginTop:4}}>📅 {o.datum||'–'}</div></div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:15,fontWeight:600}}>{o.kund}</div>
+                    {port&&<div style={{fontSize:13,color:'var(--c-text2)'}}>{port.namn} · {port.typ}</div>}
+                    <div style={{fontSize:12,color:'var(--c-text3)',marginTop:4,display:'flex',gap:8}}>
+                      <span>📅 {o.datum||'–'}</span>
+                      {o.tekniker&&<span style={{background:'var(--c-bg)',borderRadius:6,padding:'1px 6px',border:'1px solid var(--c-border)',fontWeight:ämin?700:400,color:ämin?'var(--c-blue)':'var(--c-text3)'}}>👤 {o.tekniker}</span>}
+                    </div>
+                  </div>
                   <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}><span className={`badge ${o.status==='planerad'?'badge-blue':'badge-amber'}`}>{o.status==='planerad'?'Planerad':'Pågår'}</span><ChevronRight size={16} color="var(--c-text3)"/></div>
                 </div>
               </div>
@@ -934,23 +976,36 @@ export default function TeknikerVy({
         if(valdMontage)return(<MontageDetalj order={valdMontage} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraMontageorder(id,ch);setValdMontage(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onBack={()=>setValdMontage(null)}/>)
         return(
           <div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
               <h1 style={{fontSize:22,fontWeight:700,margin:0}}>Montageordrar</h1>
               <button onClick={()=>setVisaNyMontage(v=>!v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',fontSize:13,fontWeight:600,borderRadius:9,cursor:'pointer',border:'1.5px solid var(--c-amber)',background:visaNyMontage?'var(--c-amber)':'transparent',color:visaNyMontage?'#fff':'var(--c-amber)'}}>
                 {visaNyMontage?<X size={14}/>:<Plus size={14}/>} Ny
               </button>
             </div>
+            {/* Alla/Mina-filter */}
+            <div style={{display:'flex',gap:6,marginBottom:14}}>
+              {[['mina',`Mina (${minaMontageordrar.length})`],['alla',`Alla (${alleMontageordrar.length})`]].map(([id,lab])=>(
+                <button key={id} onClick={()=>setMontageFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${montageFilter===id?'var(--c-navy,#1C3461)':'var(--c-border)'}`,background:montageFilter===id?'var(--c-navy,#1C3461)':'transparent',color:montageFilter===id?'#fff':'var(--c-text2)'}}>{lab}</button>
+              ))}
+            </div>
             {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} onSpara={async(m)=>{await onLaggTillMontageorder(m);setVisaNyMontage(false)}} onAvbryt={()=>setVisaNyMontage(false)}/>}
-            <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{minaMontageordrar.length===0?'Inga öppna montageordrar':`${minaMontageordrar.length} öppna`}</p>
-            {minaMontageordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna montageordrar!</div></div>
-            ):minaMontageordrar.map(m=>(
-              <div key={m.id} className="card" style={{marginBottom:10,cursor:'pointer',borderLeft:'4px solid var(--c-amber)'}} onClick={()=>setValdMontage(m)}>
+            <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeMontageordrar.length===0?'Inga öppna montageordrar':`${visadeMontageordrar.length} öppna`}</p>
+            {visadeMontageordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna montageordrar!</div></div>
+            ):visadeMontageordrar.map(m=>{ const ämin=m.tekniker===namn; return(
+              <div key={m.id} className="card" style={{marginBottom:10,cursor:'pointer',borderLeft:`4px solid ${ämin?'var(--c-amber)':'var(--c-border)'}`}} onClick={()=>setValdMontage(m)}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                  <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600}}>{m.kund}</div><div style={{fontSize:13,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.adress||'–'}</div><div style={{fontSize:12,color:'var(--c-text3)',marginTop:4}}>📅 {m.datum_planerat||m.datum||'–'}</div></div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:15,fontWeight:600}}>{m.kund}</div>
+                    <div style={{fontSize:13,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.adress||'–'}</div>
+                    <div style={{fontSize:12,color:'var(--c-text3)',marginTop:4,display:'flex',gap:8}}>
+                      <span>📅 {m.datum_planerat||m.datum||'–'}</span>
+                      {m.tekniker&&<span style={{background:'var(--c-bg)',borderRadius:6,padding:'1px 6px',border:'1px solid var(--c-border)',fontWeight:ämin?700:400,color:ämin?'var(--c-amber)':'var(--c-text3)'}}>👤 {m.tekniker}</span>}
+                    </div>
+                  </div>
                   <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}><span className={`badge ${m.status==='planerad'?'badge-blue':'badge-amber'}`}>{m.status==='planerad'?'Planerad':m.status||'–'}</span><ChevronRight size={16} color="var(--c-text3)"/></div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )
 
