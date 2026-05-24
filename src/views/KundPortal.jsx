@@ -4,10 +4,11 @@ import {
   LogOut, AlertCircle, CheckCircle, Clock, Building2,
   ChevronDown, ChevronUp, DoorOpen, Wrench, User,
 } from 'lucide-react'
+import logo from '../image-1779305303942.png'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const PRIO_LABEL = { akut: 'Akut', hog: 'Hög', normal: 'Normal' }
-const PRIO_COLOR = { akut: 'var(--c-red)', hog: '#f59e0b', normal: 'var(--c-teal)' }
+const PRIO_LABEL = { normal: 'Normal', hog: 'Hög', akut: 'Akut' }
+const PRIO_COLOR = { normal: 'var(--c-teal)', hog: '#f59e0b', akut: 'var(--c-red)' }
 const STATUS_LABEL = { ny: 'Ny', pagaende: 'Pågår', atgardad: 'Åtgärdad' }
 const STATUS_COLOR = { ny: '#f59e0b', pagaende: 'var(--c-blue)', atgardad: 'var(--c-teal)' }
 
@@ -72,6 +73,7 @@ export default function KundPortal({ user, onLoggaUt }) {
     const { error } = await supabase.from('arenden').insert({
       namn:        port?.namn || 'Okänd port',
       kund:        kundnamn,
+      objekt_id:   port?.id || null,
       feltyp,
       prioritet,
       beskrivning,
@@ -117,10 +119,8 @@ export default function KundPortal({ user, onLoggaUt }) {
         display: 'flex', alignItems: 'center', gap: 12,
         borderBottom: '1px solid var(--c-border)', flexShrink: 0,
       }}>
-        <div style={{ width: 32, height: 32, background: 'var(--c-teal)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>N</span>
-        </div>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#fff', flex: 1 }}>NMV Portservice — Kundportal</span>
+        <img src={logo} alt="NMV Portservice" style={{ height: 32, display: 'block', objectFit: 'contain' }} />
+        <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', flex: 1 }}>Kundportal</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: 'var(--c-text3)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
           <button onClick={onLoggaUt} style={{
@@ -215,14 +215,13 @@ export default function KundPortal({ user, onLoggaUt }) {
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Prioritet</label>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      {['normal', 'hög', 'kritisk'].map(p => (
+                      {['normal', 'hog', 'akut'].map(p => (
                         <button key={p} onClick={() => setPrioritet(p)} style={{
                           padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                           border: `1px solid ${prioritet === p ? PRIO_COLOR[p] : 'var(--c-border)'}`,
                           background: prioritet === p ? PRIO_COLOR[p] + '22' : 'transparent',
                           color: prioritet === p ? PRIO_COLOR[p] : 'var(--c-text2)',
                           transition: 'all 0.15s',
-                          textTransform: 'capitalize',
                         }}>{PRIO_LABEL[p]}</button>
                       ))}
                     </div>
