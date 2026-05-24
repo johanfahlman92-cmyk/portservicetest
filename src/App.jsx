@@ -692,6 +692,8 @@ export default function App() {
       arenden={arenden}
       bokningar={bokningar}
       objekt={objektMedStatus}
+      kunder={kunder}
+      fastigheter={fastigheter}
       tekniker={tekniker}
       serviceorderArr={serviceorderArr}
       montageorder={montageorder}
@@ -701,6 +703,11 @@ export default function App() {
       onUppdateraObjekt={uppdateraObjekt}
       onUppdateraServiceorder={uppdateraServiceorder}
       onUppdateraMontageorder={uppdateraMontageorder}
+      onLaggTillServiceorder={laggTillServiceorder}
+      onLaggTillMontageorder={laggTillMontageorder}
+      onLaggTillObjekt={laggTillObjekt}
+      onLaggTillBokning={laggTillBokning}
+      onTaBortBokning={taBortBokning}
       onLoggaUt={loggaUt}
     />
   )
