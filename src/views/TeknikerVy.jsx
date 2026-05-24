@@ -421,13 +421,16 @@ function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
     if (!form.kund.trim()) return
     setSparar(true); setFelMsg('')
     try {
-      await onSpara({
-        nr: genNr(), status: 'planerad', tekniker: namn,
+      const res = await onSpara({
+        ordernummer: 'MO-' + genNr(),
+        status: 'planerad', tekniker: namn,
         kund: form.kund, porttyp: form.porttyp,
         montageplats: form.montageplats.trim(),
         onskat_montagedag: form.onskat_montagedag,
+        fabrikat: '', serienummer: '', preliminar_leverans: '',
         notering: form.notering.trim(),
       })
+      if (!res) setFelMsg('Kunde inte spara – kontrollera fälten')
     } catch(e) { setFelMsg(e.message||'Kunde inte spara') }
     setSparar(false)
   }
@@ -1459,7 +1462,7 @@ export default function TeknikerVy({
                 <button key={id} onClick={()=>setMontageFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${montageFilter===id?'var(--c-navy,#1C3461)':'var(--c-border)'}`,background:montageFilter===id?'var(--c-navy,#1C3461)':'transparent',color:montageFilter===id?'#fff':'var(--c-text2)'}}>{lab}</button>
               ))}
             </div>
-            {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(m)=>{await onLaggTillMontageorder(m);setVisaNyMontage(false)}} onAvbryt={()=>setVisaNyMontage(false)}/>}
+            {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(m)=>{const r=await onLaggTillMontageorder(m);if(r)setVisaNyMontage(false);return r}} onAvbryt={()=>setVisaNyMontage(false)}/>}
             <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeMontageordrar.length===0?'Inga öppna montageordrar':`${visadeMontageordrar.length} öppna`}</p>
             {visadeMontageordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna montageordrar!</div></div>
             ):visadeMontageordrar.map(m=>{ const ämin=m.tekniker===namn; const mRiskKlar=(m.protokoll_data?.steg||0)>=1; return(
