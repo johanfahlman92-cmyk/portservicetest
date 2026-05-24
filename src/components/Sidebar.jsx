@@ -58,7 +58,7 @@ export default function Sidebar({ active, onNav, oppnaArenden = 0, oppnaServiceo
         flexShrink: 0,
         boxShadow: '0 1px 0 rgba(0,0,0,0.08)',
       }}>
-        {öppen && <img src={logo} alt="NMV Portservice" style={{ width: 120, display: 'block' }} />}
+        {öppen && <img src={logo} alt="NMV Portservice" style={{ width: 120, display: 'block', filter: 'brightness(0) invert(1)' }} />}
         {!öppen && (
           <div style={{
             width: 30, height: 30, background: NAV_BG, borderRadius: 7,

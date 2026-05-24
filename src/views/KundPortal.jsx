@@ -119,7 +119,7 @@ export default function KundPortal({ user, onLoggaUt }) {
         display: 'flex', alignItems: 'center', gap: 12,
         borderBottom: '1px solid var(--c-border)', flexShrink: 0,
       }}>
-        <img src={logo} alt="NMV Portservice" style={{ height: 32, display: 'block', objectFit: 'contain' }} />
+        <img src={logo} alt="NMV Portservice" style={{ height: 32, display: 'block', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
         <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', flex: 1 }}>Kundportal</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: 'var(--c-text3)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
