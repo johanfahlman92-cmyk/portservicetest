@@ -645,8 +645,11 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
 // ── MontageDetalj ─────────────────────────────────────────────────────────────
 function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onBack }) {
   const [vy,setVy]=useState('info')
+  const [visaRiskDetalj,setVisaRiskDetalj]=useState(false)
   const riskSteg = order.protokoll_data?.steg || 0
   const riskKlar = riskSteg >= 1
+  const sparadRisk = order.protokoll_data?.riskKontroll || {}
+  const sparadRiskN = order.protokoll_data?.riskNoteringar || {}
 
   const hanteraRiskSparad=async(riskData)=>{
     await onUppdatera(order.id,{status:'pagAr',protokoll_data:{steg:1,...riskData}})
@@ -679,14 +682,37 @@ function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, on
       </div>
       {order.status!=='utford'&&(
         <div style={{marginBottom:80}}>
-          {/* Riskbedömning klar-badge */}
+          {/* Riskbedömning klar – klickbar för att visa detaljer */}
           {riskKlar&&(
-            <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10,marginBottom:12}}>
-              <span style={{fontSize:18}}>🛡️</span>
-              <div>
-                <div style={{fontSize:13,fontWeight:700,color:'#166534'}}>Riskbedömning genomförd</div>
-                <div style={{fontSize:12,color:'#15803d'}}>Besök 1 klar · Klicka nedan för att starta egenkontroll</div>
-              </div>
+            <div style={{marginBottom:12}}>
+              <button onClick={()=>setVisaRiskDetalj(v=>!v)}
+                style={{width:'100%',padding:'12px 14px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10,cursor:'pointer',
+                  display:'flex',alignItems:'center',gap:10,textAlign:'left'}}>
+                <span style={{fontSize:18}}>🛡️</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'#166534'}}>Riskbedömning genomförd</div>
+                  <div style={{fontSize:12,color:'#15803d'}}>Besök 1 klar · {visaRiskDetalj?'Dölj detaljer':'Visa detaljer'}</div>
+                </div>
+                <span style={{color:'#16a34a',fontSize:14}}>{visaRiskDetalj?'▲':'▼'}</span>
+              </button>
+              {visaRiskDetalj&&(
+                <div style={{marginTop:6,padding:'10px 12px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10}}>
+                  {RISKPUNKTER.map((p,i)=>{
+                    const s=sparadRisk[i]
+                    if(!s) return null
+                    const cfg=RISK_STATUS.find(r=>r.id===s)||RISK_STATUS[0]
+                    return(
+                      <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'6px 0',borderBottom:'1px solid #bbf7d0',fontSize:12}}>
+                        <span style={{padding:'2px 7px',borderRadius:6,fontWeight:700,fontSize:10,flexShrink:0,background:cfg.bg,color:cfg.txt,border:`1px solid ${cfg.border}`}}>{cfg.label}</span>
+                        <div>
+                          <div style={{color:'var(--c-text)',lineHeight:1.4}}>{p}</div>
+                          {sparadRiskN[i]&&<div style={{color:'var(--c-amber-text)',marginTop:2,fontStyle:'italic'}}>↳ {sparadRiskN[i]}</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
           {/* Besök 1: Starta riskbedömning */}
