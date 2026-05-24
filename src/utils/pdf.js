@@ -2,7 +2,7 @@ import logo from '../image-1779305303942.png'
 import { RISKPUNKTER } from '../data/store.js'
 
 // ── Företagskonfiguration (sätts från App.jsx vid start) ──────────────────────
-let _companyConfig = { namn: 'NMV Portservice' }
+let _companyConfig = {}
 /** Uppdaterar företagskonfigurationen som används i PDF-headers. */
 export function setCompanyConfig(cfg) {
   if (cfg && typeof cfg === 'object') _companyConfig = { ...cfg }
@@ -112,11 +112,20 @@ tr:last-child td{border-bottom:none}
  * @param {string} docRefSub  - Liten undertext (datum etc.), visas höger
  */
 export function pdfHeader(logoBase64, docType, docRef = '', docRefSub = '') {
+  const cc = _companyConfig
+  const ort      = [cc.postnr, cc.ort].filter(Boolean).join(' ')
+  const adressRad  = [cc.adress, ort].filter(Boolean).join(', ')
+  const kontaktRad = [cc.telefon, cc.epost].filter(Boolean).join(' · ')
+  const visaNamn = !!(cc.namn && logoBase64)   // visa namn under logotypen
+
   return `<div class="doc-header">
     <div>
       ${logoBase64
-        ? `<img src="${logoBase64}" style="height:52px;display:block" alt="NMV Portservice"/>`
-        : `<span style="font-size:18px;font-weight:800;color:#1C3461">${_companyConfig.namn || 'NMV Portservice'}</span>`}
+        ? `<img src="${logoBase64}" style="height:${visaNamn ? 36 : 52}px;display:block" alt="${cc.namn || 'Portservice'}"/>`
+        : `<div style="font-size:20px;font-weight:800;color:#1C3461;line-height:1">${cc.namn || 'NMV Portservice'}</div>`}
+      ${visaNamn   ? `<div style="font-size:12px;font-weight:700;color:#1C3461;margin-top:3px">${cc.namn}</div>` : ''}
+      ${adressRad  ? `<div style="font-size:10px;color:#888;margin-top:1px">${adressRad}</div>`                  : ''}
+      ${kontaktRad ? `<div style="font-size:10px;color:#888">${kontaktRad}</div>`                                : ''}
       <div class="doc-type">${docType}</div>
     </div>
     <div>
