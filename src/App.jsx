@@ -693,8 +693,14 @@ export default function App() {
       bokningar={bokningar}
       objekt={objektMedStatus}
       tekniker={tekniker}
+      serviceorderArr={serviceorderArr}
+      montageorder={montageorder}
+      protokollMallar={protokollMallar}
+      montagemallar={montagemallar}
       onUppdateraArende={uppdateraArende}
       onUppdateraObjekt={uppdateraObjekt}
+      onUppdateraServiceorder={uppdateraServiceorder}
+      onUppdateraMontageorder={uppdateraMontageorder}
       onLoggaUt={loggaUt}
     />
   )
