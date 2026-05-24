@@ -4,8 +4,12 @@ import { Check, ChevronRight, ChevronLeft, Printer, CheckSquare,
          ClipboardList, CheckCircle, Search, Trash2, Archive } from 'lucide-react'
 import { protokollPunkter as defaultMallar } from '../data/store.js'
 import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
+import KundVäljare from '../components/KundVäljare.jsx'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
+const PORTTYPER = ['Vikport', 'Takskjutport', 'Lastbrygga', 'Grind']
+const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
+
 const STATUSES = [
   { kod: 'OK',  label: 'Godkänd',        Icon: Check,         color: '#16a34a', bg: '#f0fdf4', border: '#16a34a' },
   { kod: 'AF',  label: 'Åtgärdad',       Icon: Wrench,        color: '#2563eb', bg: '#eff6ff', border: '#2563eb' },
@@ -69,7 +73,7 @@ function SignaturPad({ onChange }) {
 }
 
 // ── Huvudkomponent ─────────────────────────────────────────────────────────────
-export default function Serviceorder({ serviceorder = [], fastigheter = [], objekt = [], tekniker = [], protokollMallar, onLaggTill, onUppdatera, onTaBort, onUppdateraObjekt }) {
+export default function Serviceorder({ serviceorder = [], fastigheter = [], objekt = [], tekniker = [], kunder = [], protokollMallar, onLaggTill, onUppdatera, onTaBort, onUppdateraObjekt, onNyKund, onLaggTillObjekt }) {
   const mallar = protokollMallar || defaultMallar
 
   // vy: lista | form | utfor | sign | klar
@@ -88,6 +92,15 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
   const [formTekniker,  setFormTekniker]  = useState('')
   const [formDatum,     setFormDatum]     = useState(new Date().toISOString().slice(0, 10))
   const [formSok,       setFormSok]       = useState('')
+  const [formKund,      setFormKund]      = useState('')
+  const [formNotering,  setFormNotering]  = useState('')
+  const [formStatus,    setFormStatus]    = useState('planerad')
+  // Ny port
+  const [visaNyPort,      setVisaNyPort]      = useState(false)
+  const [formPorttyp,     setFormPorttyp]     = useState('Vikport')
+  const [formPortFabrikat, setFormPortFabrikat] = useState('')
+  const [formAnnatFabrikat, setFormAnnatFabrikat] = useState('')
+  const [formPortSerienr,  setFormPortSerienr]  = useState('')
 
   // Signaturer
   const [visaTekSign,  setVisaTekSign]  = useState(false)
@@ -102,34 +115,66 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
       setFormPortar(order.objekt_ids || [])
       setFormTekniker(order.tekniker || '')
       setFormDatum(order.datum || new Date().toISOString().slice(0, 10))
+      setFormKund(order.kund || '')
+      setFormNotering(order.notering || '')
+      setFormStatus(order.status || 'planerad')
       setValdOrder(order)
     } else {
       setFormFastighet('')
       setFormPortar([])
       setFormTekniker(tekniker[0] || '')
       setFormDatum(new Date().toISOString().slice(0, 10))
+      setFormKund('')
+      setFormNotering('')
+      setFormStatus('planerad')
       setValdOrder(null)
     }
     setFormSok('')
+    setVisaNyPort(false)
+    setFormPorttyp('Vikport')
+    setFormPortFabrikat('')
+    setFormAnnatFabrikat('')
+    setFormPortSerienr('')
     setVy('form')
   }
 
   const sparaForm = async () => {
-    if (!formPortar.length) return
     setSparar(true)
+    let objektIds = [...formPortar]
+
+    // Skapa ny port om begärt
+    if (visaNyPort && formPorttyp && formKund.trim() && onLaggTillObjekt) {
+      const effFab = formPortFabrikat === 'Annat' ? formAnnatFabrikat : formPortFabrikat
+      const fastighet = fastigheter.find(f => f.id === formFastighet)
+      const nyPort = await onLaggTillObjekt({
+        typ: formPorttyp,
+        namn: `${formPorttyp}${fastighet?.namn ? ' – ' + fastighet.namn : ''}`,
+        kund: formKund.trim(),
+        fabrikat: effFab.trim(),
+        adress: fastighet?.adress || fastighet?.namn || '',
+        serienummer: formPortSerienr.trim(),
+        status: 'ny', protokoll: formPorttyp,
+        punkter: 0, historik: [], ar: new Date().getFullYear(), serviceIntervall: 12,
+      })
+      if (nyPort?.id) objektIds = [...objektIds, nyPort.id]
+    }
+
+    if (!objektIds.length) { setSparar(false); return }
+
     const fastighet = fastigheter.find(f => f.id === formFastighet)
     const payload = {
       fastighet_id:   formFastighet || null,
       fastighet_namn: fastighet?.namn || '',
-      kund:           fastighet?.kund || '',
+      kund:           formKund || fastighet?.kund || '',
       datum:          formDatum,
       tekniker:       formTekniker,
-      objekt_ids:     formPortar,
-      status:         'planerad',
-      protokoll:      {},
+      objekt_ids:     objektIds,
+      status:         formStatus,
+      protokoll:      valdOrder?.protokoll || {},
       signatur_tekniker: null,
       signatur_kund:     null,
     }
+    if (formNotering.trim()) payload.notering = formNotering.trim()
     if (valdOrder) {
       await onUppdatera(valdOrder.id, payload)
     } else {
@@ -331,26 +376,28 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
 
   // ── VY: Formulär ─────────────────────────────────────────────────────────────
   if (vy === 'form') {
+    const inp = { width: '100%', padding: '9px 11px', fontSize: 14, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }
+    const lbl = { fontSize: 12, fontWeight: 500, color: 'var(--c-blue-text)', display: 'block', marginBottom: 4, marginTop: 12 }
+    const secHdr = { fontWeight: 600, fontSize: 14, marginBottom: 14, paddingBottom: 10, borderBottom: '2px solid var(--c-border)' }
+    const effPortFab = formPortFabrikat === 'Annat' ? formAnnatFabrikat : formPortFabrikat
+
     const valdFastighet = fastigheter.find(f => f.id === formFastighet)
-    const portarFörFastighet = objekt.filter(o => !o.arkiverad && (
+    const portarFörFilter = objekt.filter(o => !o.arkiverad && (
       formFastighet
         ? (o.fastighetId === formFastighet || (!o.fastighetId && o.plats === valdFastighet?.namn))
-        : true
+        : !formKund || o.kund === formKund
     ))
-    const filtrerade = portarFörFastighet.filter(o => {
+    const filtrerade = portarFörFilter.filter(o => {
       if (!formSok) return true
       const q = formSok.toLowerCase()
-      return o.namn?.toLowerCase().includes(q) || o.kund?.toLowerCase().includes(q)
+      return o.namn?.toLowerCase().includes(q) || o.kund?.toLowerCase().includes(q) || o.typ?.toLowerCase().includes(q)
     })
     const alleMarkerade = filtrerade.length > 0 && filtrerade.every(o => formPortar.includes(o.id))
-    const togglePort    = (id) => setFormPortar(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-    const toggleAlla    = () => {
+    const togglePort = (id) => setFormPortar(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    const toggleAlla = () => {
       if (alleMarkerade) setFormPortar(prev => prev.filter(id => !filtrerade.some(o => o.id === id)))
       else setFormPortar(prev => [...new Set([...prev, ...filtrerade.map(o => o.id)])])
     }
-    const inp = { width: '100%', padding: '9px 11px', fontSize: 14, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-bg)', color: 'var(--c-text)', boxSizing: 'border-box' }
-    const lbl = { fontSize: 12, fontWeight: 500, color: 'var(--c-blue-text)', display: 'block', marginBottom: 5, marginTop: 14 }
-    const secHdr = { fontSize: 15, fontWeight: 700, color: 'var(--c-text)', marginBottom: 16, paddingBottom: 12, borderBottom: '2px solid var(--c-border)' }
 
     return (
       <div>
@@ -362,41 +409,50 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
         </div>
         <div style={{ maxWidth: 700 }}>
 
-          {/* ── Serviceorderinformation ── */}
-          <div className="card" style={{ marginBottom: 16, padding: '20px 24px' }}>
-            <div style={secHdr}>Serviceorderinformation</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-              <div>
-                <label style={lbl}>Fastighet</label>
-                <select value={formFastighet} onChange={e => { setFormFastighet(e.target.value); setFormPortar([]) }} style={inp}>
-                  <option value="">– Ingen fastighet –</option>
-                  {fastigheter.filter(f => !f.arkiverad).map(f => (
-                    <option key={f.id} value={f.id}>{f.namn}{f.kund ? ` (${f.kund})` : ''}</option>
-                  ))}
-                </select>
+          {/* ── Plats & kund ── */}
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={secHdr}>Plats & kund</div>
+            <label style={{ ...lbl, marginTop: 0 }}>Kund</label>
+            <KundVäljare
+              kunder={kunder}
+              value={formKund}
+              onChange={v => { setFormKund(v); setFormFastighet('') }}
+              onNyKund={onNyKund}
+              style={inp}
+              placeholder="– Välj kund –"
+            />
+            {formKund && (
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, color: 'var(--c-teal-text)', background: 'var(--c-teal-bg)',
+                border: '1px solid var(--c-teal)', borderRadius: 6, padding: '5px 10px' }}>
+                <Check size={13} /> Vald kund: <strong>{formKund}</strong>
               </div>
-              <div>
-                <label style={lbl}>Ansvarig tekniker</label>
-                <select value={formTekniker} onChange={e => setFormTekniker(e.target.value)} style={inp}>
-                  <option value="">– Ej tilldelad –</option>
-                  {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>Datum *</label>
-                <input type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)} style={inp} />
-              </div>
-              <div>
-                <label style={lbl}>Kund</label>
-                <input type="text" value={valdFastighet?.kund || ''} readOnly
-                  placeholder="Hämtas från fastighet"
-                  style={{ ...inp, color: valdFastighet?.kund ? 'var(--c-text)' : 'var(--c-text3)', cursor: 'default' }} />
-              </div>
-            </div>
+            )}
+            {/* Kundens fastigheter */}
+            {(() => {
+              const kundensFastigheter = fastigheter.filter(f => !f.arkiverad && f.kund === formKund)
+              if (!formKund || kundensFastigheter.length === 0) return null
+              return (
+                <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--c-bg)', borderRadius: 8, border: '1px solid var(--c-border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--c-blue)', fontWeight: 600, marginBottom: 6 }}>
+                    📍 {formKund} har {kundensFastigheter.length} registrerad{kundensFastigheter.length > 1 ? 'e fastigheter' : ' fastighet'}
+                  </div>
+                  <label style={{ fontSize: 11, color: 'var(--c-text2)', display: 'block', marginBottom: 3 }}>
+                    Filtrera portar per fastighet <span style={{ color: 'var(--c-text3)' }}>(valfritt)</span>
+                  </label>
+                  <select value={formFastighet} onChange={e => setFormFastighet(e.target.value)} style={inp}>
+                    <option value="">– Alla kundens portar –</option>
+                    {kundensFastigheter.map(f => (
+                      <option key={f.id} value={f.id}>{f.namn}{f.adress ? ` – ${f.adress}` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )
+            })()}
           </div>
 
           {/* ── Välj portar ── */}
-          <div className="card" style={{ marginBottom: 16, padding: '20px 24px' }}>
+          <div className="card" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...secHdr }}>
               <span>
                 Välj portar
@@ -412,14 +468,14 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
                 </button>
               )}
             </div>
-            <div style={{ position: 'relative', marginBottom: 14 }}>
+            <div style={{ position: 'relative', marginBottom: 12 }}>
               <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text3)', pointerEvents: 'none' }} />
-              <input type="text" placeholder="Sök port eller kund…" value={formSok} onChange={e => setFormSok(e.target.value)}
+              <input type="text" placeholder="Sök port, kund eller typ…" value={formSok} onChange={e => setFormSok(e.target.value)}
                 style={{ ...inp, paddingLeft: 32 }} />
             </div>
             {filtrerade.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--c-text3)', padding: '16px 0', textAlign: 'center' }}>
-                {formFastighet ? 'Inga portar kopplade till denna fastighet.' : 'Välj en fastighet ovan eller sök bland alla portar.'}
+              <div style={{ fontSize: 13, color: 'var(--c-text3)', padding: '14px 0', textAlign: 'center' }}>
+                {formKund ? `Inga portar kopplade till ${formKund}.` : 'Välj en kund ovan eller sök bland alla portar.'}
               </div>
             ) : (
               filtrerade.map(o => {
@@ -457,12 +513,86 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
             )}
           </div>
 
+          {/* ── Lägg till ny port ── */}
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...secHdr }}>
+              <span>Lägg till ny port</span>
+              <button className="btn" style={{ fontSize: 12, padding: '4px 12px' }} onClick={() => setVisaNyPort(v => !v)}>
+                {visaNyPort ? '↑ Dölj' : <><Plus size={12} style={{ display: 'inline', marginRight: 4 }} />Ny port</>}
+              </button>
+            </div>
+            {visaNyPort && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+                  <div>
+                    <label style={{ ...lbl, marginTop: 0 }}>Porttyp *</label>
+                    <select value={formPorttyp} onChange={e => setFormPorttyp(e.target.value)} style={inp}>
+                      {PORTTYPER.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ ...lbl, marginTop: 0 }}>Fabrikat</label>
+                    <select value={formPortFabrikat} onChange={e => setFormPortFabrikat(e.target.value)} style={inp}>
+                      <option value="">– Välj fabrikat –</option>
+                      {FASTA_FABRIKAT.map(f => <option key={f} value={f}>{f}</option>)}
+                      <option value="Annat">Annat / okänt</option>
+                    </select>
+                    {formPortFabrikat === 'Annat' && (
+                      <input type="text" value={formAnnatFabrikat} onChange={e => setFormAnnatFabrikat(e.target.value)}
+                        placeholder="Ange fabrikat…" style={{ ...inp, marginTop: 6 }} />
+                    )}
+                  </div>
+                </div>
+                <label style={lbl}>Serienummer</label>
+                <input type="text" value={formPortSerienr} onChange={e => setFormPortSerienr(e.target.value)}
+                  placeholder="Valfritt" style={inp} />
+                <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--c-blue-bg)', borderRadius: 7, fontSize: 12, color: 'var(--c-blue)' }}>
+                  ℹ️ Porten skapas automatiskt i registret när serviceordern sparas.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Planering ── */}
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={secHdr}>Planering</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+              <div>
+                <label style={{ ...lbl, marginTop: 0 }}>Datum *</label>
+                <input type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={{ ...lbl, marginTop: 0 }}>Ansvarig tekniker</label>
+                <select value={formTekniker} onChange={e => setFormTekniker(e.target.value)} style={inp}>
+                  <option value="">– Ej tilldelad –</option>
+                  {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Status</label>
+                <select value={formStatus} onChange={e => setFormStatus(e.target.value)} style={inp}>
+                  <option value="planerad">Planerad</option>
+                  <option value="pagaende">Pågående</option>
+                  <option value="utford">Utförd</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Notering ── */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--c-blue-text)', display: 'block', marginBottom: 4 }}>Notering</label>
+            <textarea value={formNotering} onChange={e => setFormNotering(e.target.value)}
+              placeholder="Fritext, instruktioner, vad som ska göras…" rows={3}
+              style={{ ...inp, resize: 'vertical' }} />
+          </div>
+
           <button className="btn btn-teal" style={{ width: '100%', padding: 14, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            onClick={sparaForm} disabled={sparar || formPortar.length === 0}>
+            onClick={sparaForm} disabled={sparar || (formPortar.length === 0 && !visaNyPort)}>
             <CheckCircle size={16} />
             {sparar ? 'Sparar…' : valdOrder
               ? 'Spara ändringar'
-              : `Skapa serviceorder${formPortar.length > 0 ? ` (${formPortar.length} port${formPortar.length !== 1 ? 'ar' : ''})` : ''}`}
+              : `Skapa serviceorder${formPortar.length > 0 ? ` (${formPortar.length} port${formPortar.length !== 1 ? 'ar' : ''})` : visaNyPort ? ' (1 ny port)' : ''}`}
           </button>
         </div>
       </div>

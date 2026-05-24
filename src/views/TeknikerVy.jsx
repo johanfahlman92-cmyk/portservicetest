@@ -265,31 +265,57 @@ function NyArendeForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
 }
 
 // ── Ny serviceorder-formulär ──────────────────────────────────────────────────
-function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund }) {
-  const [sok,     setSok]     = useState('')
-  const [port,    setPort]    = useState(null)
-  const [friKund, setFriKund] = useState('')
-  const [datum,   setDatum]   = useState(idag())
-  const [notering,setNotering]= useState('')
-  const [sparar,  setSparar]  = useState(false)
-  const [felMsg,  setFelMsg]  = useState('')
+function NyServiceorderForm({ objekt, kunder, namn, tekniker: tekLista=[], onSpara, onAvbryt, onNyKund, onLaggTillObjekt }) {
+  const [sok,      setSok]      = useState('')
+  const [port,     setPort]     = useState(null)
+  const [porttyp,  setPorttyp]  = useState('Vikport')
+  const [fabrikat, setFabrikat] = useState('')
+  const [annatFab, setAnnatFab] = useState('')
+  const [serienr,  setSerienr]  = useState('')
+  const [kund,     setKund]     = useState('')
+  const [adress,   setAdress]   = useState('')
+  const [datum,    setDatum]    = useState(idag())
+  const [notering, setNotering] = useState('')
+  const [sparar,   setSparar]   = useState(false)
+  const [felMsg,   setFelMsg]   = useState('')
 
-  const SEC = {fontSize:11,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:12,paddingBottom:8,borderBottom:'1px solid var(--c-border)'}
-
+  const effFab = fabrikat === 'Annat' ? annatFab : fabrikat
+  const SEC = {fontSize:13,fontWeight:700,color:'var(--c-text)',marginBottom:14,paddingBottom:10,borderBottom:'2px solid var(--c-border)'}
+  const lbl = {fontSize:12,fontWeight:500,color:'var(--c-blue-text)',display:'block',marginBottom:5,marginTop:14}
   const hits = sok.length > 1
-    ? objekt.filter(o => !o.arkiverad && (o.namn?.toLowerCase().includes(sok.toLowerCase()) || o.kund?.toLowerCase().includes(sok.toLowerCase()))).slice(0,6)
+    ? objekt.filter(o=>!o.arkiverad&&(o.namn?.toLowerCase().includes(sok.toLowerCase())||o.kund?.toLowerCase().includes(sok.toLowerCase()))).slice(0,6)
     : []
+
+  const väljaPort = (p) => {
+    setPort(p); setSok('')
+    setPorttyp(p.typ||'Vikport')
+    setFabrikat(FASTA_FABRIKAT.includes(p.fabrikat)?p.fabrikat:(p.fabrikat?'Annat':''))
+    setAnnatFab(!FASTA_FABRIKAT.includes(p.fabrikat)?p.fabrikat||'':'')
+    setSerienr(p.serienummer||'')
+    setKund(p.kund||'')
+    setAdress(p.adress||p.plats||'')
+  }
 
   const spara = async () => {
     if (!datum) return
     setSparar(true); setFelMsg('')
     try {
+      let objektId = port?.id || null
+      if (!objektId && porttyp && kund.trim() && onLaggTillObjekt) {
+        const nyPort = await onLaggTillObjekt({
+          typ: porttyp, namn: `${porttyp}${adress?' – '+adress:''}`,
+          kund: kund.trim(), fabrikat: effFab.trim(), adress: adress.trim(),
+          serienummer: serienr.trim(), status:'ny', protokoll:porttyp,
+          punkter:0, historik:[], ar:new Date().getFullYear(), serviceIntervall:12,
+        })
+        if (nyPort?.id) objektId = nyPort.id
+      }
       await onSpara({
-        nr: genNr(), datum, status: 'planerad',
-        tekniker: namn, kund: port?.kund || friKund.trim(),
-        objekt_ids: port ? [port.id] : [],
-        protokoll: {},
-        ...(notering.trim() ? { notering: notering.trim() } : {}),
+        nr:genNr(), datum, status:'planerad',
+        tekniker:namn, kund:kund.trim()||port?.kund||'',
+        objekt_ids: objektId?[objektId]:[],
+        protokoll:{},
+        ...(notering.trim()?{notering:notering.trim()}:{}),
       })
     } catch(e) { setFelMsg(e.message||'Kunde inte spara'); setSparar(false); return }
     setSparar(false)
@@ -297,59 +323,79 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
 
   return (
     <div style={{marginBottom:16}}>
-      {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
         <h2 style={{fontSize:18,fontWeight:700,margin:0}}>Ny serviceorder</h2>
         <button className="btn" onClick={onAvbryt} style={{padding:'6px 10px'}}><X size={14}/></button>
       </div>
 
-      {/* Sektion 1: Välj port */}
+      {/* ── Portinformation ── */}
       <div className="card" style={{marginBottom:12}}>
-        <div style={SEC}>Välj port</div>
+        <div style={SEC}>Portinformation</div>
         {port ? (
-          <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'var(--c-teal-bg)',border:'1px solid var(--c-teal)',borderRadius:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:'var(--c-teal-bg)',border:'1px solid var(--c-teal)',borderRadius:9,marginBottom:12}}>
             <div style={{flex:1}}>
-              <div style={{fontSize:15,fontWeight:700,color:'var(--c-teal-text)'}}>{port.namn}</div>
-              <div style={{fontSize:13,color:'var(--c-text2)',marginTop:2}}>{port.kund} · {port.typ}{port.adress?' · '+port.adress:''}</div>
+              <div style={{fontSize:14,fontWeight:700,color:'var(--c-teal-text)'}}>{port.namn}</div>
+              <div style={{fontSize:12,color:'var(--c-text2)',marginTop:1}}>{port.kund} · {port.typ}</div>
             </div>
-            <button onClick={()=>{setPort(null);setSok('')}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',padding:4}}><X size={14}/></button>
+            <button onClick={()=>{setPort(null);setSok('');setKund('');setAdress('')}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',padding:4,display:'flex'}}><X size={14}/></button>
           </div>
         ) : (
-          <div style={{position:'relative'}}>
+          <div style={{position:'relative',marginBottom:12}}>
             <Search size={15} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--c-text3)',pointerEvents:'none'}}/>
-            <input type="text" placeholder="Sök portnamn eller kund…" value={sok} onChange={e=>setSok(e.target.value)}
-              style={{...INP,paddingLeft:36}}/>
+            <input type="text" placeholder="Sök befintlig port (valfritt)…" value={sok} onChange={e=>setSok(e.target.value)} style={{...INP,paddingLeft:36}}/>
             {hits.length>0&&(
-              <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:10,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',marginTop:4,overflow:'hidden'}}>
+              <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:10,boxShadow:'0 4px 20px rgba(0,0,0,0.13)',marginTop:4,overflow:'hidden'}}>
                 {hits.map(o=>(
-                  <div key={o.id} onClick={()=>{setPort(o);setSok('')}}
-                    style={{padding:'11px 14px',cursor:'pointer',borderBottom:'1px solid var(--c-border)'}}
+                  <div key={o.id} onClick={()=>väljaPort(o)}
+                    style={{padding:'10px 14px',cursor:'pointer',borderBottom:'1px solid var(--c-border)'}}
                     onMouseEnter={e=>e.currentTarget.style.background='var(--c-bg)'}
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                     <div style={{fontSize:14,fontWeight:600}}>{o.namn}</div>
-                    <div style={{fontSize:12,color:'var(--c-text2)',marginTop:2}}>{o.kund} · {o.typ}</div>
+                    <div style={{fontSize:12,color:'var(--c-text2)',marginTop:1}}>{o.kund} · {o.typ}</div>
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 14px'}}>
+          <div>
+            <label style={lbl}>Porttyp *</label>
+            <select value={porttyp} onChange={e=>setPorttyp(e.target.value)} style={INP}>
+              {PORT_TYPER.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Fabrikat</label>
+            <select value={fabrikat} onChange={e=>setFabrikat(e.target.value)} style={INP}>
+              <option value="">– Välj fabrikat –</option>
+              {FASTA_FABRIKAT.map(f=><option key={f}>{f}</option>)}
+              <option value="Annat">Annat / okänt</option>
+            </select>
+            {fabrikat==='Annat'&&<input type="text" value={annatFab} onChange={e=>setAnnatFab(e.target.value)} placeholder="Ange fabrikat…" style={{...INP,marginTop:6}}/>}
+          </div>
+          <div style={{gridColumn:'1/-1'}}>
+            <label style={lbl}>Serienummer</label>
+            <input type="text" value={serienr} onChange={e=>setSerienr(e.target.value)} placeholder="Valfritt" style={INP}/>
+          </div>
+        </div>
       </div>
 
-      {/* Sektion 2: Kund (om ingen port vald) */}
-      {!port&&(
-        <div className="card" style={{marginBottom:12}}>
-          <div style={SEC}>Kund</div>
-          <NyKundSektion kunder={kunder} value={friKund} onChange={setFriKund} onNyKund={onNyKund}/>
-        </div>
-      )}
+      {/* ── Plats & kund ── */}
+      <div className="card" style={{marginBottom:12}}>
+        <div style={SEC}>Plats & kund</div>
+        <label style={{...lbl,marginTop:0}}>Kund</label>
+        <NyKundSektion kunder={kunder} value={kund} onChange={setKund} onNyKund={onNyKund}/>
+        <label style={lbl}>Adress / plats</label>
+        <input type="text" value={adress} onChange={e=>setAdress(e.target.value)} placeholder="Adress eller platsnamn" style={INP}/>
+      </div>
 
-      {/* Sektion 3: Planering & notering */}
+      {/* ── Planering ── */}
       <div className="card" style={{marginBottom:12}}>
         <div style={SEC}>Planering</div>
-        <label style={LBL}>Datum *</label>
+        <label style={{...lbl,marginTop:0}}>Datum *</label>
         <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} style={{...INP,colorScheme:'light'}}/>
-        <label style={{...LBL,marginTop:12}}>Notering</label>
+        <label style={lbl}>Notering</label>
         <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={3} placeholder="Vad ska göras, specifikationer…" style={{...INP,resize:'vertical'}}/>
       </div>
 
@@ -1355,7 +1401,7 @@ export default function TeknikerVy({
                 <button key={id} onClick={()=>setServiceFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${serviceFilter===id?'var(--c-navy,#1C3461)':'var(--c-border)'}`,background:serviceFilter===id?'var(--c-navy,#1C3461)':'transparent',color:serviceFilter===id?'#fff':'var(--c-text2)'}}>{lab}</button>
               ))}
             </div>
-            {visaNyService&&<NyServiceorderForm objekt={objekt} kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(o)=>{await onLaggTillServiceorder(o);setVisaNyService(false)}} onAvbryt={()=>setVisaNyService(false)}/>}
+            {visaNyService&&<NyServiceorderForm objekt={objekt} kunder={kunder} namn={namn} tekniker={tekniker} onNyKund={onNyKund} onLaggTillObjekt={onLaggTillObjekt} onSpara={async(o)=>{await onLaggTillServiceorder(o);setVisaNyService(false)}} onAvbryt={()=>setVisaNyService(false)}/>}
             <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeServiceordrar.length===0?'Inga öppna serviceordrar':`${visadeServiceordrar.length} öppna`}</p>
             {visadeServiceordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna serviceordrar!</div></div>
             ):visadeServiceordrar.map(o=>{ const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]; const ämin=o.tekniker===namn; return(
