@@ -225,6 +225,17 @@ function HändelseDetalj({ val, onRedigera, onTaBort, onGåTillÄrende, onGåTil
               <Trash2 size={13} /> Ta bort bokning
             </button>
           )}
+          <button
+            onClick={onStäng}
+            style={{
+              width: '100%', padding: '9px 14px', borderRadius: 8, marginTop: 4,
+              background: 'var(--c-bg)', border: '1px solid var(--c-border)',
+              color: 'var(--c-text2)', cursor: 'pointer', fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            ← Stäng
+          </button>
         </div>
       </div>
     </div>

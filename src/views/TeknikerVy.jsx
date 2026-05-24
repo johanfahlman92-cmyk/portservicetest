@@ -1050,7 +1050,7 @@ const getVeckonr = (s) => {
 }
 const fmtKort = (s) => { const [y,m,day]=s.split('-').map(Number); return new Date(y,m-1,day).toLocaleDateString('sv-SE',{day:'numeric',month:'short'}) }
 
-function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, montageorder, namn, onLaggTillBokning, onTaBortBokning }) {
+function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, montageorder, namn, onLaggTillBokning, onTaBortBokning, onNavigeraServiceorder, onNavigeraMontageorder, onNavigeraArende }) {
   const todayStr = idag()
   const [offset, setOffset] = useState(0)
   const [valdDag, setValdDag] = useState(todayStr)
@@ -1207,18 +1207,26 @@ function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, mo
           ? (Array.isArray(ev.tek)?ev.tek.join(', '):ev.tek||'')
           : (ev.tekniker||'')
         const ärMin = teknikNamn && (teknikNamn===namn || (Array.isArray(ev.tek)&&ev.tek.includes(namn)))
+        const navigerbar = (ev._typ==='serviceorder'&&onNavigeraServiceorder)||(ev._typ==='montageorder'&&onNavigeraMontageorder)||(ev._typ==='arende'&&onNavigeraArende)
+        const hanteraKlick = () => {
+          if(ev._typ==='serviceorder'&&onNavigeraServiceorder) onNavigeraServiceorder(ev)
+          else if(ev._typ==='montageorder'&&onNavigeraMontageorder) onNavigeraMontageorder(ev)
+          else if(ev._typ==='arende'&&onNavigeraArende) onNavigeraArende(ev)
+        }
         return(
-          <div key={i} className="card" style={{marginBottom:10,borderLeft:`4px solid ${t.color}`,background:t.bg,padding:'12px 14px'}}>
+          <div key={i} className="card" onClick={navigerbar?hanteraKlick:undefined}
+            style={{marginBottom:10,borderLeft:`4px solid ${t.color}`,background:t.bg,padding:'12px 14px',cursor:navigerbar?'pointer':undefined}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:5}}>
               <span style={{fontSize:10,fontWeight:700,color:t.color,textTransform:'uppercase',letterSpacing:'0.06em'}}>{t.label}</span>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 {tid&&<span style={{fontSize:12,color:'var(--c-text3)',fontWeight:500}}>⏰ {tid}</span>}
                 {ev._typ==='bokning'&&(
-                  <button onClick={()=>onTaBortBokning(valdDag,ev._idx)}
+                  <button onClick={e=>{e.stopPropagation();onTaBortBokning(valdDag,ev._idx)}}
                     style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',padding:2,lineHeight:1,display:'flex'}}>
                     <X size={14}/>
                   </button>
                 )}
+                {navigerbar&&<ChevronRight size={16} style={{color:t.color,opacity:0.7,flexShrink:0}}/>}
               </div>
             </div>
             <div style={{fontSize:15,fontWeight:600,lineHeight:1.3}}>{titel||'–'}</div>
@@ -1524,6 +1532,9 @@ export default function TeknikerVy({
             namn={namn}
             onLaggTillBokning={onLaggTillBokning}
             onTaBortBokning={onTaBortBokning}
+            onNavigeraServiceorder={so=>{setValdServiceorder(so);setFlik('service')}}
+            onNavigeraMontageorder={mo=>{setValdMontage(mo);setFlik('montage')}}
+            onNavigeraArende={()=>setFlik('felanm')}
           />
         )
 
