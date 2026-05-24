@@ -297,8 +297,8 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
   // ── VY: Lista ─────────────────────────────────────────────────────────────
 
   // Aktiva orders (exkludera arkiverade)
-  const aktivaOrder = montageorder.filter(o => !o.arkiverad)
-  const arkiveradeOrder = montageorder.filter(o => o.arkiverad)
+  const aktivaOrder = montageorder.filter(o => o.status !== 'arkiverad')
+  const arkiveradeOrder = montageorder.filter(o => o.status === 'arkiverad')
 
   // Gruppera montageorders efter status
   const pågående = aktivaOrder
@@ -437,7 +437,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                 <span style={{ fontSize: 11, color: 'var(--c-text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Lock size={11} /> Utförd – status låst
                 </span>
-                <button onClick={() => onUppdatera(order.id, { arkiverad: true })}
+                <button onClick={() => onUppdatera(order.id, { status: 'arkiverad' })}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px',
                     borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 500,
                     background: 'var(--c-amber-bg)', color: 'var(--c-amber-text)',
@@ -609,7 +609,7 @@ export default function Montageplanering({ kunder = [], fastigheter = [], montag
                     {order.porttyp}{order.kund ? ` · ${order.kund}` : ''}{order.protokoll_data?.datum ? ` · ${order.protokoll_data.datum}` : ''}
                   </div>
                 </div>
-                <button onClick={() => onUppdatera(order.id, { arkiverad: false })}
+                <button onClick={() => onUppdatera(order.id, { status: 'utford' })}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
                     borderRadius: 6, fontSize: 11, cursor: 'pointer',
                     background: 'var(--c-surface)', color: 'var(--c-text2)',

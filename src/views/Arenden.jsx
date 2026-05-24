@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer, Archive, RotateCcw, Check, Wrench, AlertCircle, AlertTriangle, Minus } from 'lucide-react'
+import { ChevronRight, UserPlus, CheckCircle, Search, Paperclip, Plus, X, Pencil, FileText, Printer, Archive, RotateCcw, Check, Wrench, AlertCircle, AlertTriangle, Minus, Trash2 } from 'lucide-react'
 import DokumentZon from '../components/DokumentZon.jsx'
 import Felanmalan from './Felanmalan.jsx'
 import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
@@ -552,7 +552,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
   )
 }
 
-export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], protokollMallar = {}, bokningar = {}, onUppdatera, onUppdateraObjekt, onLaggTill, onLaggTillBokning, onTaBortBokning, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
+export default function Arenden({ arenden = [], tekniker = [], kunder = [], objekt = [], protokollMallar = {}, bokningar = {}, onUppdatera, onUppdateraObjekt, onLaggTill, onLaggTillBokning, onTaBortBokning, onTaBort, onNyKund, onLoggAktivitet, initialArendeId, onInitialArendeHandled, prefilladPort, onPrefilladPortHandled }) {
   const [valt,      setValt]      = useState(null)
   const [filter,    setFilter]    = useState('oppna')
   const [sokText,   setSokText]   = useState('')
@@ -598,6 +598,14 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
   const bulkAteraktivera = async () => {
     setBulkSparar(true)
     await Promise.all([...valda].map(id => onUppdatera(id, { arkiverad: false, status: 'pagAr' })))
+    setBulkSparar(false)
+    avslutaValjLage()
+  }
+
+  const bulkTaBort = async () => {
+    if (!onTaBort) return
+    setBulkSparar(true)
+    await Promise.all([...valda].map(id => onTaBort(id)))
     setBulkSparar(false)
     avslutaValjLage()
   }
@@ -717,7 +725,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
                 <Archive size={13} /> {bulkSparar ? 'Arkiverar…' : `Arkivera valda (${valda.size})`}
               </button>
             )}
-            {filter === 'arkiverade' && (
+            {filter === 'arkiverade' && (<>
               <button
                 onClick={bulkAteraktivera}
                 disabled={bulkSparar}
@@ -730,7 +738,21 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
               >
                 <RotateCcw size={13} /> {bulkSparar ? 'Återaktiverar…' : `Återaktivera valda (${valda.size})`}
               </button>
-            )}
+              {onTaBort && (
+                <button
+                  onClick={bulkTaBort}
+                  disabled={bulkSparar}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 13px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    background: 'var(--c-red)', color: '#fff', border: 'none',
+                    opacity: bulkSparar ? 0.6 : 1,
+                  }}
+                >
+                  <Trash2 size={13} /> {bulkSparar ? 'Tar bort…' : `Ta bort permanent (${valda.size})`}
+                </button>
+              )}
+            </>)}
           </>)}
           <button
             onClick={avslutaValjLage}
