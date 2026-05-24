@@ -180,10 +180,94 @@ function ArendeKort({ a, namn, onUppdatera }) {
   )
 }
 
+// ── NyKundSektion – återanvändbar kund-väljare med inline-skapa ──────────────
+function NyKundSektion({ kunder, value, onChange, onNyKund }) {
+  const [nyLage,  setNyLage]  = useState(false)
+  const [nyNamn,  setNyNamn]  = useState('')
+  const [skapar,  setSkapar]  = useState(false)
+  const skapa = async () => {
+    if (!nyNamn.trim()) return
+    setSkapar(true)
+    await onNyKund?.(nyNamn.trim())
+    onChange(nyNamn.trim())
+    setNyLage(false); setNyNamn(''); setSkapar(false)
+  }
+  if (nyLage) return (
+    <div style={{display:'flex',gap:6,marginBottom:2}}>
+      <input type="text" value={nyNamn} onChange={e=>setNyNamn(e.target.value)} placeholder="Nytt kundnamn…"
+        style={{...INP,flex:1}} autoFocus onKeyDown={e=>e.key==='Enter'&&skapa()}/>
+      <button onClick={skapa} disabled={skapar||!nyNamn.trim()} style={{padding:'11px 14px',borderRadius:9,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',flexShrink:0}}>{skapar?'…':'Spara'}</button>
+      <button onClick={()=>{setNyLage(false);setNyNamn('')}} style={{padding:'11px 10px',borderRadius:9,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,cursor:'pointer'}}>✕</button>
+    </div>
+  )
+  return (
+    <div>
+      {kunder.length>0
+        ? <select value={value} onChange={e=>onChange(e.target.value)} style={INP}>
+            <option value="">– Välj kund –</option>
+            {kunder.map(k=><option key={k.id} value={k.namn}>{k.namn}</option>)}
+          </select>
+        : <input type="text" value={value} onChange={e=>onChange(e.target.value)} placeholder="Kundnamn" style={INP}/>
+      }
+      {kunder.length>0 && onNyKund && (
+        <button onClick={()=>setNyLage(true)} style={{marginTop:6,padding:'6px 12px',borderRadius:7,fontSize:12,fontWeight:600,cursor:'pointer',border:'1.5px dashed var(--c-border)',background:'transparent',color:'var(--c-text2)',display:'flex',alignItems:'center',gap:5}}>
+          <Plus size={12}/> Ny kund
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Ny felanmälan-formulär ────────────────────────────────────────────────────
+const FELTA = ['Dörren går inte upp','Dörren går inte ner','Fjäder bruten','Motor slutat fungera','Fjärrkontroll fungerar inte','Fotocell/säkerhetskant','Buller/skrammel','Tätlist skadad','Annat']
+function NyArendeForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
+  const [form, setForm] = useState({kund:'',feltyp:'',beskrivning:'',prioritet:'normal',besok:''})
+  const [sparar, setSparar] = useState(false)
+  const set = (k,v) => setForm(p=>({...p,[k]:v}))
+  const spara = async () => {
+    if (!form.kund.trim()) return
+    setSparar(true)
+    await onSpara({nr:genNr(),status:'ny',tekniker:namn,datum:idag(),namn:form.feltyp||'Felanmälan',...form})
+    setSparar(false)
+  }
+  return (
+    <div className="card" style={{marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <div style={{fontWeight:600,fontSize:15}}>Ny felanmälan</div>
+        <button className="btn" onClick={onAvbryt} style={{padding:'4px 8px'}}><X size={14}/></button>
+      </div>
+      <label style={LBL}>Kund *</label>
+      <NyKundSektion kunder={kunder} value={form.kund} onChange={v=>set('kund',v)} onNyKund={onNyKund}/>
+      <label style={LBL}>Feltyp</label>
+      <select value={form.feltyp} onChange={e=>set('feltyp',e.target.value)} style={INP}>
+        <option value="">– Välj feltyp –</option>
+        {FELTA.map(f=><option key={f} value={f}>{f}</option>)}
+      </select>
+      <label style={LBL}>Beskrivning</label>
+      <textarea value={form.beskrivning} onChange={e=>set('beskrivning',e.target.value)} rows={2} placeholder="Beskriv felet…" style={{...INP,resize:'vertical'}}/>
+      <label style={LBL}>Prioritet</label>
+      <div style={{display:'flex',gap:6,marginTop:4,marginBottom:4}}>
+        {[['normal','Normal','badge-blue'],['hog','Hög','badge-amber'],['akut','Akut','badge-red']].map(([id,lab,cls])=>(
+          <button key={id} onClick={()=>set('prioritet',id)} style={{flex:1,padding:'10px 4px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',border:`2px solid ${form.prioritet===id?'var(--c-blue)':'var(--c-border)'}`,background:form.prioritet===id?'var(--c-blue-bg,#eff6ff)':'transparent',color:form.prioritet===id?'var(--c-blue)':'var(--c-text3)'}}>{lab}</button>
+        ))}
+      </div>
+      <label style={LBL}>Planerat besök</label>
+      <input type="date" value={form.besok} onChange={e=>set('besok',e.target.value)} style={{...INP,colorScheme:'light'}}/>
+      <div style={{display:'flex',gap:8,marginTop:14}}>
+        <button className="btn btn-primary" onClick={spara} disabled={sparar||!form.kund.trim()} style={{flex:1,padding:13,fontSize:14}}>
+          {sparar?'Sparar…':<><AlertCircle size={15}/> Skapa felanmälan</>}
+        </button>
+        <button className="btn" onClick={onAvbryt}>Avbryt</button>
+      </div>
+    </div>
+  )
+}
+
 // ── Ny serviceorder-formulär ──────────────────────────────────────────────────
-function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt }) {
+function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund }) {
   const [sok,     setSok]     = useState('')
   const [port,    setPort]    = useState(null)
+  const [friKund, setFriKund] = useState('')
   const [datum,   setDatum]   = useState(idag())
   const [notering,setNotering]= useState('')
   const [sparar,  setSparar]  = useState(false)
@@ -197,7 +281,7 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt }) {
     setSparar(true)
     await onSpara({
       nr: genNr(), datum, status: 'planerad',
-      tekniker: namn, kund: port?.kund || '',
+      tekniker: namn, kund: port?.kund || friKund.trim(),
       objekt_ids: port ? [port.id] : [],
       notering: notering.trim(),
     })
@@ -238,6 +322,13 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt }) {
           )}
         </div>
       )}
+      {/* Kund – manuell inmatning om ingen port valts */}
+      {!port && (
+        <>
+          <label style={LBL}>Kund (valfritt om ingen port valts)</label>
+          <NyKundSektion kunder={kunder} value={friKund} onChange={setFriKund} onNyKund={onNyKund}/>
+        </>
+      )}
       <label style={LBL}>Datum</label>
       <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} style={{...INP,colorScheme:'light'}}/>
       <label style={LBL}>Notering</label>
@@ -253,7 +344,7 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt }) {
 }
 
 // ── Ny montageorder-formulär ──────────────────────────────────────────────────
-function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt }) {
+function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
   const [form,   setForm]   = useState({kund:'',porttyp:'Vikport',adress:'',datum_planerat:idag(),notering:''})
   const [sparar, setSparar] = useState(false)
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
@@ -276,13 +367,7 @@ function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt }) {
         <button className="btn" onClick={onAvbryt} style={{padding:'4px 8px'}}><X size={14}/></button>
       </div>
       <label style={LBL}>Kund *</label>
-      {kunder.length>0
-        ? <select value={form.kund} onChange={e=>set('kund',e.target.value)} style={INP}>
-            <option value="">– Välj kund –</option>
-            {kunder.map(k=><option key={k.id} value={k.namn}>{k.namn}</option>)}
-          </select>
-        : <input type="text" value={form.kund} onChange={e=>set('kund',e.target.value)} placeholder="Kundnamn" style={INP}/>
-      }
+      <NyKundSektion kunder={kunder} value={form.kund} onChange={v=>set('kund',v)} onNyKund={onNyKund}/>
       <label style={LBL}>Porttyp</label>
       <select value={form.porttyp} onChange={e=>set('porttyp',e.target.value)} style={INP}>
         {PORT_TYPER.map(t=><option key={t}>{t}</option>)}
@@ -1097,6 +1182,8 @@ export default function TeknikerVy({
   onLaggTillServiceorder,
   onLaggTillMontageorder,
   onLaggTillObjekt,
+  onLaggTillArende,
+  onNyKund,
   onLaggTillBokning,
   onTaBortBokning,
   onLoggaUt,
@@ -1110,6 +1197,10 @@ export default function TeknikerVy({
   const [montageFilter,    setMontageFilter]    = useState('mina')
   const [visaNyService,    setVisaNyService]    = useState(false)
   const [visaNyMontage,    setVisaNyMontage]    = useState(false)
+  const [visaNyArende,     setVisaNyArende]     = useState(false)
+  const [arendeHistVis,    setArendeHistVis]    = useState(false)
+  const [serviceHistVis,   setServiceHistVis]   = useState(false)
+  const [montageHistVis,   setMontageHistVis]   = useState(false)
 
   // Lås body-scroll så sidan inte scrollar utanför appen
   useEffect(() => {
@@ -1138,7 +1229,10 @@ export default function TeknikerVy({
   const alleMontageordrar = montageorder.filter(m=>m.status!=='utford').sort((a,b)=>((a.datum_planerat||a.datum)||'').localeCompare((b.datum_planerat||b.datum)||''))
   const visadeMontageordrar = montageFilter==='mina' ? minaMontageordrar : alleMontageordrar
 
-  const klaraArenden = arenden.filter(a=>a.tekniker===namn&&a.status==='atgardad').slice(-5).reverse()
+  // Historik – avslutade ordrar
+  const klaraArenden     = arenden.filter(a=>!a.arkiverad&&a.status==='atgardad'&&(arendeFilter==='alla'||a.tekniker===namn)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
+  const avslutadeService = serviceorderArr.filter(o=>o.status==='avslutad'&&(serviceFilter==='mina'?o.tekniker===namn:true)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
+  const avslutadeMontage = montageorder.filter(m=>m.status==='utford'&&(montageFilter==='mina'?m.tekniker===namn:true)).sort((a,b)=>((b.datum_planerat||b.datum)||'').localeCompare((a.datum_planerat||a.datum)||'')).slice(0,30)
 
   const TABS = [
     { id:'idag',      icon:Calendar,      label:'Idag',    badge:dagensBokningar.length },
@@ -1180,22 +1274,36 @@ export default function TeknikerVy({
 
       case 'felanmalan': return(
         <div>
-          <h1 style={{fontSize:22,fontWeight:700,marginBottom:10}}>Felanmälningar</h1>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <h1 style={{fontSize:22,fontWeight:700,margin:0}}>Felanmälningar</h1>
+            <button onClick={()=>setVisaNyArende(v=>!v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',fontSize:13,fontWeight:600,borderRadius:9,cursor:'pointer',border:'1.5px solid var(--c-red,#ef4444)',background:visaNyArende?'var(--c-red,#ef4444)':'transparent',color:visaNyArende?'#fff':'var(--c-red,#ef4444)'}}>
+              {visaNyArende?<X size={14}/>:<Plus size={14}/>} Ny
+            </button>
+          </div>
           {/* Filter-knappar */}
           <div style={{display:'flex',gap:6,marginBottom:14}}>
             {[['mina',`Mina (${minaArenden.length})`],['alla',`Alla (${alleArenden.length})`],['otilldelade',`Otilldelade (${otiArenden.length})`]].map(([id,lab])=>(
               <button key={id} onClick={()=>setArendeFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${arendeFilter===id?'var(--c-navy, #1C3461)':'var(--c-border)'}`,background:arendeFilter===id?'var(--c-navy, #1C3461)':'transparent',color:arendeFilter===id?'#fff':'var(--c-text2)',whiteSpace:'nowrap'}}>{lab}</button>
             ))}
           </div>
+          {visaNyArende&&<NyArendeForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(a)=>{await onLaggTillArende?.(a);setVisaNyArende(false)}} onAvbryt={()=>setVisaNyArende(false)}/>}
           {sortedArenden.length===0?(
             <div className="card" style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga {arendeFilter==='mina'?'tilldelade':arendeFilter==='otilldelade'?'otilldelade':'öppna'} ärenden!</div></div>
           ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} onUppdatera={onUppdateraArende}/>)}</div>}
-          {arendeFilter==='mina'&&klaraArenden.length>0&&(
-            <div style={{marginTop:28}}>
-              <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--c-text3)',marginBottom:8}}>Senast åtgärdade</div>
-              {klaraArenden.map(a=>(
-                <div key={a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--c-surface)',borderRadius:10,border:'1px solid var(--c-border)',opacity:0.65,marginBottom:6}}>
-                  <div><div style={{fontSize:13,fontWeight:500}}>#{a.nr} · {a.kund}</div><div style={{fontSize:12,color:'var(--c-text2)'}}>{a.feltyp} · {a.datum}</div></div>
+          {/* Historik – avslutade ärenden */}
+          {klaraArenden.length>0&&(
+            <div style={{marginTop:20}}>
+              <button onClick={()=>setArendeHistVis(v=>!v)} style={{width:'100%',padding:'10px 14px',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)',display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:arendeHistVis?8:0}}>
+                <span>Historik – åtgärdade ({klaraArenden.length})</span>
+                <span>{arendeHistVis?'▲':'▼'}</span>
+              </button>
+              {arendeHistVis&&klaraArenden.map(a=>(
+                <div key={a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--c-surface)',borderRadius:10,border:'1px solid var(--c-border)',marginBottom:6}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:500}}>#{a.nr} · {a.kund}</div>
+                    <div style={{fontSize:12,color:'var(--c-text2)'}}>{a.feltyp||a.namn||'–'} · {a.datum}</div>
+                    {a.notering&&<div style={{fontSize:12,color:'var(--c-text3)',marginTop:2,fontStyle:'italic'}}>↳ {a.notering}</div>}
+                  </div>
                   <span className="badge badge-teal">Klar</span>
                 </div>
               ))}
@@ -1220,7 +1328,7 @@ export default function TeknikerVy({
                 <button key={id} onClick={()=>setServiceFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${serviceFilter===id?'var(--c-navy,#1C3461)':'var(--c-border)'}`,background:serviceFilter===id?'var(--c-navy,#1C3461)':'transparent',color:serviceFilter===id?'#fff':'var(--c-text2)'}}>{lab}</button>
               ))}
             </div>
-            {visaNyService&&<NyServiceorderForm objekt={objekt} kunder={kunder} namn={namn} onSpara={async(o)=>{await onLaggTillServiceorder(o);setVisaNyService(false)}} onAvbryt={()=>setVisaNyService(false)}/>}
+            {visaNyService&&<NyServiceorderForm objekt={objekt} kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(o)=>{await onLaggTillServiceorder(o);setVisaNyService(false)}} onAvbryt={()=>setVisaNyService(false)}/>}
             <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeServiceordrar.length===0?'Inga öppna serviceordrar':`${visadeServiceordrar.length} öppna`}</p>
             {visadeServiceordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna serviceordrar!</div></div>
             ):visadeServiceordrar.map(o=>{ const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]; const ämin=o.tekniker===namn; return(
@@ -1238,6 +1346,27 @@ export default function TeknikerVy({
                 </div>
               </div>
             )})}
+            {/* Historik – avslutade serviceordrar */}
+            {avslutadeService.length>0&&(
+              <div style={{marginTop:16}}>
+                <button onClick={()=>setServiceHistVis(v=>!v)} style={{width:'100%',padding:'10px 14px',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)',display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:serviceHistVis?8:0}}>
+                  <span>Historik – avslutade ({avslutadeService.length})</span>
+                  <span>{serviceHistVis?'▲':'▼'}</span>
+                </button>
+                {serviceHistVis&&avslutadeService.map(o=>{ const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]; return(
+                  <div key={o.id} className="card" style={{marginBottom:8,padding:'10px 14px',opacity:0.75}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600}}>{o.kund}</div>
+                        {port&&<div style={{fontSize:12,color:'var(--c-text2)'}}>{port.namn}</div>}
+                        <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>📅 {o.datum||'–'} · 👤 {o.tekniker||'–'}</div>
+                      </div>
+                      <span className="badge badge-teal">Avslutad</span>
+                    </div>
+                  </div>
+                )})}
+              </div>
+            )}
           </div>
         )
 
@@ -1257,7 +1386,7 @@ export default function TeknikerVy({
                 <button key={id} onClick={()=>setMontageFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${montageFilter===id?'var(--c-navy,#1C3461)':'var(--c-border)'}`,background:montageFilter===id?'var(--c-navy,#1C3461)':'transparent',color:montageFilter===id?'#fff':'var(--c-text2)'}}>{lab}</button>
               ))}
             </div>
-            {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} onSpara={async(m)=>{await onLaggTillMontageorder(m);setVisaNyMontage(false)}} onAvbryt={()=>setVisaNyMontage(false)}/>}
+            {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(m)=>{await onLaggTillMontageorder(m);setVisaNyMontage(false)}} onAvbryt={()=>setVisaNyMontage(false)}/>}
             <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeMontageordrar.length===0?'Inga öppna montageordrar':`${visadeMontageordrar.length} öppna`}</p>
             {visadeMontageordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna montageordrar!</div></div>
             ):visadeMontageordrar.map(m=>{ const ämin=m.tekniker===namn; const mRiskKlar=(m.protokoll_data?.steg||0)>=1; return(
@@ -1278,6 +1407,27 @@ export default function TeknikerVy({
                 </div>
               </div>
             )})}
+            {/* Historik – utförda montageordrar */}
+            {avslutadeMontage.length>0&&(
+              <div style={{marginTop:16}}>
+                <button onClick={()=>setMontageHistVis(v=>!v)} style={{width:'100%',padding:'10px 14px',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)',display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:montageHistVis?8:0}}>
+                  <span>Historik – utförda ({avslutadeMontage.length})</span>
+                  <span>{montageHistVis?'▲':'▼'}</span>
+                </button>
+                {montageHistVis&&avslutadeMontage.map(m=>(
+                  <div key={m.id} className="card" style={{marginBottom:8,padding:'10px 14px',opacity:0.75}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600}}>{m.kund}</div>
+                        <div style={{fontSize:12,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.adress||'–'}</div>
+                        <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>📅 {m.datum_planerat||m.datum||'–'} · 👤 {m.tekniker||'–'}</div>
+                      </div>
+                      <span className="badge badge-teal">Utförd</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )
 

@@ -712,6 +712,8 @@ export default function App() {
       onLaggTillServiceorder={laggTillServiceorder}
       onLaggTillMontageorder={laggTillMontageorder}
       onLaggTillObjekt={laggTillObjekt}
+      onLaggTillArende={laggTillArende}
+      onNyKund={snabbLaggTillKund}
       onLaggTillBokning={laggTillBokning}
       onTaBortBokning={taBortBokning}
       onLoggaUt={loggaUt}
