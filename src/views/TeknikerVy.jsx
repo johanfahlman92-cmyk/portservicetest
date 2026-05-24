@@ -34,13 +34,14 @@ const DAG_NAMN      = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön']
 // ── Hjälp ──────────────────────────────────────────────────────────────────────
 const formatDag = (d) => { try { const [y,m,day]=d.split('-').map(Number); return new Date(y,m-1,day).toLocaleDateString('sv-SE',{weekday:'long',day:'numeric',month:'long'}) } catch { return d } }
 const idag = () => new Date().toISOString().slice(0,10)
+const montDatum = m => m.onskat_montagedag||m.datum_planerat||m.datum||''
 const genNr = () => new Date().toISOString().slice(2,10).replace(/-/g,'') + '-' + Math.floor(Math.random()*90+10)
 const getVeckoDagar = (offset) => {
   const now = new Date(); const day = now.getDay()
   const mon = new Date(now); mon.setDate(now.getDate() - (day===0?6:day-1) + offset*7)
   return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d.toISOString().slice(0,10) })
 }
-const INP = { width:'100%', padding:'11px 12px', fontSize:14, border:'1px solid var(--c-border)', borderRadius:9, background:'var(--c-bg)', color:'var(--c-text)', boxSizing:'border-box' }
+const INP = { width:'100%', padding:'11px 12px', fontSize:16, border:'1px solid var(--c-border)', borderRadius:9, background:'var(--c-bg)', color:'var(--c-text)', boxSizing:'border-box' }
 const LBL = { fontSize:12, color:'var(--c-text2)', marginBottom:4, display:'block', marginTop:10 }
 
 // ── SignaturPad ────────────────────────────────────────────────────────────────
@@ -271,6 +272,7 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
   const [datum,   setDatum]   = useState(idag())
   const [notering,setNotering]= useState('')
   const [sparar,  setSparar]  = useState(false)
+  const [felMsg,  setFelMsg]  = useState('')
 
   const hits = sok.length > 1
     ? objekt.filter(o => !o.arkiverad && (o.namn?.toLowerCase().includes(sok.toLowerCase()) || o.kund?.toLowerCase().includes(sok.toLowerCase()))).slice(0,6)
@@ -278,13 +280,16 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
 
   const spara = async () => {
     if (!datum) return
-    setSparar(true)
-    await onSpara({
-      nr: genNr(), datum, status: 'planerad',
-      tekniker: namn, kund: port?.kund || friKund.trim(),
-      objekt_ids: port ? [port.id] : [],
-      notering: notering.trim(),
-    })
+    setSparar(true); setFelMsg('')
+    try {
+      await onSpara({
+        nr: genNr(), datum, status: 'planerad',
+        tekniker: namn, kund: port?.kund || friKund.trim(),
+        objekt_ids: port ? [port.id] : [],
+        protokoll: {}, // krävs av DB-schemat
+        ...(notering.trim() ? { notering: notering.trim() } : {}),
+      })
+    } catch(e) { setFelMsg(e.message||'Kunde inte spara'); setSparar(false); return }
     setSparar(false)
   }
 
@@ -333,6 +338,7 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
       <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} style={{...INP,colorScheme:'light'}}/>
       <label style={LBL}>Notering</label>
       <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={2} placeholder="Vad ska göras…" style={{...INP,resize:'vertical'}}/>
+      {felMsg&&<div style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:8,padding:'8px 12px',fontSize:13,color:'var(--c-red-text)',marginTop:8}}>⚠ {felMsg}</div>}
       <div style={{display:'flex',gap:8,marginTop:14}}>
         <button className="btn btn-primary" onClick={spara} disabled={sparar||!datum} style={{flex:1,padding:13,fontSize:14}}>
           {sparar?'Sparar…':<><ClipboardList size={15}/> Skapa serviceorder</>}
@@ -345,18 +351,23 @@ function NyServiceorderForm({ objekt, kunder, namn, onSpara, onAvbryt, onNyKund 
 
 // ── Ny montageorder-formulär ──────────────────────────────────────────────────
 function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
-  const [form,   setForm]   = useState({kund:'',porttyp:'Vikport',adress:'',datum_planerat:idag(),notering:''})
+  const [form,   setForm]   = useState({kund:'',porttyp:'Vikport',montageplats:'',onskat_montagedag:idag(),notering:''})
   const [sparar, setSparar] = useState(false)
+  const [felMsg, setFelMsg] = useState('')
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
 
   const spara = async () => {
     if (!form.kund.trim()) return
-    setSparar(true)
-    await onSpara({
-      nr: genNr(), status: 'planerad', tekniker: namn,
-      kund: form.kund, porttyp: form.porttyp, adress: form.adress.trim(),
-      datum_planerat: form.datum_planerat, notering: form.notering.trim(),
-    })
+    setSparar(true); setFelMsg('')
+    try {
+      await onSpara({
+        nr: genNr(), status: 'planerad', tekniker: namn,
+        kund: form.kund, porttyp: form.porttyp,
+        montageplats: form.montageplats.trim(),
+        onskat_montagedag: form.onskat_montagedag,
+        notering: form.notering.trim(),
+      })
+    } catch(e) { setFelMsg(e.message||'Kunde inte spara') }
     setSparar(false)
   }
 
@@ -372,12 +383,13 @@ function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
       <select value={form.porttyp} onChange={e=>set('porttyp',e.target.value)} style={INP}>
         {PORT_TYPER.map(t=><option key={t}>{t}</option>)}
       </select>
-      <label style={LBL}>Adress</label>
-      <input type="text" value={form.adress} onChange={e=>set('adress',e.target.value)} placeholder="Leveransadress…" style={INP}/>
-      <label style={LBL}>Planerat datum</label>
-      <input type="date" value={form.datum_planerat} onChange={e=>set('datum_planerat',e.target.value)} style={{...INP,colorScheme:'light'}}/>
+      <label style={LBL}>Montageplats / Adress</label>
+      <input type="text" value={form.montageplats} onChange={e=>set('montageplats',e.target.value)} placeholder="Leveransadress…" style={INP}/>
+      <label style={LBL}>Önskad montagedag</label>
+      <input type="date" value={form.onskat_montagedag} onChange={e=>set('onskat_montagedag',e.target.value)} style={{...INP,colorScheme:'light'}}/>
       <label style={LBL}>Notering</label>
       <textarea value={form.notering} onChange={e=>set('notering',e.target.value)} rows={2} placeholder="Specifikationer, önskemål…" style={{...INP,resize:'vertical'}}/>
+      {felMsg&&<div style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:8,padding:'8px 12px',fontSize:13,color:'var(--c-red-text)',marginTop:8}}>⚠ {felMsg}</div>}
       <div style={{display:'flex',gap:8,marginTop:14}}>
         <button className="btn btn-primary" onClick={spara} disabled={sparar||!form.kund.trim()} style={{flex:1,padding:13,fontSize:14}}>
           {sparar?'Sparar…':<><Wrench size={15}/> Skapa montageorder</>}
@@ -832,7 +844,7 @@ function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, on
         <span className={`badge ${order.status==='utford'?'badge-teal':order.status==='pagAr'?'badge-amber':'badge-blue'}`}>{order.status==='utford'?'Utförd':order.status==='pagAr'?'Pågår':'Planerad'}</span>
       </div>
       <div className="card" style={{marginBottom:12}}>
-        {[['Kund',order.kund],['Porttyp',order.porttyp||order.portTyp],['Adress',order.adress],['Planerat datum',order.datum_planerat||order.datum],order.notering&&['Notering',order.notering]].filter(Boolean).map(([l,v])=>v&&(
+        {[['Kund',order.kund],['Porttyp',order.porttyp||order.portTyp],['Plats',order.montageplats||order.adress],['Planerat datum',order.onskat_montagedag||order.datum_planerat||order.datum],order.notering&&['Notering',order.notering]].filter(Boolean).map(([l,v])=>v&&(
           <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid var(--c-border)',fontSize:13}}>
             <span style={{color:'var(--c-text2)'}}>{l}</span><span style={{fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{v}</span>
           </div>
@@ -992,7 +1004,7 @@ function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, mo
     })
     serviceorderArr.filter(so=>so.datum===dag&&so.status!=='avslutad')
       .forEach(so=>ev.push({...so,_typ:'serviceorder',_sort:'07:00'}))
-    montageorder.filter(mo=>(mo.datum_planerat||mo.datum)===dag&&mo.status!=='utford')
+    montageorder.filter(mo=>montDatum(mo)===dag&&mo.status!=='utford')
       .forEach(mo=>ev.push({...mo,_typ:'montageorder',_sort:'07:30'}))
     arenden.filter(a=>a.besok===dag&&a.status!=='atgardad'&&!a.arkiverad)
       .forEach(a=>ev.push({...a,_typ:'arende',_sort:'08:00'}))
@@ -1225,14 +1237,14 @@ export default function TeknikerVy({
   const alleServiceordrar = serviceorderArr.filter(o=>o.status!=='avslutad').sort((a,b)=>(a.datum||'').localeCompare(b.datum||''))
   const visadeServiceordrar = serviceFilter==='mina' ? minaServiceordrar : alleServiceordrar
 
-  const minaMontageordrar = montageorder.filter(m=>m.tekniker===namn&&m.status!=='utford').sort((a,b)=>((a.datum_planerat||a.datum)||'').localeCompare((b.datum_planerat||b.datum)||''))
-  const alleMontageordrar = montageorder.filter(m=>m.status!=='utford').sort((a,b)=>((a.datum_planerat||a.datum)||'').localeCompare((b.datum_planerat||b.datum)||''))
+  const minaMontageordrar = montageorder.filter(m=>m.tekniker===namn&&m.status!=='utford').sort((a,b)=>montDatum(a).localeCompare(montDatum(b)))
+  const alleMontageordrar = montageorder.filter(m=>m.status!=='utford').sort((a,b)=>montDatum(a).localeCompare(montDatum(b)))
   const visadeMontageordrar = montageFilter==='mina' ? minaMontageordrar : alleMontageordrar
 
   // Historik – avslutade ordrar
   const klaraArenden     = arenden.filter(a=>!a.arkiverad&&a.status==='atgardad'&&(arendeFilter==='alla'||a.tekniker===namn)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
   const avslutadeService = serviceorderArr.filter(o=>o.status==='avslutad'&&(serviceFilter==='mina'?o.tekniker===namn:true)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
-  const avslutadeMontage = montageorder.filter(m=>m.status==='utford'&&(montageFilter==='mina'?m.tekniker===namn:true)).sort((a,b)=>((b.datum_planerat||b.datum)||'').localeCompare((a.datum_planerat||a.datum)||'')).slice(0,30)
+  const avslutadeMontage = montageorder.filter(m=>m.status==='utford'&&(montageFilter==='mina'?m.tekniker===namn:true)).sort((a,b)=>montDatum(b).localeCompare(montDatum(a))).slice(0,30)
 
   const TABS = [
     { id:'idag',      icon:Calendar,      label:'Idag',    badge:dagensBokningar.length },
@@ -1397,9 +1409,9 @@ export default function TeknikerVy({
                       <span style={{fontSize:15,fontWeight:600}}>{m.kund}</span>
                       {mRiskKlar&&<span style={{fontSize:10,background:'#f0fdf4',color:'#166534',padding:'1px 7px',borderRadius:9,border:'1px solid #bbf7d0',fontWeight:700}}>🛡️ Risk klar</span>}
                     </div>
-                    <div style={{fontSize:13,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.adress||'–'}</div>
+                    <div style={{fontSize:13,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.montageplats||m.adress||'–'}</div>
                     <div style={{fontSize:12,color:'var(--c-text3)',marginTop:4,display:'flex',gap:8}}>
-                      <span>📅 {m.datum_planerat||m.datum||'–'}</span>
+                      <span>📅 {montDatum(m)||'–'}</span>
                       {m.tekniker&&<span style={{background:'var(--c-bg)',borderRadius:6,padding:'1px 6px',border:'1px solid var(--c-border)',fontWeight:ämin?700:400,color:ämin?'var(--c-amber)':'var(--c-text3)'}}>👤 {m.tekniker}</span>}
                     </div>
                   </div>
@@ -1419,8 +1431,8 @@ export default function TeknikerVy({
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:600}}>{m.kund}</div>
-                        <div style={{fontSize:12,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.adress||'–'}</div>
-                        <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>📅 {m.datum_planerat||m.datum||'–'} · 👤 {m.tekniker||'–'}</div>
+                        <div style={{fontSize:12,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.montageplats||m.adress||'–'}</div>
+                        <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>📅 {montDatum(m)||'–'} · 👤 {m.tekniker||'–'}</div>
                       </div>
                       <span className="badge badge-teal">Utförd</span>
                     </div>
