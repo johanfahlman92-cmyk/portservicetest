@@ -4,7 +4,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER } from '../data/store.js'
-import Kalender from './Kalender.jsx'
+import Planeringstavla from './Planeringstavla.jsx'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 const PRIO_CONF = {
@@ -766,7 +766,7 @@ export default function TeknikerVy({
 
       case 'kalender':
         return(
-          <Kalender
+          <Planeringstavla
             arenden={arenden}
             tekniker={tekniker}
             bokningar={bokningar}
@@ -777,14 +777,10 @@ export default function TeknikerVy({
             onLaggTillBokning={onLaggTillBokning}
             onTaBortBokning={onTaBortBokning}
             onNyKund={undefined}
-            onNavigera={(tab)=>{
-              const m={arenden:'felanmalan',serviceorder:'service',montageplanering:'montage',register:'register'}
-              setFlik(m[tab]||'idag')
-            }}
             onNavigeraArende={()=>setFlik('felanmalan')}
             onNavigeraObjekt={()=>setFlik('register')}
             onNavigeraServiceorder={()=>setFlik('service')}
-            onNavigeraMontage={()=>setFlik('montage')}
+            onNavigeraMontering={()=>setFlik('montage')}
           />
         )
 
