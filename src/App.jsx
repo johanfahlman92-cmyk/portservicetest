@@ -699,12 +699,14 @@ export default function App() {
     />
   )
 
-  const oppnaArenden = arenden.filter(a => a.status !== 'atgardad').length
+  const oppnaArenden      = arenden.filter(a => a.status !== 'atgardad').length
+  const oppnaServiceorder = serviceorderArr.filter(o => o.status !== 'avslutad').length
+  const oppnaMontageorder = montageorder.filter(m => m.status !== 'utford').length
 
   const views = {
     dashboard:   () => <Dashboard kunder={kunder} objekt={objektMedStatus} arenden={arenden} bokningar={bokningar} montageorder={montageorder} onNavigera={navigera} onNavigeraArende={navigeraArende} onSparaArende={laggTillArende} />,
     fastigheter: () => <Fastigheter fastigheter={fastigheter} objekt={objektMedStatus} kunder={kunder} onLaggTill={laggTillFastighet} onTaBort={taBortFastighet} onUppdatera={uppdateraFastighet} onNyKund={snabbLaggTillKund} onUppdateraObjekt={uppdateraObjekt} />,
-    register:    () => <Portregister objekt={objektMedStatus} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} montageorder={montageorder} arenden={arenden} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} onLaggTillArende={laggTillArende} onNavigeraArende={navigeraArende} initialObjektId={valObjekt} onInitialObjektHandled={() => setValObjekt(null)} onNyArende={navigeraFelanmalan} />,
+    register:    () => <Portregister objekt={objektMedStatus} kunder={kunder} fastigheter={fastigheter} tekniker={tekniker} montageorder={montageorder} arenden={arenden} onLaggTill={laggTillObjekt} onUppdateraObjekt={uppdateraObjekt} onTaBortObjekt={taBortObjekt} onLaggTillBokning={laggTillBokning} onLaggTillArende={laggTillArende} onLaggTillServiceorder={laggTillServiceorder} onNavigeraArende={navigeraArende} onNavigeraServiceorder={() => navigera('serviceorder')} initialObjektId={valObjekt} onInitialObjektHandled={() => setValObjekt(null)} onNyArende={navigeraFelanmalan} />,
     arenden:     () => <Arenden arenden={arenden} tekniker={tekniker} kunder={kunder} objekt={objektMedStatus} protokollMallar={protokollMallar} bokningar={bokningar} onUppdatera={uppdateraArende} onUppdateraObjekt={uppdateraObjekt} onLaggTill={laggTillArende} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={laggTillKund} onLoggAktivitet={loggAktivitet} initialArendeId={valArende} onInitialArendeHandled={() => setValArende(null)} prefilladPort={prefilladPort} onPrefilladPortHandled={() => setPrefilladPort(null)} />,
     kalender:    () => <Kalender arenden={arenden} tekniker={tekniker} bokningar={bokningar} kunder={kunder} objekt={objektMedStatus} serviceorder={serviceorderArr} montageorder={montageorder} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigera={navigera} onNavigeraArende={navigeraArende} onNavigeraObjekt={navigeraObjekt} onNavigeraServiceorder={() => navigera('serviceorder')} onNavigeraMontage={() => navigera('montageplanering')} />,
     kunder:      () => <Kunder kunder={kunder} fastigheter={fastigheter} objekt={objektMedStatus} arenden={arenden} onLaggTill={laggTillKund} onUppdatera={uppdateraKund} onTaBort={taBortKund} onNavigeraArende={navigeraArende} onNavigeraPort={navigeraObjekt} />,
@@ -730,6 +732,8 @@ export default function App() {
         active={page}
         onNav={navigera}
         oppnaArenden={oppnaArenden}
+        oppnaServiceorder={oppnaServiceorder}
+        oppnaMontageorder={oppnaMontageorder}
         öppen={sidomenyÖppen}
         erMobil={erMobil}
         onToggle={() => setSidomenyÖppen(o => !o)}

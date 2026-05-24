@@ -23,7 +23,7 @@ const navItems = [
   { id: 'installningar', label: 'Inställningar', icon: Settings,   adminOnly: true },
 ]
 
-export default function Sidebar({ active, onNav, oppnaArenden = 0, öppen = true, erMobil = false, onToggle, onLoggaUt, epost = '', roll = '' }) {
+export default function Sidebar({ active, onNav, oppnaArenden = 0, oppnaServiceorder = 0, oppnaMontageorder = 0, öppen = true, erMobil = false, onToggle, onLoggaUt, epost = '', roll = '' }) {
 
   const visibleItems = navItems.filter(item => !item.adminOnly || roll === 'admin')
 
@@ -139,6 +139,34 @@ export default function Sidebar({ active, onNav, oppnaArenden = 0, öppen = true
                     lineHeight: 1.4,
                   }}>
                     {oppnaArenden}
+                  </span>
+                )}
+                {id === 'serviceorder' && oppnaServiceorder > 0 && (
+                  <span style={{
+                    marginLeft: öppen ? 'auto' : undefined,
+                    position: öppen ? 'static' : 'absolute',
+                    top: öppen ? undefined : 4,
+                    right: öppen ? undefined : 4,
+                    background: '#C0392B', color: '#fff',
+                    fontSize: 10, fontWeight: 700,
+                    padding: '1px 6px', borderRadius: 10,
+                    lineHeight: 1.4,
+                  }}>
+                    {oppnaServiceorder}
+                  </span>
+                )}
+                {id === 'montageplanering' && oppnaMontageorder > 0 && (
+                  <span style={{
+                    marginLeft: öppen ? 'auto' : undefined,
+                    position: öppen ? 'static' : 'absolute',
+                    top: öppen ? undefined : 4,
+                    right: öppen ? undefined : 4,
+                    background: '#C0392B', color: '#fff',
+                    fontSize: 10, fontWeight: 700,
+                    padding: '1px 6px', borderRadius: 10,
+                    lineHeight: 1.4,
+                  }}>
+                    {oppnaMontageorder}
                   </span>
                 )}
               </button>

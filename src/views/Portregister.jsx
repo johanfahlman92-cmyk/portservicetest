@@ -382,7 +382,7 @@ function ProtokollDetalj({ entry, portTyp, onBack, onTaBort, onSpara }) {
 }
 
 // ── Snabb-bokningsmodal ───────────────────────────────────────────────────────
-function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraArende, onStäng }) {
+function SnabbBokning({ obj, tekniker, onSpara, onLaggTillServiceorder, onNavigeraServiceorder, onStäng }) {
   const idag = new Date().toISOString().slice(0, 10)
   const datoPlus = (n) => { const d = new Date(idag); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const [datum,          setDatum]          = useState(obj.nasta && obj.nasta >= idag ? obj.nasta : idag)
@@ -392,37 +392,27 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
   const [notering,       setNotering]       = useState('')
   const [sparar,         setSparar]         = useState(false)
   const [klar,           setKlar]           = useState(false)
-  const [arendeNr,       setArendeNr]       = useState('')
-  const [skapatArendeId, setSkapatArendeId] = useState(null)
+  const [serviceorderNr, setServiceorderNr] = useState('')
 
   const boka = async () => {
     setSparar(true)
 
-    // Generera ärendenummer
+    // Generera serviceordernummer
     const nr = idag.replace(/-/g, '').slice(2) + '-' + Math.floor(Math.random() * 90 + 10)
-    setArendeNr(nr)
+    setServiceorderNr(nr)
 
-    // Skapa ärende
-    let arendeId = null
-    if (onLaggTillArende) {
-      const arende = await onLaggTillArende({
-        id:          'a' + Date.now(),
+    // Skapa serviceorder
+    if (onLaggTillServiceorder) {
+      await onLaggTillServiceorder({
         nr,
-        typ:         'service',
-        namn:        obj.namn,
-        kund:        obj.kund || '',
-        feltyp:      'Planerad service',
-        beskrivning: notering.trim() || `Planerad service bokad via portregistret${obj.fabrikat ? ` – ${obj.fabrikat}` : ''}.`,
-        kontakt:     '',
-        datum:       idag,
-        besok:       datum,
-        status:      'ny',
+        datum,
+        status:     'planerad',
+        tekniker:   tek || null,
+        kund:       obj.kund || '',
+        objekt_ids: obj.id ? [obj.id] : [],
+        notering:   notering.trim() || '',
         prioritet,
-        tekniker:    tek || null,
-        objekt_id:   obj.id || null,
       })
-      arendeId = arende?.id || null
-      setSkapatArendeId(arendeId)
     }
 
     // Skapa kalenderbokning
@@ -431,7 +421,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
       namn: obj.namn,
       kund: obj.kund || '',
       tek,
-      arendeId,
+      arendeId: null,
     })
 
     setSparar(false)
@@ -452,9 +442,9 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
             <div style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 8 }}>
               {obj.namn} · {datum} kl. {tid}{tek ? ` · ${tek}` : ''}
             </div>
-            {arendeNr && (
+            {serviceorderNr && (
               <button
-                onClick={() => { onStäng(); onNavigeraArende?.(skapatArendeId) }}
+                onClick={() => { onStäng(); onNavigeraServiceorder?.() }}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12,
                   padding: '5px 12px', borderRadius: 6, marginBottom: 16, cursor: 'pointer',
                   background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)', border: '1px solid var(--c-teal)',
@@ -462,7 +452,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
                 onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
                 onMouseLeave={e => e.currentTarget.style.opacity = '1'}
               >
-                <CheckCircle size={12} /> Ärende #{arendeNr} skapat — öppna →
+                <CheckCircle size={12} /> Serviceorder #{serviceorderNr} skapad — öppna →
               </button>
             )}
             <button className="btn" onClick={onStäng} style={{ width: '100%' }}>Stäng</button>
@@ -558,7 +548,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-primary" onClick={boka} disabled={sparar || !datum} style={{ flex: 1 }}>
-                {sparar ? 'Bokar…' : <><CalendarPlus size={14} /> Boka in &amp; skapa ärende</>}
+                {sparar ? 'Bokar…' : <><CalendarPlus size={14} /> Boka in &amp; skapa serviceorder</>}
               </button>
               <button className="btn" onClick={onStäng}>Avbryt</button>
             </div>
@@ -571,7 +561,7 @@ function SnabbBokning({ obj, tekniker, onSpara, onLaggTillArende, onNavigeraAren
 }
 
 // ── Portdetaljer ──────────────────────────────────────────────────────────────
-function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillArende, onNavigeraArende, onDupliceraPort, onNyArende, montageorder = [], arenden = [] }) {
+function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, onLaggTillBokning, onLaggTillServiceorder, onNavigeraServiceorder, onNavigeraArende, onDupliceraPort, onNyArende, montageorder = [], arenden = [] }) {
   const [valdProtokoll,       setValdProtokoll]       = useState(null)
   const [visaMontageDetalj,   setVisaMontageDetalj]   = useState(false)
   const [visaSnabbBokning,    setVisaSnabbBokning]    = useState(false)
@@ -704,8 +694,8 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           obj={obj}
           tekniker={tekniker}
           onSpara={onLaggTillBokning}
-          onLaggTillArende={onLaggTillArende}
-          onNavigeraArende={onNavigeraArende}
+          onLaggTillServiceorder={onLaggTillServiceorder}
+          onNavigeraServiceorder={onNavigeraServiceorder}
           onStäng={() => setVisaSnabbBokning(false)}
         />
       )}
@@ -1165,7 +1155,7 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
 }
 
 // ── Portregister – platt lista ────────────────────────────────────────────────
-export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], arenden = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, onNavigeraArende, initialObjektId, onInitialObjektHandled, onNyArende }) {
+export default function Portregister({ objekt = [], kunder = [], fastigheter = [], tekniker = [], montageorder = [], arenden = [], onLaggTill, onUppdateraObjekt, onTaBortObjekt, onLaggTillBokning, onLaggTillArende, onLaggTillServiceorder, onNavigeraArende, onNavigeraServiceorder, initialObjektId, onInitialObjektHandled, onNyArende }) {
   const [filter,         setFilter]         = useState('alla')
   const [sokText,        setSokText]        = useState('')
   const [vald,           setVald]           = useState(null)
@@ -1217,7 +1207,9 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
       }}
       onNyArende={onNyArende}
       onLaggTillArende={onLaggTillArende}
+      onLaggTillServiceorder={onLaggTillServiceorder}
       onNavigeraArende={onNavigeraArende}
+      onNavigeraServiceorder={onNavigeraServiceorder}
       arenden={arenden}
       montageorder={montageorder}
     />
