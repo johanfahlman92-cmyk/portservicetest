@@ -6,7 +6,7 @@ const typColor = { service: 'var(--c-teal-bg)', felanmalan: 'var(--c-coral-bg)',
 const typBorder= { service: 'var(--c-teal)',    felanmalan: 'var(--c-coral)',    montering: 'var(--c-purple)',    mote: 'var(--c-purple)',    serviceorder: '#2563eb',  montageorder: '#9333ea'  }
 const typText  = { service: 'var(--c-teal-text)', felanmalan: 'var(--c-coral-text)', montering: 'var(--c-purple-text)', mote: 'var(--c-purple-text)', serviceorder: '#1e40af', montageorder: '#6b21a8' }
 const typLabel = { service: 'Service', felanmalan: 'Felanmälan', montering: 'Möte/Övrigt', mote: 'Möte/Övrigt', serviceorder: 'Serviceorder', montageorder: 'Montageorder' }
-const DAG_NAMN = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
+const DAG_NAMN = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön']
 
 const HOUR_START  = 7   // Standardstart – expanderas dynamiskt vid behov
 const HOUR_END    = 17  // Standardslut  – expanderas dynamiskt vid behov
@@ -392,7 +392,7 @@ export default function Kalender({
   const måndag  = getMåndag(veckoOffset)
   const veckonr = getVeckonummer(måndag)
 
-  const dagar = Array.from({ length: 5 }, (_, i) => {
+  const dagar = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(måndag)
     d.setDate(måndag.getDate() + i)
     // Lokal tid – toISOString() ger UTC-datum som kan vara en dag fel i t.ex. Sverige

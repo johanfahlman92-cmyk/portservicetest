@@ -3,8 +3,8 @@ import { ChevronLeft, ChevronRight, Plus, X, AlertCircle, ChevronDown, ChevronUp
 import KundVäljare from '../components/KundVäljare.jsx'
 
 // ── Konstanter & konfiguration ────────────────────────────────────────────────
-const DAGNAMN_KORT = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre']
-const DAGNAMN_LÅNG = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag']
+const DAGNAMN_KORT = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön']
+const DAGNAMN_LÅNG = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag']
 
 const TYPE_CFG = {
   montage:      { label: 'Montage',      color: '#2563eb', bg: '#eff6ff',               emoji: '🔵' },
@@ -348,8 +348,8 @@ export default function Planeringstavla({
 
   const idag = toYMD(new Date())
 
-  // Veckodagar mån–fre
-  const dagar = Array.from({ length: 5 }, (_, i) => {
+  // Veckodagar mån–sön
+  const dagar = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(veckosta)
     d.setDate(d.getDate() + i)
     return { namn: DAGNAMN_KORT[i], lång: DAGNAMN_LÅNG[i], datum: d, nyckel: toYMD(d) }
