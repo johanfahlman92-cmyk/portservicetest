@@ -1486,20 +1486,23 @@ export default function TeknikerVy({
       </div>
 
       {/* Innehåll */}
-      <div style={{flex:1,padding:'20px 16px 80px',overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
+      <div style={{flex:1,padding:'20px 16px 96px',overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
         <div style={{maxWidth:560,margin:'0 auto'}}>{renderContent()}</div>
       </div>
 
       {/* Bottom nav – 6 flikar */}
-      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'var(--c-surface)',borderTop:'1px solid var(--c-border)',display:'flex',zIndex:100,paddingBottom:'env(safe-area-inset-bottom)'}}>
+      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'var(--c-surface)',borderTop:'2px solid var(--c-border)',display:'flex',zIndex:100,paddingBottom:'env(safe-area-inset-bottom)'}}>
         {TABS.map(({id,icon:Icon,label,badge})=>{
           const aktiv=flik===id
           return(
             <button key={id} onClick={()=>{setFlik(id);if(id!=='service')setValdServiceorder(null);if(id!=='montage')setValdMontage(null)}}
-              style={{flex:1,padding:'9px 0 7px',background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,color:aktiv?'var(--c-blue)':'var(--c-text3)',position:'relative',transition:'color 0.15s'}}>
-              <Icon size={19} strokeWidth={aktiv?2.3:1.8}/>
-              <span style={{fontSize:8.5,fontWeight:aktiv?700:400}}>{label}</span>
-              {badge>0&&<span style={{position:'absolute',top:4,right:'calc(50% - 16px)',background:'var(--c-red)',color:'#fff',fontSize:9,fontWeight:700,padding:'1px 5px',borderRadius:10,lineHeight:1.4,minWidth:16,textAlign:'center'}}>{badge}</span>}
+              style={{flex:1,padding:'12px 0 10px',background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:4,color:aktiv?'var(--c-navy)':'var(--c-text3)',position:'relative',transition:'color 0.15s'}}>
+              <div style={{position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon size={26} strokeWidth={aktiv?2.5:1.7}/>
+                {badge>0&&<span style={{position:'absolute',top:-5,right:-8,background:'var(--c-red)',color:'#fff',fontSize:10,fontWeight:700,padding:'1px 5px',borderRadius:10,lineHeight:1.4,minWidth:17,textAlign:'center'}}>{badge}</span>}
+              </div>
+              <span style={{fontSize:10,fontWeight:aktiv?700:400,letterSpacing:'0.01em'}}>{label}</span>
+              {aktiv&&<span style={{position:'absolute',bottom:0,left:'20%',right:'20%',height:3,background:'var(--c-navy)',borderRadius:'3px 3px 0 0'}}/>}
             </button>
           )
         })}
