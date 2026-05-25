@@ -38,7 +38,7 @@ async function skrivUtArende(a) {
     ${pdfMetaGrid([
       { lbl: 'Feltyp',              val: a.feltyp                               },
       { lbl: 'Prioritet',           val: prioLabel[a.prioritet] || a.prioritet  },
-      { lbl: 'Tilldelad tekniker',  val: a.tekniker || 'Ej tilldelad'           },
+      { lbl: 'Tilldelad tekniker',  val: (Array.isArray(a.tekniker) ? a.tekniker.join(', ') : a.tekniker) || 'Ej tilldelad' },
       { lbl: 'Status',              val: statusLabel[a.status] || a.status      },
     ])}
 
@@ -70,7 +70,7 @@ async function skrivUtArende(a) {
 
 function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdatera, onUppdateraObjekt, onLaggTillBokning, onTaBortBokning, bokningar = {}, onBack }) {
   const [visaTilldela,  setVisaTilldela]  = useState(false)
-  const [valdTekniker,  setValdTekniker]  = useState(a.tekniker || '')
+  const [valdTekniker,  setValdTekniker]  = useState(Array.isArray(a.tekniker) ? [...a.tekniker] : a.tekniker ? [a.tekniker] : [])
   const [sparar,        setSparar]        = useState(false)
   const [dokument,      setDokument]      = useState(a.dokument || [])
   const [redigerar,     setRedigerar]     = useState(false)
@@ -78,7 +78,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
   const [visaProtokoll, setVisaProtokoll] = useState(a.typ === 'service')
   const [protokollSparad, setProtokollSparad] = useState(false)
   const [protokollForm, setProtokollForm] = useState({
-    utfort: '', nastaService: '', status: 'ok', tekniker: a.tekniker || '',
+    utfort: '', nastaService: '', status: 'ok', tekniker: (Array.isArray(a.tekniker) ? a.tekniker[0] : a.tekniker) || '',
   })
   const [nastaTyp,        setNastaTyp]        = useState('')
   const [checkStatuses,   setCheckStatuses]   = useState({})
@@ -111,7 +111,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
   }
 
   const startRedigera = () => {
-    setEditForm({ datum: a.datum || '', besok: a.besok || '', feltyp: a.feltyp || '', prioritet: a.prioritet || 'normal', beskrivning: a.beskrivning || '', kontakt: a.kontakt || '', tekniker: a.tekniker || '' })
+    setEditForm({ datum: a.datum || '', besok: a.besok || '', feltyp: a.feltyp || '', prioritet: a.prioritet || 'normal', beskrivning: a.beskrivning || '', kontakt: a.kontakt || '', tekniker: Array.isArray(a.tekniker) ? [...a.tekniker] : a.tekniker ? [a.tekniker] : [] })
     setRedigerar(true)
   }
 
@@ -134,7 +134,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
         typ:      'felanmalan',
         namn:     a.namn,
         kund:     a.kund,
-        tek:      editForm.tekniker ? [editForm.tekniker] : (a.tekniker ? [a.tekniker] : []),
+        tek:      editForm.tekniker.length ? editForm.tekniker : (Array.isArray(a.tekniker) ? a.tekniker : a.tekniker ? [a.tekniker] : []),
         arendeId: a.id,
       })
     }
@@ -143,7 +143,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
   }
 
   const tilldela = async () => {
-    if (!valdTekniker) return
+    if (!valdTekniker.length) return
     setSparar(true)
     await onUppdatera(a.id, { tekniker: valdTekniker, status: 'pagAr' })
     setSparar(false)
@@ -270,11 +270,22 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
                 <input value={editForm.kontakt} onChange={e => updEdit('kontakt', e.target.value)} style={FÄLT} />
               </div>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Tilldelad tekniker</div>
-                <select value={editForm.tekniker} onChange={e => updEdit('tekniker', e.target.value)} style={FÄLT}>
-                  <option value="">– Ej tilldelad –</option>
-                  {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 6 }}>Tilldelade tekniker</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {tekniker.map(t => {
+                    const checked = (editForm.tekniker || []).includes(t)
+                    return (
+                      <button key={t} type="button"
+                        onClick={() => updEdit('tekniker', checked ? (editForm.tekniker || []).filter(x => x !== t) : [...(editForm.tekniker || []), t])}
+                        style={{ padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          border: `2px solid ${checked ? 'var(--c-navy)' : 'var(--c-border)'}`,
+                          background: checked ? 'var(--c-blue-bg)' : 'transparent',
+                          color: checked ? 'var(--c-navy)' : 'var(--c-text2)' }}>
+                        {checked ? '✓ ' : ''}{t}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
             <div>
@@ -293,7 +304,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
             ['Prioritet', prioLabel[vis.prioritet] || vis.prioritet],
             ['Öppnad', vis.datum],
             ['Kontakt', vis.kontakt],
-            ['Tekniker', vis.tekniker || 'Ej tilldelad'],
+            ['Tekniker', (Array.isArray(vis.tekniker) ? vis.tekniker.join(', ') : vis.tekniker) || 'Ej tilldelad'],
             ['Planerat besök', vis.besok || '–'],
           ].map(([l, v]) => (
             <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
@@ -318,13 +329,22 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
       {visaTilldela && (
         <div className="card" style={{ marginBottom: 12 }}>
           <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 10 }}>Tilldela tekniker</div>
-          <select value={valdTekniker} onChange={e => setValdTekniker(e.target.value)}
-            style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', marginBottom: 10 }}>
-            <option value="">– Välj tekniker –</option>
-            {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            {tekniker.map(t => {
+              const checked = valdTekniker.includes(t)
+              return (
+                <button key={t} type="button" onClick={() => setValdTekniker(prev => checked ? prev.filter(x => x !== t) : [...prev, t])}
+                  style={{ padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    border: `2px solid ${checked ? 'var(--c-navy)' : 'var(--c-border)'}`,
+                    background: checked ? 'var(--c-blue-bg)' : 'transparent',
+                    color: checked ? 'var(--c-navy)' : 'var(--c-text2)' }}>
+                  {checked ? '✓ ' : ''}{t}
+                </button>
+              )
+            })}
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary" onClick={tilldela} disabled={sparar || !valdTekniker}>{sparar ? 'Sparar…' : 'Spara'}</button>
+            <button className="btn btn-primary" onClick={tilldela} disabled={sparar || !valdTekniker.length}>{sparar ? 'Sparar…' : 'Spara'}</button>
             <button className="btn" onClick={() => setVisaTilldela(false)}>Avbryt</button>
           </div>
         </div>
@@ -493,7 +513,7 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {!visaTilldela && (
             <button className="btn btn-primary" onClick={() => setVisaTilldela(true)}>
-              <UserPlus size={14} /> {a.tekniker ? 'Byt tekniker' : 'Tilldela tekniker'}
+              <UserPlus size={14} /> {(a.tekniker || []).length ? 'Ändra tekniker' : 'Tilldela tekniker'}
             </button>
           )}
           <button className="btn" onClick={stang} disabled={sparar} style={{ background: 'var(--c-teal)', color: '#fff', borderColor: 'var(--c-teal)' }}>

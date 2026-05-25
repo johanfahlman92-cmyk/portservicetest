@@ -38,7 +38,7 @@ function getLarm(objekt, arenden) {
   }
   for (const a of arenden) {
     if (a.status !== 'atgardad' && a.prioritet === 'akut')  larm.push({ typ: 'red',   text: `Ärende #${a.nr}: akut felanmälan – ${a.kund}`, nav: 'arenden', arendeId: a.id })
-    if (a.status !== 'atgardad' && !a.tekniker)              larm.push({ typ: 'amber', text: `${a.namn}: tekniker ej tilldelad`, nav: 'arenden', arendeId: a.id })
+    if (a.status !== 'atgardad' && !(a.tekniker || []).length) larm.push({ typ: 'amber', text: `${a.namn}: tekniker ej tilldelad`, nav: 'arenden', arendeId: a.id })
   }
   for (const o of objekt) {
     if (!o.arkiverad && o.status === 'snart') larm.push({ typ: 'amber', text: `${o.namn}: service snart`, nav: 'register' })
@@ -226,7 +226,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
     const ymd    = d.toISOString().slice(0, 10)
     const dagLbl = dagNamnKort[i] + ' ' + d.getDate() + '/' + (d.getMonth() + 1)
     arenden.filter(a => a.status !== 'atgardad' && a.besok === ymd).forEach(a => {
-      veckoExtra.push({ dag: dagLbl, namn: a.namn, kund: a.kund, tekniker: a.tekniker || '–', typ: a.prioritet === 'akut' ? 'akut' : 'arende', nav: 'arenden', arendeId: a.id })
+      veckoExtra.push({ dag: dagLbl, namn: a.namn, kund: a.kund, tekniker: (a.tekniker || []).join(', ') || '–', typ: a.prioritet === 'akut' ? 'akut' : 'arende', nav: 'arenden', arendeId: a.id })
     })
     montageorder.filter(m => m.status !== 'utford' && m.onskat_montagedag === ymd).forEach(m => {
       veckoExtra.push({ dag: dagLbl, namn: m.ordernummer, kund: m.kund, tekniker: m.tekniker || '–', typ: 'montage', nav: 'montageplanering' })
@@ -365,7 +365,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
                   Ärende #{a.nr} — {a.namn}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--c-text2)' }}>
-                  {a.kund}{a.tekniker ? ' · ' + a.tekniker : ' · Tekniker ej tilldelad'}
+                  {a.kund}{(a.tekniker || []).length ? ' · ' + a.tekniker.join(', ') : ' · Tekniker ej tilldelad'}
                 </div>
               </div>
               <ChevronRight size={13} color="var(--c-red)" style={{ flexShrink: 0 }} />

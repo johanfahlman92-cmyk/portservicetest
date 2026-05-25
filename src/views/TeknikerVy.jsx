@@ -80,10 +80,10 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
   const [editForm,   setEditForm]   = useState({})
   const [sparar2,    setSparar2]    = useState(false)
 
-  const otilldelad  = !a.tekniker
+  const otilldelad  = !(a.tekniker || []).length
   const riskGjord   = Object.keys(risk).length > 0
   const startRedigera = () => {
-    setEditForm({feltyp:a.feltyp||'',tekniker:a.tekniker||'',prioritet:a.prioritet||'normal',besok:a.besok||'',beskrivning:a.beskrivning||''})
+    setEditForm({feltyp:a.feltyp||'',tekniker:Array.isArray(a.tekniker)?[...a.tekniker]:a.tekniker?[a.tekniker]:[],prioritet:a.prioritet||'normal',besok:a.besok||'',beskrivning:a.beskrivning||''})
     setRedigerar(true)
   }
   const sparaRedigering = async () => {
@@ -114,7 +114,7 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
           <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:5}}>
             <span className={`badge ${prio.badge}`}>{prio.label}</span>
             {otilldelad && <span style={{fontSize:11,background:'#f0eeeb',color:'#666',padding:'2px 7px',borderRadius:10}}>Otilldelad</span>}
-            {a.tekniker && a.tekniker !== namn && <span style={{fontSize:11,background:'var(--c-bg)',color:'var(--c-text2)',padding:'2px 7px',borderRadius:10}}>👤 {a.tekniker}</span>}
+            {(a.tekniker||[]).filter(t=>t!==namn).length>0 && <span style={{fontSize:11,background:'var(--c-bg)',color:'var(--c-text2)',padding:'2px 7px',borderRadius:10}}>👤 {(a.tekniker||[]).filter(t=>t!==namn).join(', ')}</span>}
             {riskGjord && <span style={{fontSize:11,background:'#f0fdf4',color:'#166534',padding:'2px 7px',borderRadius:10,border:'1px solid #bbf7d0'}}>🛡️ Risk</span>}
           </div>
           <div style={{fontSize:15,fontWeight:600}}>{a.kund}</div>
@@ -132,11 +132,21 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
                 <option value="">– Välj feltyp –</option>
                 {FELTA.map(f=><option key={f} value={f}>{f}</option>)}
               </select>
-              <label style={LBL}>Tilldelad tekniker</label>
-              <select value={editForm.tekniker} onChange={e=>setEditForm(p=>({...p,tekniker:e.target.value}))} style={INP}>
-                <option value="">Ej utsedd tekniker</option>
-                {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
-              </select>
+              <label style={LBL}>Tilldelade tekniker</label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:4}}>
+                {tekLista.map(t=>{
+                  const checked=(editForm.tekniker||[]).includes(t)
+                  return(
+                    <button key={t} type="button" onClick={()=>setEditForm(p=>({...p,tekniker:checked?(p.tekniker||[]).filter(x=>x!==t):[...(p.tekniker||[]),t]}))}
+                      style={{padding:'9px 14px',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer',
+                        border:`2px solid ${checked?'var(--c-blue)':'var(--c-border)'}`,
+                        background:checked?'var(--c-blue-bg)':'transparent',
+                        color:checked?'var(--c-blue)':'var(--c-text2)'}}>
+                      {checked?'✓ ':''}{t}
+                    </button>
+                  )
+                })}
+              </div>
               <label style={LBL}>Prioritet</label>
               <div style={{display:'flex',gap:6,marginTop:4,marginBottom:4}}>
                 {[['normal','Normal'],['hog','Hög'],['akut','Akut']].map(([id,lab])=>(
@@ -213,7 +223,7 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
 
               <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
                 {otilldelad && (
-                  <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{tekniker:namn});setTagen(true);setSparar(false)}}
+                  <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{tekniker:[...(a.tekniker||[]).filter(t=>t!==namn),namn]});setTagen(true);setSparar(false)}}
                     style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
                     ✋ Ta på mig
                   </button>
@@ -232,7 +242,12 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
                   </button>
                 )}
                 {!otilldelad && (a.status==='ny'||a.status==='pagAr') && (
-                  <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'atgardad',notering,...(riskGjord?{riskKontroll:risk,riskNoteringar:riskN}:{})});setKlarad(true);setSparar(false)}}
+                  <button disabled={sparar} onClick={async()=>{
+                    setSparar(true)
+                    const ok = await onUppdatera(a.id,{status:'atgardad',notering,...(riskGjord?{riskKontroll:risk,riskNoteringar:riskN}:{})})
+                    if (ok) setKlarad(true)
+                    setSparar(false)
+                  }}
                     style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
                     <CheckCircle size={16}/> Markera klar
                   </button>
@@ -313,7 +328,7 @@ function NyKundSektion({ kunder, value, onChange, onNyKund }) {
 // ── Ny felanmälan-formulär ────────────────────────────────────────────────────
 const FELTA = ['Dörren går inte upp','Dörren går inte ner','Fjäder bruten','Motor slutat fungera','Fjärrkontroll fungerar inte','Fotocell/säkerhetskant','Buller/skrammel','Tätlist skadad','Annat']
 function NyArendeForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAvbryt, onNyKund }) {
-  const [form, setForm] = useState({kund:'',feltyp:'',beskrivning:'',prioritet:'normal',besok:'',tekniker:namn||''})
+  const [form, setForm] = useState({kund:'',feltyp:'',beskrivning:'',prioritet:'normal',besok:'',tekniker:namn?[namn]:[]})
   const [sparar, setSparar] = useState(false)
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
   const spara = async () => {
@@ -335,11 +350,21 @@ function NyArendeForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAvbryt, 
         <option value="">– Välj feltyp –</option>
         {FELTA.map(f=><option key={f} value={f}>{f}</option>)}
       </select>
-      <label style={LBL}>Tilldelad tekniker</label>
-      <select value={form.tekniker} onChange={e=>set('tekniker',e.target.value)} style={INP}>
-        <option value="">Ej utsedd tekniker</option>
-        {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
-      </select>
+      <label style={LBL}>Tilldelade tekniker</label>
+      <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:4,marginBottom:4}}>
+        {tekLista.map(t=>{
+          const checked=(form.tekniker||[]).includes(t)
+          return(
+            <button key={t} type="button" onClick={()=>set('tekniker',checked?(form.tekniker||[]).filter(x=>x!==t):[...(form.tekniker||[]),t])}
+              style={{padding:'9px 14px',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer',
+                border:`2px solid ${checked?'var(--c-blue)':'var(--c-border)'}`,
+                background:checked?'var(--c-blue-bg)':'transparent',
+                color:checked?'var(--c-blue)':'var(--c-text2)'}}>
+              {checked?'✓ ':''}{t}
+            </button>
+          )
+        })}
+      </div>
       <label style={LBL}>Beskrivning</label>
       <textarea value={form.beskrivning} onChange={e=>set('beskrivning',e.target.value)} rows={2} placeholder="Beskriv felet…" style={{...INP,resize:'vertical'}}/>
       <label style={LBL}>Prioritet</label>
@@ -1518,8 +1543,8 @@ export default function TeknikerVy({
     .sort((a,b)=>(a.tid||'').localeCompare(b.tid||''))
 
   const alleArenden   = arenden.filter(a=>!a.arkiverad&&a.status!=='atgardad')
-  const minaArenden   = alleArenden.filter(a=>a.tekniker===namn)
-  const otiArenden    = alleArenden.filter(a=>!a.tekniker)
+  const minaArenden   = alleArenden.filter(a=>(a.tekniker||[]).includes(namn))
+  const otiArenden    = alleArenden.filter(a=>!(a.tekniker||[]).length)
   const visadeArenden = arendeFilter==='mina'?minaArenden:arendeFilter==='otilldelade'?otiArenden:alleArenden
   const sortedArenden = [...visadeArenden].sort((a,b)=>({akut:0,hog:1,normal:2}[a.prioritet]??2)-({akut:0,hog:1,normal:2}[b.prioritet]??2))
 
@@ -1532,7 +1557,7 @@ export default function TeknikerVy({
   const visadeMontageordrar = montageFilter==='mina' ? minaMontageordrar : alleMontageordrar
 
   // Historik – avslutade ordrar
-  const klaraArenden     = arenden.filter(a=>!a.arkiverad&&a.status==='atgardad'&&(arendeFilter==='alla'||a.tekniker===namn)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
+  const klaraArenden     = arenden.filter(a=>!a.arkiverad&&a.status==='atgardad'&&(arendeFilter==='alla'||(a.tekniker||[]).includes(namn))).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
   const avslutadeService = serviceorderArr.filter(o=>o.status==='avslutad'&&(serviceFilter==='mina'?o.tekniker===namn:true)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
   const avslutadeMontage = montageorder.filter(m=>m.status==='utford'&&(montageFilter==='mina'?m.tekniker===namn:true)).sort((a,b)=>montDatum(b).localeCompare(montDatum(a))).slice(0,30)
 

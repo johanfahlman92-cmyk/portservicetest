@@ -29,7 +29,7 @@ export default function Felanmalan({ kunder = [], objekt = [], tekniker = [], on
   const [feltyp, setFeltyp]           = useState(FELTYPER[0])
   const [beskrivning, setBeskrivning] = useState('')
   const [prioritet, setPrioritet]     = useState('normal')
-  const [valdTekniker, setValdTekniker] = useState('')
+  const [valdTekniker, setValdTekniker] = useState([])
 
   const filtKunder = kunder.filter(k =>
     k.namn.toLowerCase().includes(sokKund.toLowerCase())
@@ -69,7 +69,7 @@ export default function Felanmalan({ kunder = [], objekt = [], tekniker = [], on
       datum:      idag,
       status:     'ny',
       prioritet,
-      tekniker:   valdTekniker || null,
+      tekniker:   valdTekniker.length ? valdTekniker : null,
       besok:      null,
       objekt_id:  portObj?.id || null,
     })
@@ -81,7 +81,7 @@ export default function Felanmalan({ kunder = [], objekt = [], tekniker = [], on
     setSteg('form'); setSokKund(''); setValdKund(null); setNyKundLage(false)
     setNyKundNamn(''); setNyKundTelefon(''); setNyKundAdress(''); setNyKundOrt('')
     setValdObjekt(''); setFeltyp(FELTYPER[0])
-    setBeskrivning(''); setPrioritet('normal'); setArendeTyp('felanmalan')
+    setBeskrivning(''); setPrioritet('normal'); setArendeTyp('felanmalan'); setValdTekniker([])
   }
 
   const inp = { width: '100%', padding: '10px 12px', fontSize: 15, border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)' }
@@ -272,11 +272,21 @@ export default function Felanmalan({ kunder = [], objekt = [], tekniker = [], on
 
                 {tekniker.length > 0 && (
                   <div style={{ marginBottom: 14 }}>
-                    <label style={lbl}>Tilldelad tekniker</label>
-                    <select value={valdTekniker} onChange={e => setValdTekniker(e.target.value)} style={inp}>
-                      <option value="">Ej utsedd tekniker</option>
-                      {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <label style={lbl}>Tilldelade tekniker</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                      {tekniker.map(t => {
+                        const checked = valdTekniker.includes(t)
+                        return (
+                          <button key={t} type="button" onClick={() => setValdTekniker(prev => checked ? prev.filter(x => x !== t) : [...prev, t])}
+                            style={{ padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                              border: `2px solid ${checked ? 'var(--c-blue)' : 'var(--c-border)'}`,
+                              background: checked ? 'var(--c-blue-bg)' : 'transparent',
+                              color: checked ? 'var(--c-blue)' : 'var(--c-text2)' }}>
+                            {checked ? '✓ ' : ''}{t}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
 

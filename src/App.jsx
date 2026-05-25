@@ -478,8 +478,10 @@ export default function App() {
         if (changes.status === 'atgardad') {
           loggAktivitet('arende_stangd', 'arende', id, data.namn, `Ärende stängt: ${data.namn}`)
         }
+        return data
       }
     } catch (err) { toast('Kunde inte uppdatera ärende: ' + err.message, 'error') }
+    return null
   }
 
   const taBortArende = async (id) => {
@@ -616,7 +618,7 @@ export default function App() {
   )
   const exportArendenCSV = () => exportCSV(
     ['Nr', 'Namn', 'Kund', 'Feltyp', 'Prioritet', 'Status', 'Tekniker', 'Datum', 'Planerat besök'],
-    arenden.map(a => [a.nr, a.namn, a.kund, a.feltyp, a.prioritet, a.status, a.tekniker, a.datum, a.besok]),
+    arenden.map(a => [a.nr, a.namn, a.kund, a.feltyp, a.prioritet, a.status, (Array.isArray(a.tekniker) ? a.tekniker.join(', ') : a.tekniker) || '', a.datum, a.besok]),
     'arenden.csv',
   )
   const exportFastigheterCSV = () => exportCSV(
@@ -747,6 +749,7 @@ export default function App() {
         riskpunkter={riskpunkter}
       />
       <InstallPrompt />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </>
   )
 
