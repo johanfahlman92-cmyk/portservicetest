@@ -423,14 +423,21 @@ export function pdfMontageProt(p, logoBase64, montagemallar = {}, riskpunkter = 
       </tr></thead>
       <tbody>${egenRows}</tbody>
     </table>
-    ${p.signatur ? `
-      <div class="slbl">Signatur tekniker</div>
-      <div class="sig-section">
-        <div class="sig-box">
-          <div class="sig-label">${p.tekniker || ''}</div>
-          <img src="${p.signatur}" style="max-width:300px;max-height:90px"/>
+    ${(p.signatur || p.signaturKund) ? `
+      <div class="slbl">Signaturer</div>
+      <div class="sig-section" style="display:flex;gap:24px;flex-wrap:wrap">
+        ${p.signatur ? `
+        <div class="sig-box" style="flex:1;min-width:200px">
+          <div class="sig-label">Tekniker — ${p.tekniker || ''}</div>
+          <img src="${p.signatur}" style="max-width:260px;max-height:80px"/>
           <div class="sig-date">${p.datum || ''}</div>
-        </div>
+        </div>` : ''}
+        ${p.signaturKund ? `
+        <div class="sig-box" style="flex:1;min-width:200px">
+          <div class="sig-label">Kund — ${p.kund || ''}</div>
+          <img src="${p.signaturKund}" style="max-width:260px;max-height:80px"/>
+          <div class="sig-date">${p.datum || ''}</div>
+        </div>` : ''}
       </div>` : ''}
   `
 

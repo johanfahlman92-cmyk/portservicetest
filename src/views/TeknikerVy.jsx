@@ -1072,7 +1072,7 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
   const [eg,setEg]=useState({}); const [egN,setEgN]=useState({})
   const [fabrikat,setFabrikat]=useState(''); const [annatFabrikat,setAnnatFabrikat]=useState('')
   const [serienr,setSerienr]=useState(''); const [ordernr,setOrdernr]=useState(order.nr||'')
-  const [sig,setSig]=useState(null); const [godk,setGodk]=useState('godkand')
+  const [sig,setSig]=useState(null); const [sigKund,setSigKund]=useState(null); const [godk,setGodk]=useState('godkand')
   const [sparar,setSparar]=useState(false)
   const fabrikVal = fabrikat==='Annat' ? annatFabrikat : fabrikat
   const slutfor=async()=>{
@@ -1080,7 +1080,7 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
     await onSlutfor({
       datum:idag(),tekniker:namn,portTyp:porttyp,kund:order.kund,adress:order.adress||'',
       egenkontroll:eg,egenNoteringar:egN,egenRisker:[],
-      signatur:sig,godkannande:godk,
+      signatur:sig,signaturKund:sigKund,godkannande:godk,
       ok:Object.values(eg).filter(s=>s==='OK').length,
       ej:Object.values(eg).filter(s=>s==='EJ').length,
       na:Object.values(eg).filter(s=>s==='NA').length,
@@ -1153,6 +1153,7 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
           </div>
         </div>
         <div className="card" style={{marginBottom:12}}><div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Signatur tekniker</div><SignaturPad onChange={setSig}/></div>
+        <div className="card" style={{marginBottom:12}}><div style={{fontSize:13,fontWeight:600,marginBottom:4}}>Signatur kund <span style={{fontSize:11,fontWeight:400,color:'var(--c-text3)'}}>– valfri</span></div><div style={{fontSize:12,color:'var(--c-text2)',marginBottom:8}}>Kunden bekräftar med sin namnteckning att arbetet är utfört och godkänt.</div><SignaturPad onChange={setSigKund}/></div>
         <button onClick={slutfor} disabled={sparar} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:80}}>
           <CheckCircle size={18}/> {sparar?'Sparar…':'Slutför montageorder'}
         </button>
