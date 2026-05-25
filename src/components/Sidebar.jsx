@@ -1,4 +1,4 @@
-import { Home, Database, AlertCircle, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings, LayoutGrid, ClipboardList } from 'lucide-react'
+import { Home, Database, AlertCircle, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings, LayoutGrid, ClipboardList, Smartphone } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 
 const NAV_BG      = '#1C3461'
@@ -23,7 +23,7 @@ const navItems = [
   { id: 'installningar', label: 'Inställningar', icon: Settings,   adminOnly: true },
 ]
 
-export default function Sidebar({ active, onNav, oppnaArenden = 0, oppnaServiceorder = 0, oppnaMontageorder = 0, öppen = true, erMobil = false, onToggle, onLoggaUt, epost = '', roll = '' }) {
+export default function Sidebar({ active, onNav, oppnaArenden = 0, oppnaServiceorder = 0, oppnaMontageorder = 0, öppen = true, erMobil = false, onToggle, onLoggaUt, epost = '', roll = '', onAktiverFältläge }) {
 
   const visibleItems = navItems.filter(item => !item.adminOnly || roll === 'admin')
 
@@ -189,6 +189,38 @@ export default function Sidebar({ active, onNav, oppnaArenden = 0, oppnaServiceo
         }}>
           <ChevronLeft size={14} /> Stäng meny
         </button>
+      )}
+
+      {/* Teknikervy-knapp för admin */}
+      {onAktiverFältläge && (
+        <div style={{ padding: öppen ? '8px 10px 0' : '8px 6px 0' }}>
+          <button
+            onClick={onAktiverFältläge}
+            title={!öppen ? 'Teknikervy' : undefined}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: öppen ? 'flex-start' : 'center',
+              gap: öppen ? 10 : 0,
+              padding: öppen ? '10px 10px' : '10px 0',
+              borderRadius: 8,
+              border: `1px solid rgba(255,255,255,0.20)`,
+              background: 'rgba(255,255,255,0.08)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background 0.15s',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.16)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+          >
+            <Smartphone size={16} style={{ flexShrink: 0 }} />
+            {öppen && 'Teknikervy'}
+          </button>
+        </div>
       )}
 
       {/* Footer */}

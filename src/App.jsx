@@ -792,6 +792,7 @@ export default function App() {
         onLoggaUt={loggaUt}
         epost={user.email}
         roll={roll}
+        onAktiverFältläge={roll === 'admin' ? aktiverFältläge : undefined}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
