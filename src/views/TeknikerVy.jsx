@@ -6,6 +6,7 @@ import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, öppnaPrintFönster } from '../utils/pdf.js'
 import Felanmalan from './Felanmalan.jsx'
+import Portregister from './Portregister.jsx'
 
 // Modul-nivå fallback – sub-komponenter utan prop-access använder denna
 const RISKPUNKTER = RISKPUNKTER_DEFAULT
@@ -68,8 +69,9 @@ function SignaturPad({ onChange }) {
 }
 
 // ── ArendeKort ────────────────────────────────────────────────────────────────
-function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
+function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera, autoOpen = false }) {
   const [utv,      setUtv]      = useState(false)
+  useEffect(() => { if (autoOpen) setUtv(true) }, [autoOpen])
   const [notering, setNotering] = useState(a.notering || '')
   const [sparar,   setSparar]   = useState(false)
   const [klarad,   setKlarad]   = useState(false)
@@ -1548,7 +1550,7 @@ function MobilKalender({ arenden, bokningar, objekt, kunder, serviceorderArr, mo
           else if(ev._typ==='montageorder'&&onNavigeraMontageorder) onNavigeraMontageorder(ev)
           else if(ev._typ==='arende'&&onNavigeraArende) onNavigeraArende(ev)
           else if(ev._typ==='bokning'&&ev.typ==='service'&&onNavigeraServiceorder) onNavigeraServiceorder(null)
-          else if(ev._typ==='bokning'&&ev.typ==='felanmalan'&&onNavigeraArende) onNavigeraArende(null)
+          else if(ev._typ==='bokning'&&ev.typ==='felanmalan'&&onNavigeraArende) onNavigeraArende(ev)
         }
         return(
           <div key={i} className="card" onClick={navigerbar?hanteraKlick:undefined}
@@ -1618,6 +1620,8 @@ export default function TeknikerVy({
   const [valdServiceorder, setValdServiceorder] = useState(null)
   const [valdMontage,      setValdMontage]      = useState(null)
   const [arendeFilter,     setArendeFilter]     = useState('mina')
+  const [fokusArendeId,    setFokusArendeId]    = useState(null)
+  const [initialPortId,    setInitialPortId]    = useState(null)
   const [serviceFilter,    setServiceFilter]    = useState('mina')
   const [montageFilter,    setMontageFilter]    = useState('mina')
   const [visaNyService,    setVisaNyService]    = useState(false)
@@ -1729,7 +1733,7 @@ export default function TeknikerVy({
           )}
           {sortedArenden.length===0?(
             <div className="card" style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga {arendeFilter==='mina'?'tilldelade':arendeFilter==='otilldelade'?'otilldelade':'öppna'} ärenden!</div></div>
-          ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} tekniker={tekniker} onUppdatera={onUppdateraArende}/>)}</div>}
+          ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} tekniker={tekniker} onUppdatera={onUppdateraArende} autoOpen={a.id===fokusArendeId}/>)}</div>}
           {/* Historik – avslutade ärenden */}
           {klaraArenden.length>0&&(
             <div style={{marginTop:20}}>
@@ -1872,7 +1876,30 @@ export default function TeknikerVy({
         )
 
       case 'register':
-        return(<RegisterFlik objekt={objekt} kunder={kunder} fastigheter={fastigheter} onLaggTillObjekt={onLaggTillObjekt}/>)
+        return(
+          <Portregister
+            objekt={objekt}
+            kunder={kunder}
+            fastigheter={fastigheter}
+            tekniker={tekniker}
+            montageorder={montageorder}
+            arenden={arenden}
+            riskpunkter={riskpunkterAktiva}
+            onLaggTill={onLaggTillObjekt}
+            onUppdateraObjekt={onUppdateraObjekt}
+            onLaggTillBokning={onLaggTillBokning}
+            onLaggTillArende={onLaggTillArende}
+            onLaggTillServiceorder={onLaggTillServiceorder}
+            onNavigeraArende={(a)=>{
+              if(a?.id){setFokusArendeId(a.id);setArendeFilter('alla')}
+              setFlik('felanmalan')
+            }}
+            onNavigeraServiceorder={()=>setFlik('service')}
+            onNyArende={()=>{setFlik('felanmalan');setVisaNyArende(true)}}
+            initialObjektId={initialPortId}
+            onInitialObjektHandled={()=>setInitialPortId(null)}
+          />
+        )
 
       case 'kalender':
         return(
@@ -1888,7 +1915,11 @@ export default function TeknikerVy({
             onTaBortBokning={onTaBortBokning}
             onNavigeraServiceorder={so=>{setValdServiceorder(so);setFlik('service')}}
             onNavigeraMontageorder={mo=>{setValdMontage(mo);setFlik('montage')}}
-            onNavigeraArende={()=>setFlik('felanm')}
+            onNavigeraArende={(ev)=>{
+              const id=ev?.id||ev?.arendeId
+              if(id){setFokusArendeId(id);setArendeFilter('alla')}
+              setFlik('felanmalan')
+            }}
           />
         )
 
