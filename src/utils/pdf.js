@@ -167,6 +167,70 @@ export function pdfDoc(title, bodyHtml) {
 }
 
 /**
+ * Genererar HTML för ett serviceprotokoll (TeknikerVy-format – platt protokoll).
+ * @param {object} order  – serviceorderobjektet (order.protokoll = { statuses, noteringar, … })
+ * @param {string} portNamn
+ * @param {string} portTyp
+ * @param {Array}  punkter – protokollpunkter för porttypen
+ * @param {string} logoBase64
+ */
+export function pdfServiceProt(order, portNamn, portTyp, punkter, logoBase64) {
+  const prot     = order.protokoll || {}
+  const statuses = prot.statuses  || {}
+  const noter    = prot.noteringar || {}
+  const STATUS_LABEL = { G: 'Godkänd', J: 'Att notera', A: 'Avvikelse' }
+  const STATUS_CLS   = { G: 's-ok',    J: 's-not',      A: 's-ka'       }
+
+  let num = 0
+  const rader = (punkter || []).map((p, i) => {
+    if (String(p).startsWith('## '))
+      return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
+    num++
+    const kod = statuses[i] || ''
+    return `<tr>
+      <td><span style="color:#bbb;margin-right:6px;font-size:10px">${num}.</span>${p}</td>
+      <td class="${STATUS_CLS[kod] || ''}" style="white-space:nowrap">${STATUS_LABEL[kod] || '–'}</td>
+      <td style="color:#666">${noter[i] || ''}</td>
+    </tr>`
+  }).join('')
+
+  const sigHtml = prot.signatur ? `
+    <div class="slbl">Signatur</div>
+    <div class="sig-section">
+      <div class="sig-box">
+        <div class="sig-label">Tekniker: ${prot.tekniker || order.tekniker || ''}</div>
+        <img src="${prot.signatur}"/>
+        <div class="sig-date">${prot.datum || order.datum || ''}</div>
+      </div>
+    </div>` : ''
+
+  const body = `
+    ${pdfHeader(logoBase64, 'Serviceprotokoll', order.nr || '–', prot.datum || order.datum || '')}
+    <div class="slbl">Grundinformation</div>
+    ${pdfMetaGrid([
+      { lbl: 'Kund',     val: order.kund || prot.kund },
+      { lbl: 'Port',     val: portNamn   || prot.portNamn },
+      { lbl: 'Porttyp',  val: portTyp    || prot.portTyp  },
+      { lbl: 'Datum',    val: prot.datum || order.datum   },
+      { lbl: 'Tekniker', val: prot.tekniker || order.tekniker },
+      { lbl: 'Resultat', val: `✓${prot.g||0} Godkänd · ⚠${prot.j||0} Att notera · ✗${prot.a||0} Avvikelse` },
+    ])}
+    ${rader.length ? `
+      <div class="slbl">Kontrollpunkter – ${portNamn || prot.portNamn || ''}</div>
+      <table>
+        <thead><tr>
+          <th style="width:58%">Kontrollpunkt</th>
+          <th style="width:20%">Status</th>
+          <th style="width:22%">Notering</th>
+        </tr></thead>
+        <tbody>${rader}</tbody>
+      </table>` : ''}
+    ${sigHtml}
+  `
+  return pdfDoc(`Serviceprotokoll ${order.nr || ''}`, body)
+}
+
+/**
  * Genererar HTML för en felanmälan.
  * @param {object} a – arendeobjektet
  * @param {string} logoBase64

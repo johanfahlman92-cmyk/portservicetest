@@ -4,7 +4,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
-import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, pdfArende, öppnaPrintFönster } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, pdfArende, pdfServiceProt, öppnaPrintFönster } from '../utils/pdf.js'
 import Felanmalan from './Felanmalan.jsx'
 import Portregister from './Portregister.jsx'
 
@@ -923,6 +923,16 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
           </div>
         </div>
       )}
+      {/* Skriv ut serviceprotokoll – visas om protokoll finns */}
+      {order.status==='avslutad'&&order.protokoll?.statuses&&(
+        <button onClick={async()=>{
+          const logo64=await hämtaLogoBase64()
+          const punkter=protokollPunkter[port?.typ||order.protokoll?.portTyp]||[]
+          öppnaPrintFönster(pdfServiceProt(order,port?.namn,port?.typ,punkter,logo64),`Serviceprotokoll ${order.nr||''}`)
+        }} style={{width:'100%',marginBottom:10,padding:'12px 16px',borderRadius:10,background:'var(--c-teal-bg)',color:'var(--c-teal-text)',border:'1.5px solid var(--c-teal)',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+          <Printer size={15}/> Skriv ut serviceprotokoll
+        </button>
+      )}
       {/* Skriv ut riskbedömning – visas om sparad riskdata finns */}
       {order.protokoll?.riskKontroll&&Object.keys(order.protokoll.riskKontroll).length>0&&(
         <button onClick={async()=>{
@@ -1812,14 +1822,25 @@ export default function TeknikerVy({
                   <span>{serviceHistVis?'▲':'▼'}</span>
                 </button>
                 {serviceHistVis&&avslutadeService.map(o=>{ const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]; return(
-                  <div key={o.id} className="card" style={{marginBottom:8,padding:'10px 14px',opacity:0.75}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <div>
+                  <div key={o.id} className="card" style={{marginBottom:8,padding:'10px 14px',opacity:0.85}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+                      <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:600}}>{o.kund}</div>
                         {port&&<div style={{fontSize:12,color:'var(--c-text2)'}}>{port.namn}</div>}
                         <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>📅 {o.datum||'–'} · 👤 {o.tekniker||'–'}</div>
                       </div>
-                      <span className="badge badge-teal">Avslutad</span>
+                      <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                        {o.protokoll?.statuses&&(
+                          <button onClick={async()=>{
+                            const logo64=await hämtaLogoBase64()
+                            const punkter=protokollPunkter[port?.typ||o.protokoll?.portTyp]||[]
+                            öppnaPrintFönster(pdfServiceProt(o,port?.namn,port?.typ,punkter,logo64),`Serviceprotokoll ${o.nr||''}`)
+                          }} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,fontSize:11,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+                            <Printer size={12}/> Protokoll
+                          </button>
+                        )}
+                        <span className="badge badge-teal">Avslutad</span>
+                      </div>
                     </div>
                   </div>
                 )})}
