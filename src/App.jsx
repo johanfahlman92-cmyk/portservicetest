@@ -369,14 +369,22 @@ export default function App() {
     } catch (err) { toast('Kunde inte spara kund: ' + err.message, 'error'); return false }
   }
 
-  const snabbLaggTillKund = async (namn) => {
+  const snabbLaggTillKund = async (namnEllerObj) => {
     try {
+      const isObj = typeof namnEllerObj === 'object' && namnEllerObj !== null
+      const namn    = isObj ? (namnEllerObj.namn    || '') : namnEllerObj
+      const adress  = isObj ? (namnEllerObj.adress  || '') : ''
+      const telefon = isObj ? (namnEllerObj.telefon || '') : ''
       const { data, error } = await supabase.from('kunder').insert({
-        namn, typ: 'foretag', kontakt: '', telefon: '', epost: '', adress: '', ort: '',
+        namn, typ: 'foretag', kontakt: '', telefon, epost: '', adress, ort: '',
       }).select().single()
       if (error) throw error
       if (data) setKunder(prev => [...prev, data])
-    } catch (err) { toast('Kunde inte lägga till kund: ' + err.message, 'error') }
+      return data
+    } catch (err) {
+      toast('Kunde inte lägga till kund: ' + err.message, 'error')
+      return null
+    }
   }
 
   const laggTillObjekt = async (nytt) => {

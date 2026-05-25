@@ -248,22 +248,48 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
 
 // ── NyKundSektion – återanvändbar kund-väljare med inline-skapa ──────────────
 function NyKundSektion({ kunder, value, onChange, onNyKund }) {
-  const [nyLage,  setNyLage]  = useState(false)
-  const [nyNamn,  setNyNamn]  = useState('')
-  const [skapar,  setSkapar]  = useState(false)
+  const [nyLage,    setNyLage]    = useState(false)
+  const [nyNamn,    setNyNamn]    = useState('')
+  const [nyAdress,  setNyAdress]  = useState('')
+  const [nyTelefon, setNyTelefon] = useState('')
+  const [skapar,    setSkapar]    = useState(false)
+  const [fel,       setFel]       = useState('')
+
+  const stang = () => { setNyLage(false); setNyNamn(''); setNyAdress(''); setNyTelefon(''); setFel('') }
+
   const skapa = async () => {
     if (!nyNamn.trim()) return
-    setSkapar(true)
-    await onNyKund?.(nyNamn.trim())
-    onChange(nyNamn.trim())
-    setNyLage(false); setNyNamn(''); setSkapar(false)
+    setSkapar(true); setFel('')
+    const result = await onNyKund?.({ namn: nyNamn.trim(), adress: nyAdress.trim(), telefon: nyTelefon.trim() })
+    if (result) {
+      onChange(nyNamn.trim())
+      stang()
+    } else {
+      setFel('Kunde inte skapa kunden – kontrollera behörigheter i systemet.')
+    }
+    setSkapar(false)
   }
+
   if (nyLage) return (
-    <div style={{display:'flex',gap:6,marginBottom:2}}>
-      <input type="text" value={nyNamn} onChange={e=>setNyNamn(e.target.value)} placeholder="Nytt kundnamn…"
-        style={{...INP,flex:1}} autoFocus onKeyDown={e=>e.key==='Enter'&&skapa()}/>
-      <button onClick={skapa} disabled={skapar||!nyNamn.trim()} style={{padding:'11px 14px',borderRadius:9,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',flexShrink:0}}>{skapar?'…':'Spara'}</button>
-      <button onClick={()=>{setNyLage(false);setNyNamn('')}} style={{padding:'11px 10px',borderRadius:9,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,cursor:'pointer'}}>✕</button>
+    <div style={{background:'var(--c-bg)',border:'1.5px solid var(--c-teal)',borderRadius:10,padding:'12px 14px',marginBottom:2}}>
+      <div style={{fontSize:12,fontWeight:700,color:'var(--c-teal-text)',marginBottom:10}}>Ny kund</div>
+      <label style={LBL}>Namn *</label>
+      <input type="text" value={nyNamn} onChange={e=>setNyNamn(e.target.value)} placeholder="Företag / kundnamn"
+        style={{...INP,marginBottom:6}} autoFocus onKeyDown={e=>e.key==='Enter'&&skapa()}/>
+      <label style={LBL}>Adress</label>
+      <input type="text" value={nyAdress} onChange={e=>setNyAdress(e.target.value)} placeholder="Gatuadress, ort"
+        style={{...INP,marginBottom:6}}/>
+      <label style={LBL}>Telefon</label>
+      <input type="tel" value={nyTelefon} onChange={e=>setNyTelefon(e.target.value)} placeholder="070-xxx xx xx"
+        style={{...INP,marginBottom:8}}/>
+      {fel && <div style={{fontSize:12,color:'var(--c-red-text,#991b1b)',background:'var(--c-red-bg,#fef2f2)',border:'1px solid var(--c-red)',borderRadius:7,padding:'7px 10px',marginBottom:8}}>⚠ {fel}</div>}
+      <div style={{display:'flex',gap:6}}>
+        <button onClick={skapa} disabled={skapar||!nyNamn.trim()}
+          style={{flex:1,padding:'10px 14px',borderRadius:9,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',opacity:skapar||!nyNamn.trim()?0.55:1}}>
+          {skapar?'Sparar…':'Spara kund'}
+        </button>
+        <button onClick={stang} style={{padding:'10px 12px',borderRadius:9,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,cursor:'pointer'}}>✕</button>
+      </div>
     </div>
   )
   return (
@@ -275,7 +301,7 @@ function NyKundSektion({ kunder, value, onChange, onNyKund }) {
           </select>
         : <input type="text" value={value} onChange={e=>onChange(e.target.value)} placeholder="Kundnamn" style={INP}/>
       }
-      {kunder.length>0 && onNyKund && (
+      {onNyKund && (
         <button onClick={()=>setNyLage(true)} style={{marginTop:6,padding:'6px 12px',borderRadius:7,fontSize:12,fontWeight:600,cursor:'pointer',border:'1.5px dashed var(--c-border)',background:'transparent',color:'var(--c-text2)',display:'flex',alignItems:'center',gap:5}}>
           <Plus size={12}/> Ny kund
         </button>
