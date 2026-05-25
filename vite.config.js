@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      version: '1.1.0',
       includeAssets: ['logo.png'],
       manifest: {
         name: 'NMV Portservice',

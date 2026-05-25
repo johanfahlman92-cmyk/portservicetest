@@ -817,15 +817,6 @@ export default function App() {
                   {oppnaArenden} ärenden
                 </span>
               )}
-              {roll === 'admin' && (
-                <button onClick={aktiverFältläge} style={{
-                  background: 'none', border: '1px solid rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.8)',
-                  borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                  📱 Fältläge
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -844,16 +835,6 @@ export default function App() {
             arenden={arenden}
             onNavigera={navigera}
           />
-          {!erMobil && roll === 'admin' && (
-            <button onClick={aktiverFältläge} style={{
-              marginLeft: 'auto', background: 'none',
-              border: '1px solid var(--c-border)', color: 'var(--c-text-muted)',
-              borderRadius: 7, padding: '6px 14px', fontSize: 13, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-            }}>
-              📱 Fältläge
-            </button>
-          )}
         </div>
 
         <main style={{
