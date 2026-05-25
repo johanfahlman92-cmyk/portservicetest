@@ -5,6 +5,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, öppnaPrintFönster } from '../utils/pdf.js'
+import Felanmalan from './Felanmalan.jsx'
 
 // Modul-nivå fallback – sub-komponenter utan prop-access använder denna
 const RISKPUNKTER = RISKPUNKTER_DEFAULT
@@ -410,6 +411,8 @@ function NyServiceorderForm({ objekt, kunder, namn, tekniker: tekLista=[], onSpa
   const [adress,   setAdress]   = useState('')
   const [datum,    setDatum]    = useState(idag())
   const [notering, setNotering] = useState('')
+  const [tekVal,   setTekVal]   = useState(namn || '')
+  const [status,   setStatus]   = useState('planerad')
   const [sparar,   setSparar]   = useState(false)
   const [felMsg,   setFelMsg]   = useState('')
 
@@ -445,8 +448,8 @@ function NyServiceorderForm({ objekt, kunder, namn, tekniker: tekLista=[], onSpa
         if (nyPort?.id) objektId = nyPort.id
       }
       await onSpara({
-        nr:genNr(), datum, status:'planerad',
-        tekniker:namn, kund:kund.trim()||port?.kund||'',
+        nr:genNr(), datum, status,
+        tekniker:tekVal, kund:kund.trim()||port?.kund||'',
         fastighet_id: port?.fastighetId || null,
         fastighet_namn: port?.plats || '',
         objekt_ids: objektId?[objektId]:[],
@@ -531,6 +534,21 @@ function NyServiceorderForm({ objekt, kunder, namn, tekniker: tekLista=[], onSpa
         <div style={SEC}>Planering</div>
         <label style={{...lbl,marginTop:0}}>Datum *</label>
         <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} style={{...INP,colorScheme:'light'}}/>
+        {tekLista.length>0&&<>
+          <label style={lbl}>Tekniker</label>
+          <select value={tekVal} onChange={e=>setTekVal(e.target.value)} style={INP}>
+            <option value="">– Ej tilldelad –</option>
+            {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </>}
+        <label style={lbl}>Status</label>
+        <div style={{display:'flex',gap:6,marginTop:4}}>
+          {[['planerad','Planerad'],['pagaende','Pågående'],['utford','Utförd']].map(([val,lab])=>(
+            <button key={val} type="button" onClick={()=>setStatus(val)} style={{flex:1,padding:'8px 4px',borderRadius:8,cursor:'pointer',textAlign:'center',border:`2px solid ${status===val?'var(--c-blue)':'var(--c-border)'}`,background:status===val?'var(--c-blue-bg)':'var(--c-surface)',color:status===val?'var(--c-blue)':'var(--c-text)',fontSize:12,fontWeight:600}}>
+              {lab}
+            </button>
+          ))}
+        </div>
         <label style={lbl}>Notering</label>
         <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={3} placeholder="Vad ska göras, specifikationer…" style={{...INP,resize:'vertical'}}/>
       </div>
@@ -547,11 +565,15 @@ function NyServiceorderForm({ objekt, kunder, namn, tekniker: tekLista=[], onSpa
 }
 
 // ── Ny montageorder-formulär ──────────────────────────────────────────────────
-function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
-  const [form,   setForm]   = useState({kund:'',porttyp:'Vikport',montageplats:'',onskat_montagedag:idag(),notering:''})
-  const [sparar, setSparar] = useState(false)
-  const [felMsg, setFelMsg] = useState('')
+function NyMontageorderForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAvbryt, onNyKund }) {
+  const [form,     setForm]     = useState({kund:'',porttyp:'Vikport',fabrikat:'',serienummer:'',montageplats:'',onskat_montagedag:idag(),preliminar_leverans:'',notering:''})
+  const [annatFab, setAnnatFab] = useState('')
+  const [tekVal,   setTekVal]   = useState(namn || '')
+  const [status,   setStatus]   = useState('planerad')
+  const [sparar,   setSparar]   = useState(false)
+  const [felMsg,   setFelMsg]   = useState('')
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
+  const effFab = form.fabrikat === 'Annat' ? annatFab : form.fabrikat
 
   const spara = async () => {
     if (!form.kund.trim()) return
@@ -559,11 +581,13 @@ function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
     try {
       const res = await onSpara({
         ordernummer: 'MO-' + genNr(),
-        status: 'planerad', tekniker: namn,
+        status, tekniker: tekVal,
         kund: form.kund, porttyp: form.porttyp,
+        fabrikat: effFab.trim(),
+        serienummer: form.serienummer.trim(),
         montageplats: form.montageplats.trim(),
         onskat_montagedag: form.onskat_montagedag,
-        fabrikat: '', serienummer: '', preliminar_leverans: '',
+        preliminar_leverans: form.preliminar_leverans,
         notering: form.notering.trim(),
       })
       if (!res) setFelMsg('Kunde inte spara – kontrollera fälten')
@@ -583,10 +607,42 @@ function NyMontageorderForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
       <select value={form.porttyp} onChange={e=>set('porttyp',e.target.value)} style={INP}>
         {PORT_TYPER.map(t=><option key={t}>{t}</option>)}
       </select>
+      <label style={LBL}>Fabrikat</label>
+      <select value={form.fabrikat} onChange={e=>set('fabrikat',e.target.value)} style={INP}>
+        <option value="">– Välj fabrikat –</option>
+        {FASTA_FABRIKAT.map(f=><option key={f}>{f}</option>)}
+        <option value="Annat">Annat / okänt</option>
+      </select>
+      {form.fabrikat==='Annat'&&<input type="text" value={annatFab} onChange={e=>setAnnatFab(e.target.value)} placeholder="Ange fabrikat…" style={{...INP,marginTop:6}}/>}
+      <label style={LBL}>Serienummer</label>
+      <input type="text" value={form.serienummer} onChange={e=>set('serienummer',e.target.value)} placeholder="Valfritt" style={INP}/>
       <label style={LBL}>Montageplats / Adress</label>
       <input type="text" value={form.montageplats} onChange={e=>set('montageplats',e.target.value)} placeholder="Leveransadress…" style={INP}/>
-      <label style={LBL}>Önskad montagedag</label>
-      <input type="date" value={form.onskat_montagedag} onChange={e=>set('onskat_montagedag',e.target.value)} style={{...INP,colorScheme:'light'}}/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
+        <div>
+          <label style={LBL}>Prelim. leverans</label>
+          <input type="date" value={form.preliminar_leverans} onChange={e=>set('preliminar_leverans',e.target.value)} style={{...INP,colorScheme:'light'}}/>
+        </div>
+        <div>
+          <label style={LBL}>Önskad montagedag</label>
+          <input type="date" value={form.onskat_montagedag} onChange={e=>set('onskat_montagedag',e.target.value)} style={{...INP,colorScheme:'light'}}/>
+        </div>
+      </div>
+      {tekLista.length>0&&<>
+        <label style={LBL}>Tekniker</label>
+        <select value={tekVal} onChange={e=>setTekVal(e.target.value)} style={INP}>
+          <option value="">– Ej tilldelad –</option>
+          {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+      </>}
+      <label style={LBL}>Status</label>
+      <div style={{display:'flex',gap:6,marginTop:4}}>
+        {[['planerad','Planerad'],['ej_planerad','Ej planerad']].map(([val,lab])=>(
+          <button key={val} type="button" onClick={()=>setStatus(val)} style={{flex:1,padding:'8px 4px',borderRadius:8,cursor:'pointer',textAlign:'center',border:`2px solid ${status===val?'var(--c-blue)':'var(--c-border)'}`,background:status===val?'var(--c-blue-bg)':'var(--c-surface)',color:status===val?'var(--c-blue)':'var(--c-text)',fontSize:12,fontWeight:600}}>
+            {lab}
+          </button>
+        ))}
+      </div>
       <label style={LBL}>Notering</label>
       <textarea value={form.notering} onChange={e=>set('notering',e.target.value)} rows={2} placeholder="Specifikationer, önskemål…" style={{...INP,resize:'vertical'}}/>
       {felMsg&&<div style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:8,padding:'8px 12px',fontSize:13,color:'var(--c-red-text)',marginTop:8}}>⚠ {felMsg}</div>}
@@ -1655,7 +1711,22 @@ export default function TeknikerVy({
               <button key={id} onClick={()=>setArendeFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${arendeFilter===id?'var(--c-navy, #1C3461)':'var(--c-border)'}`,background:arendeFilter===id?'var(--c-navy, #1C3461)':'transparent',color:arendeFilter===id?'#fff':'var(--c-text2)',whiteSpace:'nowrap'}}>{lab}</button>
             ))}
           </div>
-          {visaNyArende&&<NyArendeForm kunder={kunder} namn={namn} tekniker={tekniker} onNyKund={onNyKund} onSpara={async(a)=>{const r=await onLaggTillArende?.(a);if(r)setVisaNyArende(false)}} onAvbryt={()=>setVisaNyArende(false)}/>}
+          {visaNyArende&&(
+            <div className="card" style={{marginBottom:16,padding:'16px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                <div style={{fontWeight:600,fontSize:15}}>Ny felanmälan</div>
+                <button className="btn" onClick={()=>setVisaNyArende(false)} style={{padding:'4px 8px'}}><X size={14}/></button>
+              </div>
+              <Felanmalan
+                kunder={kunder}
+                objekt={objekt}
+                tekniker={tekniker}
+                onNyKund={onNyKund}
+                onSparaArende={onLaggTillArende}
+                standaloneMode={false}
+              />
+            </div>
+          )}
           {sortedArenden.length===0?(
             <div className="card" style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga {arendeFilter==='mina'?'tilldelade':arendeFilter==='otilldelade'?'otilldelade':'öppna'} ärenden!</div></div>
           ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} tekniker={tekniker} onUppdatera={onUppdateraArende}/>)}</div>}
@@ -1755,7 +1826,7 @@ export default function TeknikerVy({
                 <button key={id} onClick={()=>setMontageFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${montageFilter===id?'var(--c-navy,#1C3461)':'var(--c-border)'}`,background:montageFilter===id?'var(--c-navy,#1C3461)':'transparent',color:montageFilter===id?'#fff':'var(--c-text2)'}}>{lab}</button>
               ))}
             </div>
-            {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(m)=>{const r=await onLaggTillMontageorder(m);if(r)setVisaNyMontage(false);return r}} onAvbryt={()=>setVisaNyMontage(false)}/>}
+            {visaNyMontage&&<NyMontageorderForm kunder={kunder} namn={namn} tekniker={tekniker} onNyKund={onNyKund} onSpara={async(m)=>{const r=await onLaggTillMontageorder(m);if(r)setVisaNyMontage(false);return r}} onAvbryt={()=>setVisaNyMontage(false)}/>}
             <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:12}}>{visadeMontageordrar.length===0?'Inga öppna montageordrar':`${visadeMontageordrar.length} öppna`}</p>
             {visadeMontageordrar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga öppna montageordrar!</div></div>
             ):visadeMontageordrar.map(m=>{ const ämin=m.tekniker===namn; const mRiskKlar=(m.protokoll_data?.steg||0)>=1; return(

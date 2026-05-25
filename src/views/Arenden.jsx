@@ -691,6 +691,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
           <Felanmalan
             kunder={kunder}
             objekt={objekt}
+            tekniker={tekniker}
             onSparaArende={(a) => {
               onLaggTill?.(a)
             }}
