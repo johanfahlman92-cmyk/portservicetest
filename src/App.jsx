@@ -170,9 +170,9 @@ function GlobalSok({ objekt, kunder, fastigheter, arenden, onNavigera }) {
 
 // ── Mobil-breakpoint ──────────────────────────────────────────────────────────
 function useErMobil() {
-  const [erMobil, setErMobil] = useState(() => window.innerWidth < 1024)
+  const [erMobil, setErMobil] = useState(() => window.innerWidth < 768)
   useEffect(() => {
-    const fn = () => setErMobil(window.innerWidth < 1024)
+    const fn = () => setErMobil(window.innerWidth < 768)
     window.addEventListener('resize', fn)
     return () => window.removeEventListener('resize', fn)
   }, [])
@@ -189,7 +189,6 @@ export default function App() {
   const [authLaddas, setAuthLaddas]   = useState(true)
   const [sidomenyÖppen, setSidomenyÖppen] = useState(() => window.innerWidth >= 768)
   const [fältläge,      setFältläge]      = useState(false)
-  const [adminOverride, setAdminOverride] = useState(false)
 
   const [kunder,        setKunder]        = useState([])
   const [objekt,        setObjekt]        = useState([])
@@ -699,9 +698,9 @@ export default function App() {
   // Rollbaserad routing
   const roll = user.user_metadata?.roll
 
-  const visaFältvy      = roll === 'admin' && ((erMobil && !adminOverride) || fältläge)
-  const aktiverFältläge = () => { setFältläge(true);  setAdminOverride(false) }
-  const tillAdmin       = () => { setFältläge(false); setAdminOverride(true)  }
+  const visaFältvy      = roll === 'admin' && fältläge
+  const aktiverFältläge = () => setFältläge(true)
+  const tillAdmin       = () => setFältläge(false)
 
   if (roll === 'kontorist') return (
     <Felanmalan
