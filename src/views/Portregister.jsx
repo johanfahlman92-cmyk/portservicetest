@@ -63,6 +63,7 @@ function MontageProtokollDetalj({ p: pRaw, onBack, riskpunkter }) {
             ['Tekniker',    p.tekniker],
             p.ordernummer ? ['Ordernummer', p.ordernummer] : null,
             p.serienummer ? ['Serienummer', p.serienummer] : null,
+            p.position    ? ['Position',    p.position]    : null,
           ].filter(Boolean).map(([l, v]) => (
             <div key={l}>
               <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>{l}</div>
@@ -716,6 +717,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           ['Fabrikat / modell', obj.fabrikat],
           obj.ordernummer && ['Ordernummer',  obj.ordernummer],
           obj.serienummer && ['Serienummer',  obj.serienummer],
+          obj.position    && ['Position',     obj.position],
           ['Installationsår',   obj.ar],
           ['Placering',         obj.adress],
           ['Senaste service',   obj.senaste || '–'],
@@ -1003,6 +1005,7 @@ function NyttObjektForm({ kunder, fastigheter, objekt = [], onSpara, onAvbryt, f
     adress:      forval?.adress      || '',
     ordernummer: forval?.ordernummer || '',
     serienummer: '',
+    position:    forval?.position    || '',
   })
   const [fel, setFel] = useState(false)
   const [dubblettVarning, setDubblettVarning] = useState(null)
@@ -1038,6 +1041,7 @@ function NyttObjektForm({ kunder, fastigheter, objekt = [], onSpara, onAvbryt, f
       adress:      form.adress.trim(),
       ordernummer: form.ordernummer.trim(),
       serienummer: form.serienummer.trim(),
+      position:    form.position.trim(),
       serviceIntervall: parseInt(serviceIntervall) || 0,
       senaste: '',
       nasta,
@@ -1129,6 +1133,10 @@ function NyttObjektForm({ kunder, fastigheter, objekt = [], onSpara, onAvbryt, f
             </div>
           )}
         </div>
+
+        <div style={fld}><label style={lbl}>Position</label>
+          <input type="text" placeholder="t.ex. Port A, Norrgavel, Lastkaj 2" value={form.position}
+            onChange={e => set('position', e.target.value)} style={inp} /></div>
 
         {/* Adress */}
         <div style={{ ...fld, gridColumn: '1/-1' }}>
@@ -1240,7 +1248,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
     const q = sokText.toLowerCase()
     return o.namn?.toLowerCase().includes(q) || o.kund?.toLowerCase().includes(q) ||
            o.plats?.toLowerCase().includes(q) || o.fabrikat?.toLowerCase().includes(q) ||
-           o.ordernummer?.toLowerCase().includes(q) || o.serienummer?.toLowerCase().includes(q)
+           o.ordernummer?.toLowerCase().includes(q) || o.serienummer?.toLowerCase().includes(q) || o.position?.toLowerCase().includes(q)
   })
 
   return (
@@ -1307,6 +1315,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
                 <div className="row-name">{obj.namn}</div>
                 <div className="row-sub">
                   {obj.plats ? `${obj.plats} · ` : ''}{obj.kund} · {obj.fabrikat} · {obj.ar}
+                  {obj.position    ? ` · ${obj.position}` : ''}
                   {obj.ordernummer ? ` · Order: ${obj.ordernummer}` : ''}
                   {obj.serienummer ? ` · S/N: ${obj.serienummer}` : ''}
                 </div>
