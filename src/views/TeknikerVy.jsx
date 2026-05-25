@@ -625,8 +625,8 @@ function NyMontageorderForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAv
       {form.fabrikat==='Annat'&&<input type="text" value={annatFab} onChange={e=>setAnnatFab(e.target.value)} placeholder="Ange fabrikat…" style={{...INP,marginTop:6}}/>}
       <label style={LBL}>NMV Ordernummer</label>
       <input type="text" value={nmvNr} onChange={e=>setNmvNr(e.target.value)} style={INP}/>
-      <label style={LBL}>Ordernummer (kund / projekt)</label>
-      <input type="text" value={form.kundordernummer} onChange={e=>set('kundordernummer',e.target.value)} placeholder="Kundens referens…" style={INP}/>
+      <label style={LBL}>Ordernummer (port)</label>
+      <input type="text" value={form.kundordernummer} onChange={e=>set('kundordernummer',e.target.value)} placeholder="t.ex. ORD-2024-001" style={INP}/>
       <label style={LBL}>Montageplats / Adress</label>
       <input type="text" value={form.montageplats} onChange={e=>set('montageplats',e.target.value)} placeholder="Leveransadress…" style={INP}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
