@@ -1696,9 +1696,10 @@ export default function TeknikerVy({
           <h1 style={{fontSize:22,fontWeight:700,marginBottom:4,textTransform:'capitalize'}}>{formatDag(todayStr)}</h1>
           <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:16}}>{dagensBokningar.length===0?'Inga bokningar idag':`${dagensBokningar.length} bokningar schemalagda`}</p>
           {minaArenden.filter(a=>a.prioritet==='akut').length>0&&(
-            <div style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:10,padding:'10px 14px',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
+            <div onClick={()=>setFlik('felanmalan')} style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:10,padding:'10px 14px',marginBottom:16,display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
               <AlertCircle size={16} color="var(--c-red)"/>
-              <span style={{fontSize:13,fontWeight:600,color:'var(--c-red-text)'}}>{minaArenden.filter(a=>a.prioritet==='akut').length} akuta ärenden kräver åtgärd</span>
+              <span style={{fontSize:13,fontWeight:600,color:'var(--c-red-text)',flex:1}}>{minaArenden.filter(a=>a.prioritet==='akut').length} akuta ärenden kräver åtgärd</span>
+              <ChevronRight size={16} color="var(--c-red)" style={{opacity:0.6}}/>
             </div>
           )}
           {(minaServiceordrar.length>0||minaMontageordrar.length>0)&&(
@@ -1708,12 +1709,17 @@ export default function TeknikerVy({
             </div>
           )}
           {dagensBokningar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><Clock size={36} color="var(--c-text3)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:14,color:'var(--c-text2)'}}>Inga bokningar idag</div></div>
-          ):dagensBokningar.map((b,i)=>(
-            <div key={i} className="card" style={{display:'flex',gap:14,alignItems:'center',padding:'14px 16px',marginBottom:8}}>
-              <div style={{background:'var(--c-blue)',color:'#fff',borderRadius:10,padding:'8px 10px',fontSize:14,fontWeight:700,flexShrink:0,minWidth:52,textAlign:'center'}}>{b.tid||'–'}</div>
-              <div><div style={{fontSize:14,fontWeight:600}}>{b.namn}</div>{b.kund&&<div style={{fontSize:13,color:'var(--c-text2)'}}>{b.kund}</div>}</div>
+          ):dagensBokningar.map((b,i)=>{
+            const typFlik = b.typ==='felanmalan'?'felanmalan':b.typ==='montering'||b.typ==='montage'?'montage':'service'
+            const typFarg = b.typ==='felanmalan'?'var(--c-red,#ef4444)':b.typ==='montering'||b.typ==='montage'?'var(--c-green,#22c55e)':'var(--c-blue,#2563eb)'
+            return(
+            <div key={i} className="card" onClick={()=>setFlik(typFlik)} style={{display:'flex',gap:14,alignItems:'center',padding:'14px 16px',marginBottom:8,cursor:'pointer',borderLeft:`4px solid ${typFarg}`}}>
+              <div style={{background:typFarg,color:'#fff',borderRadius:10,padding:'8px 10px',fontSize:14,fontWeight:700,flexShrink:0,minWidth:52,textAlign:'center'}}>{b.tid||'–'}</div>
+              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{b.namn}</div>{b.kund&&<div style={{fontSize:13,color:'var(--c-text2)'}}>{b.kund}</div>}</div>
+              <ChevronRight size={16} color="var(--c-text3)" style={{flexShrink:0}}/>
             </div>
-          ))}
+            )
+          })}
         </div>
       )
 
