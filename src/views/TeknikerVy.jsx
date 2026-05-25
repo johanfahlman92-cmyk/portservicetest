@@ -4,7 +4,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
-import { hämtaLogoBase64, pdfMontageProt } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, öppnaPrintFönster } from '../utils/pdf.js'
 
 // Modul-nivå fallback – sub-komponenter utan prop-access använder denna
 const RISKPUNKTER = RISKPUNKTER_DEFAULT
@@ -216,6 +216,19 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
                           {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:6,width:'100%',padding:'7px 10px',fontSize:12,border:'1px solid var(--c-border)',borderRadius:7,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
                         </div>
                       )})}
+                      {riskGjord&&(
+                        <button onClick={async()=>{
+                          const logo64=await hämtaLogoBase64()
+                          öppnaPrintFönster(pdfRiskBedömning({
+                            kund:a.kund,portNamn:a.namn||a.feltyp||'',portTyp:'',
+                            tekniker:namn,datum:idag(),
+                            ordernummer:a.nr||'',
+                            riskKontroll:risk,riskNoteringar:riskN,
+                          },logo64),'Riskbedömning')
+                        }} style={{width:'100%',marginTop:8,padding:'11px 14px',borderRadius:9,background:'var(--c-surface)',color:'var(--c-text)',border:'1.5px solid var(--c-border)',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7}}>
+                          <Printer size={14}/> Skriv ut riskbedömning
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -723,7 +736,19 @@ function ServiceProtokollFormular({ port, namn, inkluderaRisk=true, onSlutfor, o
           </div>
           {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
         </div>)})}
-        <button onClick={()=>setSteg(s=>s+1)} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:80}}>Nästa: Serviceprotokoll →</button>
+        <div style={{display:'flex',gap:8,marginBottom:80}}>
+          <button onClick={async()=>{
+            const logo64=await hämtaLogoBase64()
+            öppnaPrintFönster(pdfRiskBedömning({
+              kund:port?.kund||'',portNamn:port?.namn||'',portTyp:port?.typ||'',
+              tekniker:namn,datum:idag(),
+              riskKontroll:risk,riskNoteringar:riskN,
+            },logo64),'Riskbedömning')
+          }} style={{padding:'14px 16px',borderRadius:12,background:'var(--c-surface)',color:'var(--c-text)',border:'1.5px solid var(--c-border)',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:7}}>
+            <Printer size={16}/> Skriv ut
+          </button>
+          <button onClick={()=>setSteg(s=>s+1)} style={{flex:1,padding:16,borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer'}}>Nästa: Serviceprotokoll →</button>
+        </div>
       </div>)}
 
       {/* Protokollpunkter */}
@@ -834,6 +859,23 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
           </div>
         </div>
       )}
+      {/* Skriv ut riskbedömning – visas om sparad riskdata finns */}
+      {order.protokoll?.riskKontroll&&Object.keys(order.protokoll.riskKontroll).length>0&&(
+        <button onClick={async()=>{
+          const logo64=await hämtaLogoBase64()
+          öppnaPrintFönster(pdfRiskBedömning({
+            kund:order.kund,portNamn:port?.namn||'',portTyp:port?.typ||'',
+            tekniker:order.protokoll?.tekniker||namn,
+            datum:order.protokoll?.datum||order.datum||'',
+            ordernummer:order.nr||'',
+            riskKontroll:order.protokoll.riskKontroll,
+            riskNoteringar:order.protokoll.riskNoteringar||{},
+          },logo64),'Riskbedömning')
+        }} style={{width:'100%',marginBottom:10,padding:'12px 16px',borderRadius:10,background:'var(--c-surface)',color:'var(--c-text)',border:'1.5px solid var(--c-border)',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+          <Printer size={15}/> Skriv ut riskbedömning
+        </button>
+      )}
+
       {port&&(port.historik||[]).filter(h=>h.typ!=='montering').slice(-2).reverse().map((h,i)=>(
         <div key={i} className="card" style={{marginBottom:8,padding:'10px 14px',background:'var(--c-bg)',fontSize:12}}>
           <div style={{color:'var(--c-text3)',marginBottom:2}}>Tidigare service</div>

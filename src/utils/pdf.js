@@ -166,6 +166,63 @@ export function pdfDoc(title, bodyHtml) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${PDF_CSS}</style></head><body>${bodyHtml}${pdfFooter()}</body></html>`
 }
 
+/**
+ * Genererar HTML för en fristående riskbedömning (serviceorder eller felanmälan).
+ * @param {object} p – { kund, portNamn, portTyp, tekniker, datum, ordernummer, riskKontroll, riskNoteringar, riskpunkter }
+ * @param {string} logoBase64
+ */
+export function pdfRiskBedömning(p, logoBase64) {
+  const rp = p.riskpunkter || RISKPUNKTER
+  const riskRows = rp.map((punkt, i) => {
+    const status   = (p.riskKontroll   || {})[i]
+    const notering = (p.riskNoteringar || {})[i] || ''
+    const [cls, lbl] =
+      status === 'ok'          ? ['s-risk-ok',    '✓ OK']           :
+      status === 'atgard'      ? ['s-risk-atgard', '⚠ Åtgärd krävs'] :
+      status === 'ej_aktuellt' ? ['s-risk-ej',    '– Ej aktuellt']  :
+                                 ['',              '–']
+    return `<tr>
+      <td style="width:32px;color:#aaa;font-size:10px">${i + 1}</td>
+      <td>${punkt}${notering ? `<div style="margin-top:4px;font-style:italic;color:#777;font-size:10px">↳ ${notering}</div>` : ''}</td>
+      <td style="text-align:center;white-space:nowrap"><span class="${cls}">${lbl}</span></td>
+    </tr>`
+  }).join('')
+
+  const body = `
+    ${pdfHeader(logoBase64, 'Riskbedömning',
+      p.ordernummer ? `#${p.ordernummer}` : (p.portNamn || 'Riskbedömning'),
+      p.datum || '')}
+
+    <div class="slbl">Uppdragsinformation</div>
+    ${pdfMetaGrid([
+      { lbl: 'Kund',     val: p.kund      },
+      { lbl: 'Port',     val: p.portNamn  },
+      { lbl: 'Porttyp',  val: p.portTyp   },
+      { lbl: 'Tekniker', val: p.tekniker  },
+      { lbl: 'Datum',    val: p.datum     },
+      { lbl: 'Order',    val: p.ordernummer || '–' },
+    ])}
+
+    <div class="slbl">Riskbedömning – utförd före arbete påbörjades</div>
+    <table>
+      <thead><tr><th>#</th><th>Riskpunkt</th><th style="text-align:center">Bedömning</th></tr></thead>
+      <tbody>${riskRows}</tbody>
+    </table>
+
+    <div class="sig-section">
+      <div class="sig-box" style="flex:1;min-height:80px">
+        <div class="sig-label">Teknikerns underskrift</div>
+        <div class="sig-date" style="margin-top:36px">Datum: ___________________</div>
+      </div>
+      <div class="sig-box" style="flex:1;min-height:80px">
+        <div class="sig-label">Ansvarig (vid behov)</div>
+        <div class="sig-date" style="margin-top:36px">Datum: ___________________</div>
+      </div>
+    </div>
+  `
+  return pdfDoc('Riskbedömning', body)
+}
+
 // ── Standardmallar för egenkontroll (används om inga anpassade mallar finns) ──
 export const EGENKONTROLL_DEFAULT = {
   Vikport:      ['Portblad och skenor utan skador','Fjädersystem kalibrerat','Säkerhetsbroms testad','Nödöppning testad','Motor monterad och kalibrerad','Fotocell testad','Ändlägen inställda','CE-märkning monterad','Bruksanvisning överlämnad'],
