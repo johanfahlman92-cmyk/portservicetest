@@ -1749,12 +1749,20 @@ export default function TeknikerVy({
               </button>
               {arendeHistVis&&klaraArenden.map(a=>(
                 <div key={a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--c-surface)',borderRadius:10,border:'1px solid var(--c-border)',marginBottom:6}}>
-                  <div>
+                  <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:500}}>#{a.nr} · {a.kund}</div>
                     <div style={{fontSize:12,color:'var(--c-text2)'}}>{a.feltyp||a.namn||'–'} · {a.datum}</div>
                     {a.notering&&<div style={{fontSize:12,color:'var(--c-text3)',marginTop:2,fontStyle:'italic'}}>↳ {a.notering}</div>}
                   </div>
-                  <span className="badge badge-teal">Klar</span>
+                  <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                    <button onClick={async()=>{
+                      const logo64=await hämtaLogoBase64()
+                      öppnaPrintFönster(pdfArende(a,logo64),`Felanmälan #${a.nr||''}`)
+                    }} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,fontSize:11,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+                      <Printer size={12}/> Skriv ut
+                    </button>
+                    <span className="badge badge-teal">Klar</span>
+                  </div>
                 </div>
               ))}
             </div>
