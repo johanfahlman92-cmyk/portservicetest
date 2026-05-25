@@ -1674,10 +1674,10 @@ export default function TeknikerVy({
   const alleMontageordrar = montageorder.filter(m=>m.status!=='utford').sort((a,b)=>montDatum(a).localeCompare(montDatum(b)))
   const visadeMontageordrar = montageFilter==='mina' ? minaMontageordrar : alleMontageordrar
 
-  // Historik – avslutade ordrar
-  const klaraArenden     = arenden.filter(a=>!a.arkiverad&&a.status==='atgardad'&&(arendeFilter==='alla'||(a.tekniker||[]).includes(namn))).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
-  const avslutadeService = serviceorderArr.filter(o=>o.status==='avslutad'&&(serviceFilter==='mina'?o.tekniker===namn:true)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
-  const avslutadeMontage = montageorder.filter(m=>m.status==='utford'&&(montageFilter==='mina'?m.tekniker===namn:true)).sort((a,b)=>montDatum(b).localeCompare(montDatum(a))).slice(0,30)
+  // Historik – avslutade ordrar (visas alltid för alla, oavsett filter)
+  const klaraArenden     = arenden.filter(a=>!a.arkiverad&&a.status==='atgardad').sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
+  const avslutadeService = serviceorderArr.filter(o=>o.status==='avslutad').sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
+  const avslutadeMontage = montageorder.filter(m=>m.status==='utford').sort((a,b)=>montDatum(b).localeCompare(montDatum(a))).slice(0,30)
 
   const TABS = [
     { id:'idag',      icon:Calendar,      label:'Idag',    badge:dagensBokningar.length },
@@ -1900,14 +1900,24 @@ export default function TeknikerVy({
                   <span>{montageHistVis?'▲':'▼'}</span>
                 </button>
                 {montageHistVis&&avslutadeMontage.map(m=>(
-                  <div key={m.id} className="card" style={{marginBottom:8,padding:'10px 14px',opacity:0.75}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <div>
+                  <div key={m.id} className="card" style={{marginBottom:8,padding:'10px 14px',opacity:0.85}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+                      <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:600}}>{m.kund}</div>
                         <div style={{fontSize:12,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.montageplats||m.adress||'–'}</div>
-                        <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>📅 {montDatum(m)||'–'} · 👤 {m.tekniker||'–'}</div>
+                        <div style={{fontSize:12,color:'var(--c-text3)',marginTop:2}}>{montDatum(m)||'–'} · {m.tekniker||'–'}</div>
                       </div>
-                      <span className="badge badge-teal">Utförd</span>
+                      <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                        {m.protokoll_data?.egenkontroll&&(
+                          <button onClick={async()=>{
+                            const logo64=await hämtaLogoBase64()
+                            öppnaPrintFönster(pdfMontageProt(m.protokoll_data,logo64,{},riskpunkterAktiva),`Montageprotokoll ${m.nr||''}`)
+                          }} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,fontSize:11,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+                            <Printer size={12}/> Protokoll
+                          </button>
+                        )}
+                        <span className="badge badge-teal">Utförd</span>
+                      </div>
                     </div>
                   </div>
                 ))}
