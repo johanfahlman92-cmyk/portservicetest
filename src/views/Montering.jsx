@@ -192,8 +192,8 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
     { lbl: 'Datum',     val: datum                },
     { lbl: 'Tekniker',  val: teknikerNamn         },
     { lbl: 'Serviceintervall', val: serviceIntervallLabel(serviceIntervall) },
-    ...(ordernummer ? [{ lbl: 'Ordernummer', val: ordernummer }] : []),
-    ...(serienummer ? [{ lbl: 'Serienummer', val: serienummer }] : []),
+    { lbl: 'Ordernummer', val: ordernummer || '–' },
+    { lbl: 'Serienummer', val: serienummer || '–' },
   ]
   // Jämna ut till jämnt antal
   if (metaCeller.length % 2 !== 0) metaCeller.push({ lbl: '', val: '' })
@@ -1101,8 +1101,8 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
               {[['Kund', valdProtokoll.kund], ['Adress', valdProtokoll.adress], ['Porttyp', valdProtokoll.portTyp],
                 ['Datum', valdProtokoll.datum], ['Tekniker', valdProtokoll.tekniker],
                 ['Serviceintervall', valdProtokoll.serviceIntervall ? `var ${valdProtokoll.serviceIntervall}:e mån` : '–'],
-                ...(valdProtokoll.ordernummer ? [['Ordernummer', valdProtokoll.ordernummer]] : []),
-                ...(valdProtokoll.serienummer ? [['Serienummer', valdProtokoll.serienummer]] : []),
+                ['Ordernummer', valdProtokoll.ordernummer || '–'],
+                ['Serienummer', valdProtokoll.serienummer || '–'],
               ].map(([l, val]) => (
                 <div key={l}>
                   <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 600, textTransform: 'uppercase' }}>{l}</div>

@@ -394,8 +394,8 @@ export function pdfMontageProt(p, logoBase64, montagemallar = {}, riskpunkter = 
     { lbl: 'Adress',    val: p.adress    },
     { lbl: 'Datum',     val: p.datum     },
     { lbl: 'Tekniker',  val: p.tekniker  },
-    ...(p.ordernummer ? [{ lbl: 'Ordernummer', val: p.ordernummer }] : [{ lbl: '', val: '' }]),
-    ...(p.serienummer ? [{ lbl: 'Serienummer', val: p.serienummer }] : []),
+    { lbl: 'Ordernummer', val: p.ordernummer || p.portOrdernr || '–' },
+    { lbl: 'Serienummer', val: p.serienummer || p.portSerienr || '–' },
   ]
   if (metaCeller.length % 2 !== 0) metaCeller.push({ lbl: '', val: '' })
 
