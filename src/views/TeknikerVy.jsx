@@ -669,7 +669,7 @@ function NyMontageorderForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAv
 
 // ── Ny port-formulär (mobil) ──────────────────────────────────────────────────
 function NyPortForm({ kunder, fastigheter, onSpara, onAvbryt }) {
-  const [form,   setForm]   = useState({typ:'Vikport',namn:'',kund:kunder[0]?.namn||'',fabrikat:'',ar:new Date().getFullYear(),adress:'',serviceIntervall:'12'})
+  const [form,   setForm]   = useState({typ:'Vikport',namn:'',kund:kunder[0]?.namn||'',fabrikat:'',ar:new Date().getFullYear(),adress:'',position:'',serviceIntervall:'12'})
   const [annat,  setAnnat]  = useState('')
   const [fel,    setFel]    = useState(false)
   const [sparar, setSparar] = useState(false)
@@ -687,7 +687,7 @@ function NyPortForm({ kunder, fastigheter, onSpara, onAvbryt }) {
       id:'p'+Date.now(), plats:fast?.namn||'', fastighetId:fastighetId||null,
       typ:form.typ, namn:form.namn.trim(), kund:form.kund,
       kundTyp:'foretag', fabrikat:fabrik.trim(), ar:parseInt(form.ar)||new Date().getFullYear(),
-      adress:form.adress.trim(), ordernummer:'', serienummer:'',
+      adress:form.adress.trim(), position:form.position.trim(), ordernummer:'', serienummer:'',
       serviceIntervall:parseInt(form.serviceIntervall)||0,
       senaste:'', nasta, intervallProcent:0, status:'ny',
       protokoll:form.typ, punkter:0, historik:[], arkiverad:false,
@@ -731,6 +731,8 @@ function NyPortForm({ kunder, fastigheter, onSpara, onAvbryt }) {
         <option value="Annat">Annat / okänt</option>
       </select>
       {form.fabrikat==='Annat'&&<input type="text" value={annat} onChange={e=>setAnnat(e.target.value)} placeholder="Ange fabrikat" style={{...INP,marginTop:6}}/>}
+      <label style={LBL}>Position</label>
+      <input type="text" value={form.position} onChange={e=>set('position',e.target.value)} placeholder="t.ex. Port A, Norrgavel, Lastkaj 2" style={INP}/>
       <label style={LBL}>Adress</label>
       <input type="text" value={form.adress} onChange={e=>set('adress',e.target.value)} placeholder="Industrivägen 12" style={INP}/>
       <label style={LBL}>Installationsår</label>
@@ -1215,7 +1217,7 @@ function MontageDetalj({ order, objekt, namn, tekniker: tekLista = [], onUppdate
         id:'p'+Date.now(), typ:porttyp, namn:portNamn,
         kund:order.kund||'', kundTyp:'foretag',
         fabrikat:prot.portFabrikat||'', ar:new Date().getFullYear(),
-        adress:order.adress||'', plats:'', fastighetId:null,
+        adress:order.adress||'', position:order.position||'', plats:'', fastighetId:null,
         ordernummer:prot.portOrdernr||order.nr||'', serienummer:prot.portSerienr||'',
         serviceIntervall:12, senaste:'', nasta, intervallProcent:0, status:'ny',
         protokoll:porttyp, punkter:0, arkiverad:false,
@@ -1348,7 +1350,7 @@ function RegisterFlik({ objekt, kunder, fastigheter, onLaggTillObjekt }) {
       <div className="card" style={{marginBottom:12}}>
         <div style={{fontSize:16,fontWeight:600}}>{vald.namn}</div>
         <div style={{fontSize:13,color:'var(--c-text2)',marginBottom:8}}>{vald.kund}</div>
-        {[['Porttyp',vald.typ],['Fabrikat',vald.fabrikat],['År',vald.ar],['Adress',vald.adress||vald.plats],['Senaste service',vald.senaste||'–'],['Nästa service',vald.nasta||'–']].map(([l,v])=>v&&(
+        {[['Porttyp',vald.typ],['Fabrikat',vald.fabrikat],['Position',vald.position],['År',vald.ar],['Adress',vald.adress||vald.plats],['Ordernummer',vald.ordernummer],['Serienummer',vald.serienummer],['Senaste service',vald.senaste||'–'],['Nästa service',vald.nasta||'–']].map(([l,v])=>v&&(
           <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--c-border)',fontSize:13}}>
             <span style={{color:'var(--c-text2)'}}>{l}</span><span style={{fontWeight:500}}>{v}</span>
           </div>
