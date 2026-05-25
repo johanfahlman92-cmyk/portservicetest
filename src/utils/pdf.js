@@ -283,6 +283,21 @@ export function pdfRiskBedömning(p, logoBase64) {
     </tr>`
   }).join('')
 
+  const egenRiskRows = (p.egenRisker || []).map(r => {
+    const cls = r.status === 'ok' ? 's-risk-ok' : r.status === 'atgard' ? 's-risk-atgard' : 's-risk-ej'
+    const etk = r.status === 'ok' ? '✓ OK' : r.status === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'
+    return `<tr style="background:#fffbf2">
+      <td style="width:32px;color:#aaa;font-size:10px">*</td>
+      <td><strong>${r.label||'–'}</strong>${r.beskrivning ? `<div style="margin-top:4px;font-style:italic;color:#777;font-size:10px">${r.beskrivning}</div>` : ''}${r.åtgärd ? `<div style="margin-top:4px;font-style:italic;color:#666;font-size:10px">↳ ${r.åtgärd}</div>` : ''}</td>
+      <td style="text-align:center;white-space:nowrap"><span class="${cls}">${etk}</span></td>
+    </tr>`
+  }).join('')
+
+  // Tekniker/ansvariga: use ansvariga array if available, else fall back to p.tekniker string
+  const teknikerStr = (p.ansvariga && p.ansvariga.length > 0)
+    ? p.ansvariga.map(a => a.roll ? `${a.namn} (${a.roll})` : a.namn).join(', ')
+    : (p.tekniker || '–')
+
   const body = `
     ${pdfHeader(logoBase64, 'Riskbedömning',
       p.ordernummer ? `#${p.ordernummer}` : (p.portNamn || 'Riskbedömning'),
@@ -290,18 +305,21 @@ export function pdfRiskBedömning(p, logoBase64) {
 
     <div class="slbl">Uppdragsinformation</div>
     ${pdfMetaGrid([
-      { lbl: 'Kund',     val: p.kund      },
-      { lbl: 'Port',     val: p.portNamn  },
-      { lbl: 'Porttyp',  val: p.portTyp   },
-      { lbl: 'Tekniker', val: p.tekniker  },
-      { lbl: 'Datum',    val: p.datum     },
-      { lbl: 'Order',    val: p.ordernummer || '–' },
+      { lbl: 'Kund',       val: p.kund      },
+      { lbl: 'Port',       val: p.portNamn  },
+      { lbl: 'Porttyp',    val: p.portTyp   },
+      { lbl: 'Personal',   val: teknikerStr },
+      { lbl: 'Datum',      val: p.datum     },
+      { lbl: 'Order',      val: p.ordernummer || '–' },
     ])}
 
     <div class="slbl">Riskbedömning – utförd före arbete påbörjades</div>
     <table>
       <thead><tr><th>#</th><th>Riskpunkt</th><th style="text-align:center">Bedömning</th></tr></thead>
-      <tbody>${riskRows}</tbody>
+      <tbody>
+        ${riskRows}
+        ${egenRiskRows ? `<tr class="tbl-group"><td colspan="3">Egna riskpunkter</td></tr>${egenRiskRows}` : ''}
+      </tbody>
     </table>
 
     <div class="sig-section">

@@ -856,6 +856,8 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
                   ordernummer: valdOrder.nr || '',
                   riskKontroll: protokoll.riskKontroll,
                   riskNoteringar: protokoll.riskNoteringar || {},
+                  egenRisker: protokoll.egenRisker || [],
+                  ansvariga: protokoll.ansvariga || [],
                 }, logo64), 'Riskbedömning')
               }}>
               <Printer size={14} /> Skriv ut riskbedömning
@@ -972,6 +974,8 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
                             ordernummer: order.nr || '',
                             riskKontroll: order.protokoll.riskKontroll,
                             riskNoteringar: order.protokoll.riskNoteringar || {},
+                            egenRisker: order.protokoll.egenRisker || [],
+                            ansvariga: order.protokoll.ansvariga || [],
                           }, logo64), 'Riskbedömning')
                         }}>
                         <Printer size={12} /> Risk

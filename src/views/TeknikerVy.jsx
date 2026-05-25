@@ -79,6 +79,8 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera, autoOpen = 
   const [visaRisk, setVisaRisk] = useState(false)
   const [risk,     setRisk]     = useState({})
   const [riskN,    setRiskN]    = useState({})
+  const [ansvariga,setAnsvariga]= useState(namn?[{id:'a0',namn,roll:''}]:[])
+  const [egna,     setEgna]     = useState([])
   const [redigerar,  setRedigerar]  = useState(false)
   const [editForm,   setEditForm]   = useState({})
   const [sparar2,    setSparar2]    = useState(false)
@@ -205,6 +207,7 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera, autoOpen = 
                   </button>
                   {visaRisk&&(
                     <div style={{marginTop:8}}>
+                      <AnsvarigaPanel ansvariga={ansvariga} tekniker={tekLista} onChange={setAnsvariga}/>
                       {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(
                         <div key={i} className="card" style={{marginBottom:6,padding:'10px 12px'}}>
                           <div style={{fontSize:12,marginBottom:8,lineHeight:1.4,color:'var(--c-text)'}}><span style={{color:'var(--c-text3)',marginRight:5}}>{i+1}.</span>{p}</div>
@@ -219,14 +222,16 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera, autoOpen = 
                           {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:6,width:'100%',padding:'7px 10px',fontSize:12,border:'1px solid var(--c-border)',borderRadius:7,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
                         </div>
                       )})}
+                      <EgnaRiskerPanel egna={egna} onChange={setEgna}/>
                       {riskGjord&&(
                         <button onClick={async()=>{
                           const logo64=await hämtaLogoBase64()
                           öppnaPrintFönster(pdfRiskBedömning({
                             kund:a.kund,portNamn:a.namn||a.feltyp||'',portTyp:'',
-                            tekniker:namn,datum:idag(),
+                            tekniker:ansvariga.map(x=>x.namn).join(', ')||namn,datum:idag(),
                             ordernummer:a.nr||'',
                             riskKontroll:risk,riskNoteringar:riskN,
+                            egenRisker:egna,ansvariga,
                           },logo64),'Riskbedömning')
                         }} style={{width:'100%',marginTop:8,padding:'11px 14px',borderRadius:9,background:'var(--c-surface)',color:'var(--c-text)',border:'1.5px solid var(--c-border)',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7}}>
                           <Printer size={14}/> Skriv ut riskbedömning
@@ -758,10 +763,12 @@ function NyPortForm({ kunder, fastigheter, onSpara, onAvbryt }) {
 
 // ── Serviceprotokoll-formulär ─────────────────────────────────────────────────
 // ServiceProtokollFormular: 2 eller 3 steg beroende på inkluderaRisk
-function ServiceProtokollFormular({ port, namn, inkluderaRisk=true, onSlutfor, onBack }) {
+function ServiceProtokollFormular({ port, namn, tekniker: tekLista=[], inkluderaRisk=true, onSlutfor, onBack }) {
   const punkter = protokollPunkter[port?.typ] || []
   const [steg,    setSteg]  = useState(1)
   const [risk,    setRisk]  = useState({}); const [riskN,setRiskN]=useState({})
+  const [ansvariga,setAnsvariga]=useState(namn?[{id:'a0',namn,roll:''}]:[])
+  const [egna,    setEgna]  = useState([])
   const [statuses,setSt]    = useState({})
   const [noter,   setNot]   = useState({})
   const [sig,     setSig]   = useState(null)
@@ -769,7 +776,7 @@ function ServiceProtokollFormular({ port, namn, inkluderaRisk=true, onSlutfor, o
   const g=Object.values(statuses).filter(s=>s==='G').length,j=Object.values(statuses).filter(s=>s==='J').length,a=Object.values(statuses).filter(s=>s==='A').length
   const ifyllda=g+j+a,total=punkter.filter(p=>!String(p).startsWith('## ')).length,pct=total>0?Math.round(ifyllda/total*100):0
   const godkannAlla=()=>{ const n={}; punkter.forEach((p,i)=>{if(!String(p).startsWith('## '))n[i]='G'}); setSt(n) }
-  const slutfor=async()=>{ setSparar(true); await onSlutfor({datum:idag(),tekniker:namn,statuses,noteringar:noter,signatur:sig,g,j,a,portTyp:port?.typ,portNamn:port?.namn,kund:port?.kund,...(inkluderaRisk?{riskKontroll:risk,riskNoteringar:riskN}:{})}); setSparar(false) }
+  const slutfor=async()=>{ setSparar(true); await onSlutfor({datum:idag(),tekniker:namn,statuses,noteringar:noter,signatur:sig,g,j,a,portTyp:port?.typ,portNamn:port?.namn,kund:port?.kund,...(inkluderaRisk?{riskKontroll:risk,riskNoteringar:riskN,egenRisker:egna,ansvariga}:{})}); setSparar(false) }
   const totalSteg = inkluderaRisk ? 3 : 2
   // inkluderaRisk=true : steg 1=Risk, 2=Protokoll, 3=Signatur
   // inkluderaRisk=false: steg 1=Protokoll, 2=Signatur
@@ -796,6 +803,7 @@ function ServiceProtokollFormular({ port, namn, inkluderaRisk=true, onSlutfor, o
           <span style={{fontSize:16}}>⚠️</span>
           <span style={{fontSize:13,color:'var(--c-amber-text,#92400e)',fontWeight:500}}>Utför riskbedömningen innan arbetet påbörjas</span>
         </div>
+        <AnsvarigaPanel ansvariga={ansvariga} tekniker={tekLista} onChange={setAnsvariga}/>
         {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(<div key={i} className="card" style={{marginBottom:8,padding:'12px 14px'}}>
           <div style={{fontSize:13,marginBottom:10,lineHeight:1.5}}><span style={{color:'var(--c-text3)',marginRight:6}}>{i+1}.</span>{p}</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
@@ -805,13 +813,16 @@ function ServiceProtokollFormular({ port, namn, inkluderaRisk=true, onSlutfor, o
           </div>
           {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
         </div>)})}
-        <div style={{display:'flex',gap:8,marginBottom:80}}>
+        <div style={{fontSize:12,fontWeight:700,color:'var(--c-text2)',textTransform:'uppercase',letterSpacing:'0.07em',margin:'12px 0 8px'}}>Egna riskpunkter</div>
+        <EgnaRiskerPanel egna={egna} onChange={setEgna}/>
+        <div style={{display:'flex',gap:8,marginBottom:80,marginTop:12}}>
           <button onClick={async()=>{
             const logo64=await hämtaLogoBase64()
             öppnaPrintFönster(pdfRiskBedömning({
               kund:port?.kund||'',portNamn:port?.namn||'',portTyp:port?.typ||'',
-              tekniker:namn,datum:idag(),
+              tekniker:ansvariga.map(a=>a.namn).join(', ')||namn,datum:idag(),
               riskKontroll:risk,riskNoteringar:riskN,
+              egenRisker:egna,ansvariga,
             },logo64),'Riskbedömning')
           }} style={{padding:'14px 16px',borderRadius:12,background:'var(--c-surface)',color:'var(--c-text)',border:'1.5px solid var(--c-border)',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:7}}>
             <Printer size={16}/> Skriv ut
@@ -887,7 +898,7 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
     }
     setVy('klar')
   }
-  if(vy==='protokoll')return(<ServiceProtokollFormular port={port} namn={namn} inkluderaRisk={inkluderaRisk} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
+  if(vy==='protokoll')return(<ServiceProtokollFormular port={port} namn={namn} tekniker={tekLista} inkluderaRisk={inkluderaRisk} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
   if(vy==='klar')return(<div style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={56} color="var(--c-teal)" style={{margin:'0 auto 16px',display:'block'}}/><div style={{fontSize:18,fontWeight:700,color:'var(--c-teal-text)',marginBottom:8}}>Serviceorder klar!</div><div style={{fontSize:14,color:'var(--c-text2)',marginBottom:24}}>{port?.namn} · {idag()}</div><button className="btn btn-primary" onClick={onBack} style={{width:'100%',padding:14,fontSize:15}}>← Tillbaka</button></div>)
   return(
     <div>
@@ -949,6 +960,8 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
             ordernummer:order.nr||'',
             riskKontroll:order.protokoll.riskKontroll,
             riskNoteringar:order.protokoll.riskNoteringar||{},
+            egenRisker:order.protokoll.egenRisker||[],
+            ansvariga:order.protokoll.ansvariga||[],
           },logo64),'Riskbedömning')
         }} style={{width:'100%',marginBottom:10,padding:'12px 16px',borderRadius:10,background:'var(--c-surface)',color:'var(--c-text)',border:'1.5px solid var(--c-border)',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
           <Printer size={15}/> Skriv ut riskbedömning
@@ -983,16 +996,94 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
   )
 }
 
+// ── AnsvarigaPanel (mobil) ────────────────────────────────────────────────────
+function AnsvarigaPanel({ ansvariga=[], tekniker=[], onChange }) {
+  const [nyNamn, setNyNamn] = useState('')
+  const [nyRoll, setNyRoll] = useState('')
+  const laggTill = (namn, roll='') => {
+    const n = namn.trim(); if (!n || ansvariga.some(a=>a.namn===n)) return
+    onChange([...ansvariga, {id:'a'+Date.now(), namn:n, roll:roll.trim()}])
+    setNyNamn(''); setNyRoll('')
+  }
+  const taBort = id => onChange(ansvariga.filter(a=>a.id!==id))
+  const internaKvar = tekniker.filter(t=>!ansvariga.some(a=>a.namn===t))
+  return (
+    <div className="card" style={{marginBottom:12,padding:'12px 14px'}}>
+      <div style={{fontSize:12,fontWeight:700,color:'var(--c-text2)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>Ansvariga / personal</div>
+      {ansvariga.length>0&&(
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
+          {ansvariga.map(a=>(
+            <span key={a.id} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:'var(--c-blue-bg)',border:'1px solid var(--c-blue)',fontSize:12,color:'var(--c-text)'}}>
+              <span style={{fontWeight:500}}>{a.namn}</span>
+              {a.roll&&<span style={{color:'var(--c-text3)',fontSize:11}}>{a.roll}</span>}
+              <button onClick={()=>taBort(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',padding:'0 0 0 2px',lineHeight:1,fontSize:15}}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      {internaKvar.length>0&&(
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:'var(--c-text3)',marginBottom:5}}>Lägg till intern personal</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+            {internaKvar.map(t=>(
+              <button key={t} onClick={()=>laggTill(t)} style={{padding:'4px 12px',borderRadius:15,fontSize:12,border:'1px dashed var(--c-border)',background:'transparent',color:'var(--c-text2)',cursor:'pointer'}}>{t}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        <input value={nyNamn} onChange={e=>setNyNamn(e.target.value)} placeholder="Extern: Förnamn Efternamn" onKeyDown={e=>e.key==='Enter'&&laggTill(nyNamn,nyRoll)}
+          style={{width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>
+        <input value={nyRoll} onChange={e=>setNyRoll(e.target.value)} placeholder="Företag / roll (valfritt)" onKeyDown={e=>e.key==='Enter'&&laggTill(nyNamn,nyRoll)}
+          style={{width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>
+        <button onClick={()=>laggTill(nyNamn,nyRoll)} disabled={!nyNamn.trim()} style={{padding:'8px 14px',background:nyNamn.trim()?'var(--c-teal)':'var(--c-border)',color:nyNamn.trim()?'#fff':'var(--c-text3)',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:nyNamn.trim()?'pointer':'default'}}>+ Lägg till extern</button>
+      </div>
+    </div>
+  )
+}
+
+// ── EgnaRiskerPanel (mobil) ───────────────────────────────────────────────────
+function EgnaRiskerPanel({ egna=[], onChange }) {
+  const laggTill = () => onChange([...egna, {id:'e'+Date.now(),label:'',beskrivning:'',status:null,åtgärd:''}])
+  const upd = (id,fält,val) => onChange(egna.map(r=>r.id===id?{...r,[fält]:val}:r))
+  const taBort = id => onChange(egna.filter(r=>r.id!==id))
+  return (
+    <div style={{marginBottom:12}}>
+      {egna.map(r=>(
+        <div key={r.id} className="card" style={{marginBottom:8,padding:'12px 14px',position:'relative'}}>
+          <button onClick={()=>taBort(r.id)} style={{position:'absolute',top:8,right:8,background:'none',border:'none',cursor:'pointer',color:'var(--c-text3)',fontSize:18,lineHeight:1}}>×</button>
+          <input value={r.label} onChange={e=>upd(r.id,'label',e.target.value)} placeholder="Kontrollpunkt / risk *"
+            style={{width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box',marginBottom:6}}/>
+          <input value={r.beskrivning||''} onChange={e=>upd(r.id,'beskrivning',e.target.value)} placeholder="Beskrivning (valfritt)"
+            style={{width:'100%',padding:'8px 10px',fontSize:12,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box',marginBottom:8}}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:6}}>
+            {RISK_STATUS.map(({id,label,bg,txt,border})=>{
+              const aktiv=r.status===id
+              return <button key={id} onClick={()=>upd(r.id,'status',aktiv?null:id)} style={{padding:'9px 4px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',border:`2px solid ${aktiv?border:'var(--c-border)'}`,background:aktiv?bg:'transparent',color:aktiv?txt:'var(--c-text3)'}}>{label}</button>
+            })}
+          </div>
+          {r.status==='atgard'&&<input value={r.åtgärd||''} onChange={e=>upd(r.id,'åtgärd',e.target.value)} placeholder="Beskriv åtgärd…"
+            style={{width:'100%',padding:'8px 10px',fontSize:12,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
+        </div>
+      ))}
+      <button onClick={laggTill} style={{width:'100%',padding:'10px 14px',borderRadius:9,border:'1.5px dashed var(--c-border)',background:'transparent',color:'var(--c-text2)',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+        <Plus size={14}/> Lägg till egen risk
+      </button>
+    </div>
+  )
+}
+
 // ── MontageRiskFormular (separat riskbedömning – besök 1) ────────────────────
 function MontageRiskFormular({ order, namn, tekniker: tekLista=[], onSpara, onBack, riskpunkter = RISKPUNKTER }) {
   const [risk,setRisk]=useState({}); const [riskN,setRiskN]=useState({})
-  const [tekVal,setTekVal]=useState(namn||'')
+  const [ansvariga,setAnsvariga]=useState(namn?[{id:'a0',namn,roll:''}]:[])
+  const [egna,setEgna]=useState([])
   const [sparar,setSparar]=useState(false)
   const [sparad,setSparad]=useState(false)
 
   const spara=async()=>{
     setSparar(true)
-    await onSpara({riskKontroll:risk,riskNoteringar:riskN,tekniker:tekVal})
+    await onSpara({riskKontroll:risk,riskNoteringar:riskN,egenRisker:egna,ansvariga})
     setSparar(false)
     setSparad(true)
   }
@@ -1025,15 +1116,7 @@ function MontageRiskFormular({ order, namn, tekniker: tekLista=[], onSpara, onBa
         <span style={{fontSize:16}}>⚠️</span>
         <span style={{fontSize:13,color:'var(--c-amber-text,#92400e)',fontWeight:500}}>Utför riskbedömningen innan arbetet påbörjas. Sparas och kan sedan återupptas.</span>
       </div>
-      {tekLista.length>0&&(
-        <div className="card" style={{marginBottom:12,padding:'12px 14px'}}>
-          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:6,display:'block'}}>Ansvarig tekniker</label>
-          <select value={tekVal} onChange={e=>setTekVal(e.target.value)} style={INP}>
-            <option value="">– Välj tekniker –</option>
-            {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      )}
+      <AnsvarigaPanel ansvariga={ansvariga} tekniker={tekLista} onChange={setAnsvariga}/>
       {riskpunkter.map((p,i)=>{
         if(p.startsWith('## ')) return(
           <div key={i} style={{margin:'10px 0 4px',padding:'6px 10px',background:'var(--c-bg)',borderRadius:6,borderLeft:'3px solid var(--c-amber)'}}>
@@ -1071,9 +1154,13 @@ function MontageRiskFormular({ order, namn, tekniker: tekLista=[], onSpara, onBa
           </div>
         </div>
       ) : (
-        <button onClick={spara} disabled={sparar} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:80}}>
-          <CheckCircle size={18}/> {sparar?'Sparar…':'Spara riskbedömning'}
-        </button>
+        <div style={{marginBottom:80}}>
+          <div style={{margin:'16px 0 8px',fontSize:12,fontWeight:700,color:'var(--c-text2)',textTransform:'uppercase',letterSpacing:'0.07em'}}>Egna riskpunkter</div>
+          <EgnaRiskerPanel egna={egna} onChange={setEgna}/>
+          <button onClick={spara} disabled={sparar} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginTop:12}}>
+            <CheckCircle size={18}/> {sparar?'Sparar…':'Spara riskbedömning'}
+          </button>
+        </div>
       )}
     </div>
   )
