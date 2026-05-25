@@ -118,7 +118,7 @@ const serviceIntervallLabel = (v) =>
 function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
                         serviceIntervall, riskKontroll = {}, riskNoteringar = {},
                         egenRisker = [], egenkontroll, egenNoteringar,
-                        signaturbild, logoBase64, effektivaMallar,
+                        signaturbild, signaturKund = null, logoBase64, effektivaMallar,
                         ansvariga = [], godkannande = null,
                         ordernummer = null, serienummer = null,
                         riskpunkterLista = null,
@@ -232,14 +232,21 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
       <tbody>${egenRows}</tbody>
     </table>
 
-    ${signaturbild ? `
-      <div class="slbl">Signatur tekniker</div>
-      <div class="sig-section">
-        <div class="sig-box">
-          <div class="sig-label">${teknikerNamn || ''}</div>
-          <img src="${signaturbild}" style="max-width:300px;max-height:90px"/>
+    ${(signaturbild || signaturKund) ? `
+      <div class="slbl">Signaturer</div>
+      <div class="sig-section" style="display:flex;gap:24px;flex-wrap:wrap">
+        ${signaturbild ? `
+        <div class="sig-box" style="flex:1;min-width:200px">
+          <div class="sig-label">Tekniker — ${teknikerNamn || ''}</div>
+          <img src="${signaturbild}" style="max-width:260px;max-height:80px"/>
           <div class="sig-date">${datum}</div>
-        </div>
+        </div>` : ''}
+        ${signaturKund ? `
+        <div class="sig-box" style="flex:1;min-width:200px">
+          <div class="sig-label">Kund — ${kund || ''}</div>
+          <img src="${signaturKund}" style="max-width:260px;max-height:80px"/>
+          <div class="sig-date">${datum}</div>
+        </div>` : ''}
       </div>` : ''}
   `
 
@@ -544,6 +551,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
   const [ansvariga,        setAnsvariga]        = useState([])
   const [godkannande,      setGodkannande]      = useState(null)
   const [signaturbild,     setSignaturbild]     = useState(null)
+  const [signaturKund,     setSignaturKund]     = useState(null)
   const [dokument,         setDokument]         = useState([])
   const [ordernummer,      setOrdernummer]      = useState('')
   const [serienummer,      setSerienummer]      = useState('')
@@ -679,6 +687,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       godkannande,
       ok: okCount, ej: ejCount, na: naCount,
       signatur: signaturbild || null,
+      signaturKund: signaturKund || null,
       dokument: [...dokument],
     }
 
@@ -770,6 +779,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       egenkontroll: valdProtokoll.egenkontroll || {},
       egenNoteringar: valdProtokoll.egenNoteringar || {},
       signaturbild: valdProtokoll.signatur || null,
+      signaturKund: valdProtokoll.signaturKund || null,
       logoBase64, effektivaMallar,
       ansvariga: valdProtokoll.ansvariga || [],
       godkannande: valdProtokoll.godkannande || null,
@@ -788,7 +798,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     const html = genereraHTML({
       portNamn, kund, adress, portTyp, datum, teknikerNamn, serviceIntervall,
       riskKontroll, riskNoteringar, egenRisker, egenkontroll, egenNoteringar,
-      signaturbild, logoBase64, effektivaMallar, ansvariga, godkannande,
+      signaturbild, signaturKund, logoBase64, effektivaMallar, ansvariga, godkannande,
       ordernummer, serienummer, riskpunkterLista: riskpunkterAktiva,
     })
     const win = window.open('', '_blank', 'width=860,height=1100')
@@ -803,7 +813,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
     setRiskKontroll({}); setRiskNoteringar({}); setEgenRisker([])
     setEgenkontroll({}); setEgenNoteringar({})
     setAnsvariga([]); setGodkannande(null)
-    setSignaturbild(null); setDokument([])
+    setSignaturbild(null); setSignaturKund(null); setDokument([])
     setOrdernummer(''); setSerienummer('')
     setMontageorderId(null); setRiskVarning(false)
   }
@@ -1626,6 +1636,16 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
             </div>
             <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 10, marginTop: 0 }}>Rita signaturen i fältet nedan.</p>
             <SignaturPad onChange={setSignaturbild} />
+          </div>
+
+          <div style={{ marginTop: 16, borderTop: '1px solid var(--c-border)', paddingTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>Kund signatur</div>
+              <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>– valfri</span>
+              {signaturKund && <span style={{ fontSize: 11, color: 'var(--c-teal)', fontWeight: 600 }}>✓ Signerad</span>}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--c-text2)', marginBottom: 10, marginTop: 0 }}>Kunden bekräftar att arbetet är utfört och godkänt.</p>
+            <SignaturPad onChange={setSignaturKund} />
           </div>
 
           {/* Dokument (integrerat i steg 3) */}
