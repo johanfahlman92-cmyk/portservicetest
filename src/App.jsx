@@ -20,6 +20,7 @@ import Serviceorder from './views/Serviceorder.jsx'
 import { Menu, Search } from 'lucide-react'
 import { protokollPunkter as defaultProtokollMallar, monteringPunkter as defaultMontagemallar, RISKPUNKTER as defaultRiskpunkter } from './data/store.js'
 import { setCompanyConfig } from './utils/pdf.js'
+import InstallPrompt from './components/InstallPrompt.jsx'
 
 // ── Datakonvertering ──────────────────────────────────────────────────────────
 function dbToObjekt(row) {
@@ -718,33 +719,36 @@ export default function App() {
   )
 
   if (roll === 'tekniker' || visaFältvy) return (
-    <TeknikerVy
-      namn={user.user_metadata?.namn || user.email || ''}
-      arenden={arenden}
-      bokningar={bokningar}
-      objekt={objektMedStatus}
-      kunder={kunder}
-      fastigheter={fastigheter}
-      tekniker={tekniker}
-      serviceorderArr={serviceorderArr}
-      montageorder={montageorder}
-      protokollMallar={protokollMallar}
-      montagemallar={montagemallar}
-      onUppdateraArende={uppdateraArende}
-      onUppdateraObjekt={uppdateraObjekt}
-      onUppdateraServiceorder={uppdateraServiceorder}
-      onUppdateraMontageorder={uppdateraMontageorder}
-      onLaggTillServiceorder={laggTillServiceorder}
-      onLaggTillMontageorder={laggTillMontageorder}
-      onLaggTillObjekt={laggTillObjekt}
-      onLaggTillArende={laggTillArende}
-      onNyKund={snabbLaggTillKund}
-      onLaggTillBokning={laggTillBokning}
-      onTaBortBokning={taBortBokning}
-      onLoggaUt={loggaUt}
-      onTillAdmin={visaFältvy ? tillAdmin : undefined}
-      riskpunkter={riskpunkter}
-    />
+    <>
+      <TeknikerVy
+        namn={user.user_metadata?.namn || user.email || ''}
+        arenden={arenden}
+        bokningar={bokningar}
+        objekt={objektMedStatus}
+        kunder={kunder}
+        fastigheter={fastigheter}
+        tekniker={tekniker}
+        serviceorderArr={serviceorderArr}
+        montageorder={montageorder}
+        protokollMallar={protokollMallar}
+        montagemallar={montagemallar}
+        onUppdateraArende={uppdateraArende}
+        onUppdateraObjekt={uppdateraObjekt}
+        onUppdateraServiceorder={uppdateraServiceorder}
+        onUppdateraMontageorder={uppdateraMontageorder}
+        onLaggTillServiceorder={laggTillServiceorder}
+        onLaggTillMontageorder={laggTillMontageorder}
+        onLaggTillObjekt={laggTillObjekt}
+        onLaggTillArende={laggTillArende}
+        onNyKund={snabbLaggTillKund}
+        onLaggTillBokning={laggTillBokning}
+        onTaBortBokning={taBortBokning}
+        onLoggaUt={loggaUt}
+        onTillAdmin={visaFältvy ? tillAdmin : undefined}
+        riskpunkter={riskpunkter}
+      />
+      <InstallPrompt />
+    </>
   )
 
   const oppnaArenden      = arenden.filter(a => a.status !== 'atgardad').length

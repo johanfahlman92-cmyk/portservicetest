@@ -1760,8 +1760,8 @@ export default function TeknikerVy({
 
   return (
     <div style={{height:'100dvh',background:'var(--c-bg)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
-      {/* Header */}
-      <div style={{background:'#1C3461',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+      {/* Header – safe-area-inset-top för iPhone-notch / Dynamic Island */}
+      <div style={{background:'#1C3461',paddingTop:'calc(12px + env(safe-area-inset-top))',paddingBottom:'12px',paddingLeft:'16px',paddingRight:'16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <img src={logo} alt="logo" style={{height:32}}/>
           {namn&&<span style={{color:'rgba(255,255,255,0.65)',fontSize:13,borderLeft:'1px solid rgba(255,255,255,0.2)',paddingLeft:12}}>{namn}</span>}
@@ -1778,8 +1778,8 @@ export default function TeknikerVy({
         </div>
       </div>
 
-      {/* Innehåll */}
-      <div style={{flex:1,padding:'20px 16px 96px',overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
+      {/* Innehåll – extra bottom-padding för home-indicator */}
+      <div style={{flex:1,padding:'20px 16px',paddingBottom:'calc(88px + env(safe-area-inset-bottom))',overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain'}}>
         <div style={{maxWidth:560,margin:'0 auto'}}>{renderContent()}</div>
       </div>
 

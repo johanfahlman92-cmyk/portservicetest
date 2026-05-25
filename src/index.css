@@ -1,4 +1,13 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+/* ── PWA / mobil-grund ───────────────────────────────────── */
+html, body   { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 :root {
   --font-sans: 'DM Sans', sans-serif;
