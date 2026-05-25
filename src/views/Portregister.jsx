@@ -986,7 +986,7 @@ const portTyper = Object.keys(protokollTyper)
 
 const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
 
-function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null }) {
+function NyttObjektForm({ kunder, fastigheter, objekt = [], onSpara, onAvbryt, forval = null }) {
   const initFastighetId = forval?.fastighetId || fastigheter[0]?.id || ''
   const [valdFastighetId,  setValdFastighetId]  = useState(initFastighetId)
   const [sparar,           setSparar]           = useState(false)
@@ -1005,13 +1005,20 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
     serienummer: '',
   })
   const [fel, setFel] = useState(false)
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const [dubblettVarning, setDubblettVarning] = useState(null)
+  const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); if (k==='serienummer') setDubblettVarning(null) }
 
   const valdFastighet = fastigheter.find(f => f.id === valdFastighetId)
   const effektivtFabrikat = form.fabrikat === 'Annat' ? annatFabrikat : form.fabrikat
 
   const submit = async () => {
     if (!form.namn.trim() || !effektivtFabrikat.trim()) { setFel(true); return }
+    // Dubblettcheck på serienummer
+    const sn = form.serienummer.trim()
+    if (sn) {
+      const dubblett = objekt.find(o => !o.arkiverad && o.serienummer?.trim() === sn)
+      if (dubblett) { setDubblettVarning(`S/N ${sn} finns redan på "${dubblett.namn}" (${dubblett.kund})`); return }
+    }
     setSparar(true)
     let nasta = ''
     if (serviceIntervall !== '0') {
@@ -1111,9 +1118,17 @@ function NyttObjektForm({ kunder, fastigheter, onSpara, onAvbryt, forval = null 
         <div style={fld}><label style={lbl}>Ordernummer</label>
           <input type="text" placeholder="t.ex. ORD-2024-001" value={form.ordernummer}
             onChange={e => set('ordernummer', e.target.value)} style={inp} /></div>
-        <div style={fld}><label style={lbl}>Serienummer</label>
+        <div style={fld}>
+          <label style={lbl}>Serienummer</label>
           <input type="text" placeholder="t.ex. SN-123456" value={form.serienummer}
-            onChange={e => set('serienummer', e.target.value)} style={inp} /></div>
+            onChange={e => set('serienummer', e.target.value)}
+            style={{...inp, borderColor: dubblettVarning ? 'var(--c-red)' : undefined}} />
+          {dubblettVarning && (
+            <div style={{marginTop:4,padding:'6px 10px',background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:6,fontSize:12,color:'var(--c-red-text)'}}>
+              ⚠ Dubblett: {dubblettVarning}
+            </div>
+          )}
+        </div>
 
         {/* Adress */}
         <div style={{ ...fld, gridColumn: '1/-1' }}>
@@ -1257,6 +1272,7 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
         <NyttObjektForm
           kunder={kunder}
           fastigheter={aktivaFastigheter}
+          objekt={objekt}
           forval={dupliceraForval}
           onSpara={nytt => { onLaggTill(nytt); setVisaForm(false); setDupliceraForval(null) }}
           onAvbryt={() => { setVisaForm(false); setDupliceraForval(null) }}

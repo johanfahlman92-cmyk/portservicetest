@@ -574,10 +574,11 @@ function NyServiceorderForm({ objekt, kunder, namn, tekniker: tekLista=[], onSpa
 
 // ── Ny montageorder-formulär ──────────────────────────────────────────────────
 function NyMontageorderForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAvbryt, onNyKund }) {
-  const [form,     setForm]     = useState({kund:'',porttyp:'Vikport',fabrikat:'',serienummer:'',montageplats:'',onskat_montagedag:idag(),preliminar_leverans:'',notering:''})
+  const [form,     setForm]     = useState({kund:'',porttyp:'Vikport',fabrikat:'',kundordernummer:'',montageplats:'',onskat_montagedag:idag(),preliminar_leverans:'',notering:''})
   const [annatFab, setAnnatFab] = useState('')
   const [tekVal,   setTekVal]   = useState(namn || '')
   const [status,   setStatus]   = useState('planerad')
+  const [nmvNr,    setNmvNr]    = useState('MO-' + genNr())
   const [sparar,   setSparar]   = useState(false)
   const [felMsg,   setFelMsg]   = useState('')
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
@@ -588,11 +589,11 @@ function NyMontageorderForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAv
     setSparar(true); setFelMsg('')
     try {
       const res = await onSpara({
-        ordernummer: 'MO-' + genNr(),
+        ordernummer: nmvNr.trim() || ('MO-' + genNr()),
         status, tekniker: tekVal,
         kund: form.kund, porttyp: form.porttyp,
         fabrikat: effFab.trim(),
-        serienummer: form.serienummer.trim(),
+        serienummer: form.kundordernummer.trim(),
         montageplats: form.montageplats.trim(),
         onskat_montagedag: form.onskat_montagedag,
         preliminar_leverans: form.preliminar_leverans,
@@ -622,8 +623,10 @@ function NyMontageorderForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAv
         <option value="Annat">Annat / okänt</option>
       </select>
       {form.fabrikat==='Annat'&&<input type="text" value={annatFab} onChange={e=>setAnnatFab(e.target.value)} placeholder="Ange fabrikat…" style={{...INP,marginTop:6}}/>}
-      <label style={LBL}>Serienummer</label>
-      <input type="text" value={form.serienummer} onChange={e=>set('serienummer',e.target.value)} placeholder="Valfritt" style={INP}/>
+      <label style={LBL}>NMV Ordernummer</label>
+      <input type="text" value={nmvNr} onChange={e=>setNmvNr(e.target.value)} style={INP}/>
+      <label style={LBL}>Ordernummer (kund / projekt)</label>
+      <input type="text" value={form.kundordernummer} onChange={e=>set('kundordernummer',e.target.value)} placeholder="Kundens referens…" style={INP}/>
       <label style={LBL}>Montageplats / Adress</label>
       <input type="text" value={form.montageplats} onChange={e=>set('montageplats',e.target.value)} placeholder="Leveransadress…" style={INP}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
@@ -979,14 +982,15 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
 }
 
 // ── MontageRiskFormular (separat riskbedömning – besök 1) ────────────────────
-function MontageRiskFormular({ order, namn, onSpara, onBack, riskpunkter = RISKPUNKTER }) {
+function MontageRiskFormular({ order, namn, tekniker: tekLista=[], onSpara, onBack, riskpunkter = RISKPUNKTER }) {
   const [risk,setRisk]=useState({}); const [riskN,setRiskN]=useState({})
+  const [tekVal,setTekVal]=useState(namn||'')
   const [sparar,setSparar]=useState(false)
   const [sparad,setSparad]=useState(false)
 
   const spara=async()=>{
     setSparar(true)
-    await onSpara({riskKontroll:risk,riskNoteringar:riskN})
+    await onSpara({riskKontroll:risk,riskNoteringar:riskN,tekniker:tekVal})
     setSparar(false)
     setSparad(true)
   }
@@ -1019,6 +1023,15 @@ function MontageRiskFormular({ order, namn, onSpara, onBack, riskpunkter = RISKP
         <span style={{fontSize:16}}>⚠️</span>
         <span style={{fontSize:13,color:'var(--c-amber-text,#92400e)',fontWeight:500}}>Utför riskbedömningen innan arbetet påbörjas. Sparas och kan sedan återupptas.</span>
       </div>
+      {tekLista.length>0&&(
+        <div className="card" style={{marginBottom:12,padding:'12px 14px'}}>
+          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:6,display:'block'}}>Ansvarig tekniker</label>
+          <select value={tekVal} onChange={e=>setTekVal(e.target.value)} style={INP}>
+            <option value="">– Välj tekniker –</option>
+            {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      )}
       {riskpunkter.map((p,i)=>{
         if(p.startsWith('## ')) return(
           <div key={i} style={{margin:'10px 0 4px',padding:'6px 10px',background:'var(--c-bg)',borderRadius:6,borderLeft:'3px solid var(--c-amber)'}}>
@@ -1070,8 +1083,11 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
   const egP=EGENKONTROLL[porttyp]||EGENKONTROLL['Vikport']||[]
   const [steg,setSteg]=useState(1)
   const [eg,setEg]=useState({}); const [egN,setEgN]=useState({})
-  const [fabrikat,setFabrikat]=useState(''); const [annatFabrikat,setAnnatFabrikat]=useState('')
-  const [serienr,setSerienr]=useState(''); const [ordernr,setOrdernr]=useState(order.nr||'')
+  const initFab = FASTA_FABRIKAT.includes(order.fabrikat||'') ? (order.fabrikat||'') : (order.fabrikat ? 'Annat' : '')
+  const [fabrikat,setFabrikat]=useState(initFab)
+  const [annatFabrikat,setAnnatFabrikat]=useState(!FASTA_FABRIKAT.includes(order.fabrikat||'') ? (order.fabrikat||'') : '')
+  const [serienr,setSerienr]=useState(order.serienummer||'')
+  const [ordernr,setOrdernr]=useState(order.ordernummer||order.nr||'')
   const [sig,setSig]=useState(null); const [sigKund,setSigKund]=useState(null); const [godk,setGodk]=useState('godkand')
   const [sparar,setSparar]=useState(false)
   const fabrikVal = fabrikat==='Annat' ? annatFabrikat : fabrikat
@@ -1210,7 +1226,7 @@ function MontageDetalj({ order, objekt, namn, tekniker: tekLista = [], onUppdate
     }
     setVy('klar')
   }
-  if(vy==='risk')return(<MontageRiskFormular order={order} namn={namn} onSpara={hanteraRiskSparad} onBack={()=>setVy('info')} riskpunkter={riskpunkter}/>)
+  if(vy==='risk')return(<MontageRiskFormular order={order} namn={namn} tekniker={tekLista} onSpara={hanteraRiskSparad} onBack={()=>setVy('info')} riskpunkter={riskpunkter}/>)
   if(vy==='formular')return(<MontageFormular order={order} namn={namn} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
   if(vy==='klar')return(
     <div style={{textAlign:'center',padding:'48px 20px'}}>
