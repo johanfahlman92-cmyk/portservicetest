@@ -262,14 +262,19 @@ export default function App() {
         .eq('email', user.email)
         .maybeSingle()
       if (!data) return
-      // Sätt roll från inbjudan
+      // Sätt roll + namn från inbjudan
       await supabase.auth.updateUser({
         data: {
           roll:      data.roll,
+          namn:      data.namn      || '',
           kund_id:   data.kund_id   || null,
           kund_namn: data.kund_namn || '',
         },
       })
+      // Auto-lägg till i tekniker-listan om tekniker med namn
+      if (data.roll === 'tekniker' && data.namn) {
+        await supabase.from('tekniker').upsert({ namn: data.namn }, { onConflict: 'namn' })
+      }
       // Radera inbjudan (används bara en gång)
       await supabase.from('brukar_inbjudningar').delete().eq('id', data.id)
       // Uppdatera user-objektet med ny metadata
@@ -278,6 +283,16 @@ export default function App() {
     }
     kollaInbjudan()
   }, [user?.id])  // Kör bara när user.id förändras (ny inloggning)
+
+  // Auto-synka tekniker med namn till tekniker-tabellen vid varje inloggning
+  useEffect(() => {
+    if (!user) return
+    const roll = user.user_metadata?.roll
+    const namn = user.user_metadata?.namn
+    if (roll === 'tekniker' && namn && !namn.includes('@')) {
+      supabase.from('tekniker').upsert({ namn }, { onConflict: 'namn' })
+    }
+  }, [user?.id])
 
   // Stäng sidebar automatiskt på mobil
   useEffect(() => {

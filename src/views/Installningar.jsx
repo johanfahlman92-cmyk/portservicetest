@@ -609,6 +609,7 @@ export default function Installningar({
 
   // Form-state
   const [email,    setEmail]    = useState('')
+  const [namn,     setNamn]     = useState('')
   const [roll,     setRoll]     = useState('tekniker')
   const [valdKund, setValdKund] = useState('')
   const [sparar,   setSparar]   = useState(false)
@@ -637,6 +638,7 @@ export default function Installningar({
     const kundPost = kunder.find(k => k.id === valdKund)
     const { error } = await supabase.from('brukar_inbjudningar').insert({
       email:     email.trim().toLowerCase(),
+      namn:      namn.trim(),
       roll,
       kund_id:   roll === 'kund' ? (valdKund || null) : null,
       kund_namn: roll === 'kund' ? (kundPost?.namn || '') : '',
@@ -652,7 +654,7 @@ export default function Installningar({
       return
     }
 
-    setEmail(''); setRoll('tekniker'); setValdKund(''); setVisaForm(false)
+    setEmail(''); setNamn(''); setRoll('tekniker'); setValdKund(''); setVisaForm(false)
     laddaInbjudningar()
   }
 
@@ -801,10 +803,14 @@ export default function Installningar({
             {visaForm && (
               <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-border)', background: '#1a1917' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text)', marginBottom: 14 }}>Ny inbjudan</div>
-                <div style={{ display: 'grid', gridTemplateColumns: roll === 'kund' ? '2fr 1fr 2fr' : '2fr 1fr', gap: 12, alignItems: 'end' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: roll === 'kund' ? '2fr 1fr 1fr 2fr' : '2fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>E-postadress *</label>
                     <input type="email" placeholder="namn@företag.se" value={email} onChange={e => setEmail(e.target.value)} style={FÄLT} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Förnamn</label>
+                    <input type="text" placeholder="Johan" value={namn} onChange={e => setNamn(e.target.value)} style={FÄLT} />
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--c-text2)', display: 'block', marginBottom: 5 }}>Roll *</label>
