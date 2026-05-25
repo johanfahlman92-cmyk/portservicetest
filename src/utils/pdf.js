@@ -167,6 +167,37 @@ export function pdfDoc(title, bodyHtml) {
 }
 
 /**
+ * Genererar HTML för en felanmälan.
+ * @param {object} a – arendeobjektet
+ * @param {string} logoBase64
+ */
+export function pdfArende(a, logoBase64) {
+  const prioritetLabel = { akut: '🔴 Akut', hög: '🟠 Hög', normal: '🟡 Normal', låg: '🟢 Låg' }
+  const statusLabel    = { ny: 'Ny', pagaende: 'Pågående', atgardad: 'Åtgärdad' }
+  const tekStr = Array.isArray(a.tekniker) ? a.tekniker.join(', ') : (a.tekniker || '–')
+
+  const meta = pdfMetaGrid([
+    { lbl: 'Kund',        val: a.kund },
+    { lbl: 'Port / plats', val: a.namn },
+    { lbl: 'Feltyp',      val: a.feltyp },
+    { lbl: 'Datum',       val: a.datum },
+    { lbl: 'Prioritet',   val: prioritetLabel[a.prioritet] || a.prioritet || '–' },
+    { lbl: 'Status',      val: statusLabel[a.status] || a.status || '–' },
+    { lbl: 'Tekniker',    val: tekStr },
+    { lbl: 'Bokad tid',   val: a.besok || '–' },
+  ])
+
+  const body = `
+    ${pdfHeader(logoBase64, 'Felanmälan', `#${a.nr || '–'}`, a.kund || '')}
+    <div class="slbl">Ärendeinformation</div>
+    ${meta}
+    ${a.beskrivning ? `<div class="slbl">Beskrivning</div><div class="desc-box">${a.beskrivning}</div>` : ''}
+    ${a.notering    ? `<div class="slbl">Åtgärd / notering</div><div class="desc-box">${a.notering}</div>` : ''}
+  `
+  return pdfDoc(`Felanmälan #${a.nr || ''}`, body)
+}
+
+/**
  * Genererar HTML för en fristående riskbedömning (serviceorder eller felanmälan).
  * @param {object} p – { kund, portNamn, portTyp, tekniker, datum, ordernummer, riskKontroll, riskNoteringar, riskpunkter }
  * @param {string} logoBase64

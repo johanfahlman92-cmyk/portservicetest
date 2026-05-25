@@ -4,7 +4,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
-import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, öppnaPrintFönster } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, pdfArende, öppnaPrintFönster } from '../utils/pdf.js'
 import Felanmalan from './Felanmalan.jsx'
 import Portregister from './Portregister.jsx'
 
@@ -268,6 +268,12 @@ function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera, autoOpen = 
                     <CheckCircle size={16}/> Markera klar
                   </button>
                 )}
+                <button onClick={async()=>{
+                  const logo64=await hämtaLogoBase64()
+                  öppnaPrintFönster(pdfArende({...a,notering},logo64),`Felanmälan #${a.nr||''}`)
+                }} style={{width:'100%',padding:10,borderRadius:10,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <Printer size={14}/> Skriv ut felanmälan
+                </button>
               </div>
             </>
           )}
