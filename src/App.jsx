@@ -170,9 +170,9 @@ function GlobalSok({ objekt, kunder, fastigheter, arenden, onNavigera }) {
 
 // ── Mobil-breakpoint ──────────────────────────────────────────────────────────
 function useErMobil() {
-  const [erMobil, setErMobil] = useState(() => window.innerWidth < 768)
+  const [erMobil, setErMobil] = useState(() => window.innerWidth < 1024)
   useEffect(() => {
-    const fn = () => setErMobil(window.innerWidth < 768)
+    const fn = () => setErMobil(window.innerWidth < 1024)
     window.addEventListener('resize', fn)
     return () => window.removeEventListener('resize', fn)
   }, [])
@@ -800,22 +800,37 @@ export default function App() {
         {/* Topbar (mobil) */}
         {erMobil && (
           <div style={{
-            height: 52, flexShrink: 0, background: '#1C3461',
-            display: 'flex', alignItems: 'center',
-            padding: '0 16px', gap: 12,
+            paddingTop: 'env(safe-area-inset-top)',
+            background: '#1C3461',
+            flexShrink: 0,
           }}>
-            <button onClick={() => setSidomenyÖppen(true)} style={{
-              background: 'none', border: 'none', color: '#fff', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', padding: 4,
+            <div style={{
+              height: 52, display: 'flex', alignItems: 'center',
+              padding: '0 12px', gap: 10,
             }}>
-              <Menu size={22} />
-            </button>
-            <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>NMV Portservice</span>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => setSidomenyÖppen(true)} style={{
+                background: 'none', border: 'none', color: '#fff', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', padding: 6,
+              }}>
+                <Menu size={22} />
+              </button>
+              <span style={{ color: '#fff', fontSize: 14, fontWeight: 600, flex: 1 }}>NMV Portservice</span>
               {oppnaArenden > 0 && (
                 <span style={{ background: '#A32D2D', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
-                  {oppnaArenden} ärenden
+                  {oppnaArenden}
                 </span>
+              )}
+              {roll === 'admin' && (
+                <button onClick={aktiverFältläge} style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  color: '#fff', borderRadius: 8,
+                  padding: '6px 12px', fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                  whiteSpace: 'nowrap',
+                }}>
+                  📱 Teknikervy
+                </button>
               )}
             </div>
           </div>

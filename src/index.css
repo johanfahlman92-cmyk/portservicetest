@@ -262,7 +262,7 @@ textarea { resize: vertical; min-height: 72px; }
 .toggle-switch input:checked ~ .toggle-thumb { transform: translateX(14px); }
 
 /* ── Mobilanpassning ─────────────────────────────────── */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .grid2 { grid-template-columns: 1fr; }
   .grid4 { grid-template-columns: 1fr 1fr; }
   .grid3 { grid-template-columns: 1fr 1fr 1fr; }
