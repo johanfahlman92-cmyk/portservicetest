@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-         ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer } from 'lucide-react'
+         ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64, pdfMontageProt } from '../utils/pdf.js'
@@ -67,7 +67,7 @@ function SignaturPad({ onChange }) {
 }
 
 // ── ArendeKort ────────────────────────────────────────────────────────────────
-function ArendeKort({ a, namn, onUppdatera }) {
+function ArendeKort({ a, namn, tekniker: tekLista = [], onUppdatera }) {
   const [utv,      setUtv]      = useState(false)
   const [notering, setNotering] = useState(a.notering || '')
   const [sparar,   setSparar]   = useState(false)
@@ -76,9 +76,22 @@ function ArendeKort({ a, namn, onUppdatera }) {
   const [visaRisk, setVisaRisk] = useState(false)
   const [risk,     setRisk]     = useState({})
   const [riskN,    setRiskN]    = useState({})
+  const [redigerar,  setRedigerar]  = useState(false)
+  const [editForm,   setEditForm]   = useState({})
+  const [sparar2,    setSparar2]    = useState(false)
 
   const otilldelad  = !a.tekniker
   const riskGjord   = Object.keys(risk).length > 0
+  const startRedigera = () => {
+    setEditForm({feltyp:a.feltyp||'',tekniker:a.tekniker||'',prioritet:a.prioritet||'normal',besok:a.besok||'',beskrivning:a.beskrivning||''})
+    setRedigerar(true)
+  }
+  const sparaRedigering = async () => {
+    setSparar2(true)
+    await onUppdatera(a.id, editForm)
+    setSparar2(false)
+    setRedigerar(false)
+  }
 
   if (klarad) return (
     <div className="card" style={{display:'flex',alignItems:'center',gap:12,background:'var(--c-teal-bg)',border:'1px solid var(--c-teal)'}}>
@@ -112,73 +125,121 @@ function ArendeKort({ a, namn, onUppdatera }) {
       </div>
       {utv && (
         <div style={{padding:'0 16px 16px',borderTop:'1px solid var(--c-border)'}}>
-          {a.beskrivning&&<div style={{fontSize:13,color:'var(--c-text2)',fontStyle:'italic',background:'var(--c-bg)',borderRadius:8,padding:'10px 12px',margin:'12px 0'}}>"{a.beskrivning}"</div>}
-          {!otilldelad && <>
-            <label style={LBL}>Notering / åtgärd</label>
-            <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={2} placeholder="Beskriv utförd åtgärd…"
-              style={{...INP,resize:'vertical',marginBottom:10}}/>
-          </>}
+          {redigerar ? (
+            <div style={{paddingTop:10}}>
+              <label style={LBL}>Feltyp</label>
+              <select value={editForm.feltyp} onChange={e=>setEditForm(p=>({...p,feltyp:e.target.value}))} style={INP}>
+                <option value="">– Välj feltyp –</option>
+                {FELTA.map(f=><option key={f} value={f}>{f}</option>)}
+              </select>
+              <label style={LBL}>Tilldelad tekniker</label>
+              <select value={editForm.tekniker} onChange={e=>setEditForm(p=>({...p,tekniker:e.target.value}))} style={INP}>
+                <option value="">Ej utsedd tekniker</option>
+                {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+              <label style={LBL}>Prioritet</label>
+              <div style={{display:'flex',gap:6,marginTop:4,marginBottom:4}}>
+                {[['normal','Normal'],['hog','Hög'],['akut','Akut']].map(([id,lab])=>(
+                  <button key={id} onClick={()=>setEditForm(p=>({...p,prioritet:id}))}
+                    style={{flex:1,padding:'10px 4px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',
+                      border:`2px solid ${editForm.prioritet===id?'var(--c-blue)':'var(--c-border)'}`,
+                      background:editForm.prioritet===id?'var(--c-blue-bg,#eff6ff)':'transparent',
+                      color:editForm.prioritet===id?'var(--c-blue)':'var(--c-text3)'}}>{lab}</button>
+                ))}
+              </div>
+              <label style={LBL}>Planerat besök</label>
+              <input type="date" value={editForm.besok} onChange={e=>setEditForm(p=>({...p,besok:e.target.value}))} style={{...INP,colorScheme:'light'}}/>
+              <label style={LBL}>Beskrivning</label>
+              <textarea value={editForm.beskrivning} onChange={e=>setEditForm(p=>({...p,beskrivning:e.target.value}))} rows={2} style={{...INP,resize:'vertical'}}/>
+              <div style={{display:'flex',gap:8,marginTop:12}}>
+                <button onClick={sparaRedigering} disabled={sparar2}
+                  style={{flex:1,padding:12,borderRadius:9,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                  {sparar2?'Sparar…':'Spara ändringar'}
+                </button>
+                <button onClick={()=>setRedigerar(false)}
+                  style={{padding:'12px 14px',borderRadius:9,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,cursor:'pointer'}}>
+                  Avbryt
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{display:'flex',justifyContent:'flex-end',marginTop:10,marginBottom:4}}>
+                <button onClick={startRedigera}
+                  style={{display:'flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',
+                    border:'1.5px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+                  <Pencil size={12}/> Redigera
+                </button>
+              </div>
+              {a.beskrivning&&<div style={{fontSize:13,color:'var(--c-text2)',fontStyle:'italic',background:'var(--c-bg)',borderRadius:8,padding:'10px 12px',margin:'0 0 12px'}}>"{a.beskrivning}"</div>}
+              {!otilldelad && <>
+                <label style={LBL}>Notering / åtgärd</label>
+                <textarea value={notering} onChange={e=>setNotering(e.target.value)} rows={2} placeholder="Beskriv utförd åtgärd…"
+                  style={{...INP,resize:'vertical',marginBottom:10}}/>
+              </>}
 
-          {/* Valfri riskbedömning */}
-          {!otilldelad && (
-            <div style={{marginBottom:8}}>
-              <button onClick={()=>setVisaRisk(v=>!v)}
-                style={{width:'100%',padding:'10px 14px',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',
-                  border:`1.5px solid ${riskGjord?'#16a34a':'var(--c-border)'}`,
-                  background:riskGjord?'#f0fdf4':'transparent',
-                  color:riskGjord?'#166534':'var(--c-text2)',
-                  display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <span>🛡️ Riskbedömning {riskGjord?'(klar)':'(valfritt)'}</span>
-                <span>{visaRisk?'▲':'▼'}</span>
-              </button>
-              {visaRisk&&(
-                <div style={{marginTop:8}}>
-                  {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(
-                    <div key={i} className="card" style={{marginBottom:6,padding:'10px 12px'}}>
-                      <div style={{fontSize:12,marginBottom:8,lineHeight:1.4,color:'var(--c-text)'}}><span style={{color:'var(--c-text3)',marginRight:5}}>{i+1}.</span>{p}</div>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:5}}>
-                        {RISK_STATUS.map(({id,label,bg,txt,border})=>(
-                          <button key={id} onClick={()=>setRisk(prev=>({...prev,[i]:s===id?undefined:id}))}
-                            style={{padding:'9px 4px',borderRadius:7,fontSize:10,fontWeight:600,cursor:'pointer',
-                              border:`2px solid ${s===id?border:'var(--c-border)'}`,
-                              background:s===id?bg:'transparent',color:s===id?txt:'var(--c-text3)'}}>{label}</button>
-                        ))}
-                      </div>
-                      {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:6,width:'100%',padding:'7px 10px',fontSize:12,border:'1px solid var(--c-border)',borderRadius:7,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
+              {/* Valfri riskbedömning */}
+              {!otilldelad && (
+                <div style={{marginBottom:8}}>
+                  <button onClick={()=>setVisaRisk(v=>!v)}
+                    style={{width:'100%',padding:'10px 14px',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',
+                      border:`1.5px solid ${riskGjord?'#16a34a':'var(--c-border)'}`,
+                      background:riskGjord?'#f0fdf4':'transparent',
+                      color:riskGjord?'#166534':'var(--c-text2)',
+                      display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span>🛡️ Riskbedömning {riskGjord?'(klar)':'(valfritt)'}</span>
+                    <span>{visaRisk?'▲':'▼'}</span>
+                  </button>
+                  {visaRisk&&(
+                    <div style={{marginTop:8}}>
+                      {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(
+                        <div key={i} className="card" style={{marginBottom:6,padding:'10px 12px'}}>
+                          <div style={{fontSize:12,marginBottom:8,lineHeight:1.4,color:'var(--c-text)'}}><span style={{color:'var(--c-text3)',marginRight:5}}>{i+1}.</span>{p}</div>
+                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:5}}>
+                            {RISK_STATUS.map(({id,label,bg,txt,border})=>(
+                              <button key={id} onClick={()=>setRisk(prev=>({...prev,[i]:s===id?undefined:id}))}
+                                style={{padding:'9px 4px',borderRadius:7,fontSize:10,fontWeight:600,cursor:'pointer',
+                                  border:`2px solid ${s===id?border:'var(--c-border)'}`,
+                                  background:s===id?bg:'transparent',color:s===id?txt:'var(--c-text3)'}}>{label}</button>
+                            ))}
+                          </div>
+                          {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:6,width:'100%',padding:'7px 10px',fontSize:12,border:'1px solid var(--c-border)',borderRadius:7,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
+                        </div>
+                      )})}
                     </div>
-                  )})}
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
-            {otilldelad && (
-              <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{tekniker:namn});setTagen(true);setSparar(false)}}
-                style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                ✋ Ta på mig
-              </button>
-            )}
-            {!otilldelad && a.status==='ny' && (
-              <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'pagAr'});setSparar(false)}}
-                style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                <Play size={16} fill="#fff"/> Starta arbete
-              </button>
-            )}
-            {/* Ångra start */}
-            {!otilldelad && a.status==='pagAr' && (
-              <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'ny'});setSparar(false)}}
-                style={{width:'100%',padding:10,borderRadius:10,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-                ↩ Ångra start
-              </button>
-            )}
-            {!otilldelad && (a.status==='ny'||a.status==='pagAr') && (
-              <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'atgardad',notering,...(riskGjord?{riskKontroll:risk,riskNoteringar:riskN}:{})});setKlarad(true);setSparar(false)}}
-                style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                <CheckCircle size={16}/> Markera klar
-              </button>
-            )}
-          </div>
+              <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
+                {otilldelad && (
+                  <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{tekniker:namn});setTagen(true);setSparar(false)}}
+                    style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                    ✋ Ta på mig
+                  </button>
+                )}
+                {!otilldelad && a.status==='ny' && (
+                  <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'pagAr'});setSparar(false)}}
+                    style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                    <Play size={16} fill="#fff"/> Starta arbete
+                  </button>
+                )}
+                {/* Ångra start */}
+                {!otilldelad && a.status==='pagAr' && (
+                  <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'ny'});setSparar(false)}}
+                    style={{width:'100%',padding:10,borderRadius:10,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                    ↩ Ångra start
+                  </button>
+                )}
+                {!otilldelad && (a.status==='ny'||a.status==='pagAr') && (
+                  <button disabled={sparar} onClick={async()=>{setSparar(true);await onUppdatera(a.id,{status:'atgardad',notering,...(riskGjord?{riskKontroll:risk,riskNoteringar:riskN}:{})});setKlarad(true);setSparar(false)}}
+                    style={{width:'100%',padding:14,borderRadius:10,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                    <CheckCircle size={16}/> Markera klar
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -662,10 +723,15 @@ function ServiceProtokollFormular({ port, namn, inkluderaRisk=true, onSlutfor, o
 }
 
 // ── ServiceorderDetalj ────────────────────────────────────────────────────────
-function ServiceorderDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onBack }) {
+function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUppdatera, onUppdateraObjekt, onBack }) {
   const [vy,setVy]=useState('info')
   const [inkluderaRisk,setInkluderaRisk]=useState(false)
+  const [redigerar,setRedigerar]=useState(false)
+  const [editForm,setEditForm]=useState({})
+  const [sparar2,setSparar2]=useState(false)
   const port=(order.objekt_ids||[]).map(id=>objekt.find(o=>o.id===id)).filter(Boolean)[0]||null
+  const startRedigera=()=>{setEditForm({datum:order.datum||'',tekniker:order.tekniker||'',notering:order.notering||''});setRedigerar(true)}
+  const sparaRedigering=async()=>{setSparar2(true);await onUppdatera(order.id,editForm);setSparar2(false);setRedigerar(false)}
   const hanteraSlutfort=async(prot)=>{
     const now=idag()
     await onUppdatera(order.id,{status:'avslutad',protokoll:prot})
@@ -691,7 +757,32 @@ function ServiceorderDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjek
             <span style={{color:'var(--c-text2)'}}>{l}</span><span style={{fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{v}</span>
           </div>
         ))}
+        {order.status!=='avslutad'&&!redigerar&&(
+          <button onClick={startRedigera} style={{display:'flex',alignItems:'center',gap:5,marginTop:10,padding:'6px 12px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',border:'1.5px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+            <Pencil size={12}/> Redigera
+          </button>
+        )}
       </div>
+      {redigerar&&(
+        <div className="card" style={{marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:'var(--c-text)'}}>Redigera orderuppgifter</div>
+          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:4,display:'block'}}>Datum</label>
+          <input type="date" value={editForm.datum} onChange={e=>setEditForm(p=>({...p,datum:e.target.value}))} style={{...INP,colorScheme:'light',marginBottom:8}}/>
+          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:4,display:'block'}}>Tilldelad tekniker</label>
+          <select value={editForm.tekniker} onChange={e=>setEditForm(p=>({...p,tekniker:e.target.value}))} style={{...INP,marginBottom:8}}>
+            <option value="">Ej utsedd tekniker</option>
+            {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:4,display:'block'}}>Notering</label>
+          <textarea value={editForm.notering} onChange={e=>setEditForm(p=>({...p,notering:e.target.value}))} rows={2} placeholder="Notering…" style={{...INP,resize:'vertical',marginBottom:10}}/>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={sparaRedigering} disabled={sparar2} style={{flex:1,padding:11,borderRadius:9,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>
+              {sparar2?'Sparar…':'Spara ändringar'}
+            </button>
+            <button onClick={()=>setRedigerar(false)} style={{padding:'11px 14px',borderRadius:9,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,cursor:'pointer'}}>Avbryt</button>
+          </div>
+        </div>
+      )}
       {port&&(port.historik||[]).filter(h=>h.typ!=='montering').slice(-2).reverse().map((h,i)=>(
         <div key={i} className="card" style={{marginBottom:8,padding:'10px 14px',background:'var(--c-bg)',fontSize:12}}>
           <div style={{color:'var(--c-text3)',marginBottom:2}}>Tidigare service</div>
@@ -904,10 +995,15 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
 }
 
 // ── MontageDetalj ─────────────────────────────────────────────────────────────
-function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onLaggTillObjekt, onBack, riskpunkter = RISKPUNKTER }) {
+function MontageDetalj({ order, objekt, namn, tekniker: tekLista = [], onUppdatera, onUppdateraObjekt, onLaggTillObjekt, onBack, riskpunkter = RISKPUNKTER }) {
   const [vy,setVy]=useState('info')
   const [visaRiskDetalj,setVisaRiskDetalj]=useState(false)
   const [skapadPort,setSkapadPort]=useState(null)
+  const [redigerar,setRedigerar]=useState(false)
+  const [editForm,setEditForm]=useState({})
+  const [sparar2,setSparar2]=useState(false)
+  const startRedigera=()=>{setEditForm({tekniker:order.tekniker||'',onskat_montagedag:order.onskat_montagedag||order.datum_planerat||order.datum||'',notering:order.notering||''});setRedigerar(true)}
+  const sparaRedigering=async()=>{setSparar2(true);await onUppdatera(order.id,editForm);setSparar2(false);setRedigerar(false)}
   const riskSteg = order.protokoll_data?.steg || 0
   const riskKlar = riskSteg >= 1
   const sparadRisk = order.protokoll_data?.riskKontroll || {}
@@ -971,12 +1067,37 @@ function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, on
         <span className={`badge ${order.status==='utford'?'badge-teal':order.status==='pagAr'?'badge-amber':'badge-blue'}`}>{order.status==='utford'?'Utförd':order.status==='pagAr'?'Pågår':'Planerad'}</span>
       </div>
       <div className="card" style={{marginBottom:12}}>
-        {[['Kund',order.kund],['Porttyp',order.porttyp||order.portTyp],['Plats',order.montageplats||order.adress],['Planerat datum',order.onskat_montagedag||order.datum_planerat||order.datum],order.notering&&['Notering',order.notering]].filter(Boolean).map(([l,v])=>v&&(
+        {[['Kund',order.kund],['Porttyp',order.porttyp||order.portTyp],['Plats',order.montageplats||order.adress],['Planerat datum',order.onskat_montagedag||order.datum_planerat||order.datum],order.tekniker&&['Tekniker',order.tekniker],order.notering&&['Notering',order.notering]].filter(Boolean).map(([l,v])=>v&&(
           <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid var(--c-border)',fontSize:13}}>
             <span style={{color:'var(--c-text2)'}}>{l}</span><span style={{fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{v}</span>
           </div>
         ))}
+        {order.status!=='utford'&&!redigerar&&(
+          <button onClick={startRedigera} style={{display:'flex',alignItems:'center',gap:5,marginTop:10,padding:'6px 12px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',border:'1.5px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+            <Pencil size={12}/> Redigera
+          </button>
+        )}
       </div>
+      {redigerar&&(
+        <div className="card" style={{marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:'var(--c-text)'}}>Redigera orderuppgifter</div>
+          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:4,display:'block'}}>Tilldelad tekniker</label>
+          <select value={editForm.tekniker} onChange={e=>setEditForm(p=>({...p,tekniker:e.target.value}))} style={{...INP,marginBottom:8}}>
+            <option value="">Ej utsedd tekniker</option>
+            {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:4,display:'block'}}>Önskad montagedag</label>
+          <input type="date" value={editForm.onskat_montagedag} onChange={e=>setEditForm(p=>({...p,onskat_montagedag:e.target.value}))} style={{...INP,colorScheme:'light',marginBottom:8}}/>
+          <label style={{fontSize:12,color:'var(--c-text2)',marginBottom:4,display:'block'}}>Notering</label>
+          <textarea value={editForm.notering} onChange={e=>setEditForm(p=>({...p,notering:e.target.value}))} rows={2} placeholder="Notering / specifikationer…" style={{...INP,resize:'vertical',marginBottom:10}}/>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={sparaRedigering} disabled={sparar2} style={{flex:1,padding:11,borderRadius:9,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>
+              {sparar2?'Sparar…':'Spara ändringar'}
+            </button>
+            <button onClick={()=>setRedigerar(false)} style={{padding:'11px 14px',borderRadius:9,background:'transparent',color:'var(--c-text3)',border:'1px solid var(--c-border)',fontSize:13,cursor:'pointer'}}>Avbryt</button>
+          </div>
+        </div>
+      )}
       {order.status!=='utford'&&(
         <div style={{marginBottom:80}}>
           {/* Riskbedömning klar – klickbar för att visa detaljer */}
@@ -1444,7 +1565,7 @@ export default function TeknikerVy({
           {visaNyArende&&<NyArendeForm kunder={kunder} namn={namn} tekniker={tekniker} onNyKund={onNyKund} onSpara={async(a)=>{const r=await onLaggTillArende?.(a);if(r)setVisaNyArende(false)}} onAvbryt={()=>setVisaNyArende(false)}/>}
           {sortedArenden.length===0?(
             <div className="card" style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga {arendeFilter==='mina'?'tilldelade':arendeFilter==='otilldelade'?'otilldelade':'öppna'} ärenden!</div></div>
-          ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} onUppdatera={onUppdateraArende}/>)}</div>}
+          ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} tekniker={tekniker} onUppdatera={onUppdateraArende}/>)}</div>}
           {/* Historik – avslutade ärenden */}
           {klaraArenden.length>0&&(
             <div style={{marginTop:20}}>
@@ -1468,7 +1589,7 @@ export default function TeknikerVy({
       )
 
       case 'service':
-        if(valdServiceorder)return(<ServiceorderDetalj order={valdServiceorder} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraServiceorder(id,ch);setValdServiceorder(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onBack={()=>setValdServiceorder(null)}/>)
+        if(valdServiceorder)return(<ServiceorderDetalj order={valdServiceorder} objekt={objekt} namn={namn} tekniker={tekniker} onUppdatera={async(id,ch)=>{await onUppdateraServiceorder(id,ch);setValdServiceorder(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onBack={()=>setValdServiceorder(null)}/>)
         return(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
@@ -1526,7 +1647,7 @@ export default function TeknikerVy({
         )
 
       case 'montage':
-        if(valdMontage)return(<MontageDetalj order={valdMontage} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraMontageorder(id,ch);setValdMontage(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onLaggTillObjekt={onLaggTillObjekt} onBack={()=>setValdMontage(null)} riskpunkter={riskpunkterAktiva}/>)
+        if(valdMontage)return(<MontageDetalj order={valdMontage} objekt={objekt} namn={namn} tekniker={tekniker} onUppdatera={async(id,ch)=>{await onUppdateraMontageorder(id,ch);setValdMontage(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onLaggTillObjekt={onLaggTillObjekt} onBack={()=>setValdMontage(null)} riskpunkter={riskpunkterAktiva}/>)
         return(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
