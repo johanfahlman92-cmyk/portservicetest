@@ -3,7 +3,7 @@ import { Check, ChevronRight, ChevronLeft, Printer, CheckSquare,
          AlertTriangle, Wrench, AlertCircle, Minus, Plus,
          ClipboardList, CheckCircle, Search, Trash2, Archive } from 'lucide-react'
 import { protokollPunkter as defaultMallar } from '../data/store.js'
-import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc } from '../utils/pdf.js'
+import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc, pdfRiskBedömning, öppnaPrintFönster } from '../utils/pdf.js'
 import KundVäljare from '../components/KundVäljare.jsx'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
@@ -834,12 +834,33 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
             {valdOrder.nr} · {valdOrder.objekt_ids?.length} port{valdOrder.objekt_ids?.length !== 1 ? 'ar' : ''} servade
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-teal" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-            onClick={() => skrivUt({ ...valdOrder, protokoll, signatur_tekniker: tekSign || null, signatur_kund: kundSign || null })}>
-            <Printer size={14} /> Skriv ut protokoll
-          </button>
-          <button className="btn" onClick={() => setVy('lista')}>← Tillbaka</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-teal" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              onClick={() => skrivUt({ ...valdOrder, protokoll, signatur_tekniker: tekSign || null, signatur_kund: kundSign || null })}>
+              <Printer size={14} /> Skriv ut protokoll
+            </button>
+            <button className="btn" onClick={() => setVy('lista')}>← Tillbaka</button>
+          </div>
+          {protokoll?.riskKontroll && Object.keys(protokoll.riskKontroll).length > 0 && (
+            <button className="btn" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              onClick={async () => {
+                const logo64 = await hämtaLogoBase64()
+                const port = objekt.find(o => (valdOrder.objekt_ids || [])[0] === o.id)
+                öppnaPrintFönster(pdfRiskBedömning({
+                  kund: valdOrder.kund,
+                  portNamn: port?.namn || '',
+                  portTyp: port?.typ || '',
+                  tekniker: protokoll.tekniker || valdOrder.tekniker || '',
+                  datum: protokoll.datum || valdOrder.datum || '',
+                  ordernummer: valdOrder.nr || '',
+                  riskKontroll: protokoll.riskKontroll,
+                  riskNoteringar: protokoll.riskNoteringar || {},
+                }, logo64), 'Riskbedömning')
+              }}>
+              <Printer size={14} /> Skriv ut riskbedömning
+            </button>
+          )}
         </div>
       </div>
     )
@@ -933,7 +954,27 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
                     )}
                     {(order.status === 'utford' || order.status === 'arkiverad') && (
                       <button className="btn" style={{ fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => skrivUt(order)}>
-                        <Printer size={12} /> Skriv ut
+                        <Printer size={12} /> Protokoll
+                      </button>
+                    )}
+                    {(order.status === 'utford' || order.status === 'arkiverad') &&
+                      order.protokoll?.riskKontroll && Object.keys(order.protokoll.riskKontroll).length > 0 && (
+                      <button className="btn" style={{ fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+                        onClick={async () => {
+                          const logo64 = await hämtaLogoBase64()
+                          const port = objekt.find(o => (order.objekt_ids || [])[0] === o.id)
+                          öppnaPrintFönster(pdfRiskBedömning({
+                            kund: order.kund,
+                            portNamn: port?.namn || '',
+                            portTyp: port?.typ || '',
+                            tekniker: order.protokoll?.tekniker || order.tekniker || '',
+                            datum: order.protokoll?.datum || order.datum || '',
+                            ordernummer: order.nr || '',
+                            riskKontroll: order.protokoll.riskKontroll,
+                            riskNoteringar: order.protokoll.riskNoteringar || {},
+                          }, logo64), 'Riskbedömning')
+                        }}>
+                        <Printer size={12} /> Risk
                       </button>
                     )}
                     {order.status !== 'utford' && order.status !== 'arkiverad' && (
