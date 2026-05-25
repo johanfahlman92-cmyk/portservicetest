@@ -1167,7 +1167,7 @@ function MontageDetalj({ order, objekt, namn, tekniker: tekLista = [], onUppdate
     const porttyp=order.porttyp||order.portTyp||'Vikport'
     // Bevara befintlig riskdata från besök 1
     const befintligRisk=riskKlar?{riskKontroll:order.protokoll_data?.riskKontroll,riskNoteringar:order.protokoll_data?.riskNoteringar}:{}
-    await onUppdatera(order.id,{status:'utford',protokoll_data:{...befintligRisk,...prot,steg:2},datum_utfort:now})
+    await onUppdatera(order.id,{status:'utford',protokoll_data:{...befintligRisk,...prot,steg:2}})
     // Om porten redan finns i registret – uppdatera historik
     if(order.objekt_id){
       const port=objekt.find(o=>o.id===order.objekt_id)
