@@ -698,6 +698,7 @@ export default function App() {
     <Felanmalan
       kunder={kunder}
       objekt={objekt}
+      tekniker={tekniker}
       onSparaArende={laggTillArende}
       onLoggaUt={loggaUt}
       onNyKund={laggTillKund}

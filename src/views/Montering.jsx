@@ -45,9 +45,8 @@ function SignaturPad({ onChange }) {
   )
 }
 
-// ── Riskbedömning – punkter (prop från App, fallback till store.js) ──────────
-// OBS: Ersätts av prop nedan inuti komponenten — detta är bara fallback
-const _RISKPUNKTER_MODUL_DEFAULT = RISKPUNKTER_DEFAULT
+// Modul-nivå fallback – genereraHTML och andra sub-funktioner använder denna
+const RISKPUNKTER = RISKPUNKTER_DEFAULT
 
 const RISKSTATUS = [
   { id: 'ok',          label: '✓ OK',            color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  txt: 'var(--c-teal-text)' },
@@ -122,13 +121,15 @@ function genereraHTML({ portNamn, kund, adress, portTyp, datum, teknikerNamn,
                         signaturbild, logoBase64, effektivaMallar,
                         ansvariga = [], godkannande = null,
                         ordernummer = null, serienummer = null,
+                        riskpunkterLista = null,
                         // bakåtkompatibilitet – gamla protokoll med FAROR-baserade risker
                         risker = null }) {
   const punkter    = (effektivaMallar || EGENKONTROLL)[portTyp] || []
   const objektNamn = portNamn || adress || '–'
+  const aktivaRiskPunkter = (riskpunkterLista && riskpunkterLista.length > 0) ? riskpunkterLista : RISKPUNKTER
 
   // Riskbedömning – ny format
-  const riskRows = RISKPUNKTER.map((p, i) => {
+  const riskRows = aktivaRiskPunkter.map((p, i) => {
     if (p.startsWith('## ')) {
       return `<tr class="tbl-group"><td colspan="3">${p.slice(3)}</td></tr>`
     }
@@ -503,7 +504,7 @@ function RiskPunktRad({ text, status, notering, onStatus, onNotering, redigerar,
 
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
 export default function Montering({ objekt = [], tekniker = [], kunder = [], montagemallar, riskpunkter, onUppdateraObjekt, onLaggTillObjekt, onNyKund, onLaggTillBokning, förifylldMontageorder, onFörifylldHandled, montageorder = [], onUppdateraMontageorder, onLaggTillMontageorder, onTillbaka, standardIntervall = 12 }) {
-  const RISKPUNKTER = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : _RISKPUNKTER_MODUL_DEFAULT
+  const riskpunkterAktiva = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER
   const effektivaMallar = montagemallar || EGENKONTROLL
   const PORTTYPER = Object.keys(effektivaMallar)
   const FASTA_FABRIKAT = ['Torverk', 'Lindab', 'Hörmann', 'Beyron Door', 'Nordic Door']
@@ -774,6 +775,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       godkannande: valdProtokoll.godkannande || null,
       ordernummer: valdProtokoll.ordernummer || null,
       serienummer: valdProtokoll.serienummer || null,
+      riskpunkterLista: riskpunkterAktiva,
       risker: valdProtokoll.risker || null, // bakåtkompatibilitet
     })
     const win = window.open('', '_blank', 'width=860,height=1100')
@@ -787,7 +789,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
       portNamn, kund, adress, portTyp, datum, teknikerNamn, serviceIntervall,
       riskKontroll, riskNoteringar, egenRisker, egenkontroll, egenNoteringar,
       signaturbild, logoBase64, effektivaMallar, ansvariga, godkannande,
-      ordernummer, serienummer,
+      ordernummer, serienummer, riskpunkterLista: riskpunkterAktiva,
     })
     const win = window.open('', '_blank', 'width=860,height=1100')
     win.document.write(html); win.document.close()
@@ -1125,7 +1127,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
           ) : (
             /* Nya protokoll: RISKPUNKTER checklista */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {RISKPUNKTER.map((p, i) => {
+              {riskpunkterAktiva.map((p, i) => {
                 if (p.startsWith('## ')) {
                   return (
                     <div key={i} style={{ margin: '8px 0 2px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-teal)' }}>
@@ -1470,7 +1472,7 @@ export default function Montering({ objekt = [], tekniker = [], kunder = [], mon
           <AnsvarigaPanel ansvariga={ansvariga} tekniker={tekniker} onChange={setAnsvariga} redigerar={true} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {RISKPUNKTER.map((p, i) => {
+            {riskpunkterAktiva.map((p, i) => {
               if (p.startsWith('## ')) {
                 return (
                   <div key={i} style={{ margin: '8px 0 2px', padding: '5px 10px', background: 'var(--c-bg)', borderRadius: 6, borderLeft: '3px solid var(--c-teal)' }}>

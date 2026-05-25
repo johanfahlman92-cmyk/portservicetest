@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-         ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays } from 'lucide-react'
+         ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer } from 'lucide-react'
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
+import { hämtaLogoBase64, pdfMontageProt } from '../utils/pdf.js'
+
+// Modul-nivå fallback – sub-komponenter utan prop-access använder denna
+const RISKPUNKTER = RISKPUNKTER_DEFAULT
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 const PRIO_CONF = {
@@ -221,14 +225,14 @@ function NyKundSektion({ kunder, value, onChange, onNyKund }) {
 
 // ── Ny felanmälan-formulär ────────────────────────────────────────────────────
 const FELTA = ['Dörren går inte upp','Dörren går inte ner','Fjäder bruten','Motor slutat fungera','Fjärrkontroll fungerar inte','Fotocell/säkerhetskant','Buller/skrammel','Tätlist skadad','Annat']
-function NyArendeForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
-  const [form, setForm] = useState({kund:'',feltyp:'',beskrivning:'',prioritet:'normal',besok:''})
+function NyArendeForm({ kunder, namn, tekniker: tekLista=[], onSpara, onAvbryt, onNyKund }) {
+  const [form, setForm] = useState({kund:'',feltyp:'',beskrivning:'',prioritet:'normal',besok:'',tekniker:namn||''})
   const [sparar, setSparar] = useState(false)
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
   const spara = async () => {
     if (!form.kund.trim()) return
     setSparar(true)
-    await onSpara({nr:genNr(),status:'ny',tekniker:namn,datum:idag(),namn:form.feltyp||'Felanmälan',...form})
+    await onSpara({nr:genNr(),status:'ny',datum:idag(),namn:form.feltyp||'Felanmälan',...form})
     setSparar(false)
   }
   return (
@@ -244,11 +248,16 @@ function NyArendeForm({ kunder, namn, onSpara, onAvbryt, onNyKund }) {
         <option value="">– Välj feltyp –</option>
         {FELTA.map(f=><option key={f} value={f}>{f}</option>)}
       </select>
+      <label style={LBL}>Tilldelad tekniker</label>
+      <select value={form.tekniker} onChange={e=>set('tekniker',e.target.value)} style={INP}>
+        <option value="">Ej utsedd tekniker</option>
+        {tekLista.map(t=><option key={t} value={t}>{t}</option>)}
+      </select>
       <label style={LBL}>Beskrivning</label>
       <textarea value={form.beskrivning} onChange={e=>set('beskrivning',e.target.value)} rows={2} placeholder="Beskriv felet…" style={{...INP,resize:'vertical'}}/>
       <label style={LBL}>Prioritet</label>
       <div style={{display:'flex',gap:6,marginTop:4,marginBottom:4}}>
-        {[['normal','Normal','badge-blue'],['hog','Hög','badge-amber'],['akut','Akut','badge-red']].map(([id,lab,cls])=>(
+        {[['normal','Normal'],['hog','Hög'],['akut','Akut']].map(([id,lab])=>(
           <button key={id} onClick={()=>set('prioritet',id)} style={{flex:1,padding:'10px 4px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',border:`2px solid ${form.prioritet===id?'var(--c-blue)':'var(--c-border)'}`,background:form.prioritet===id?'var(--c-blue-bg,#eff6ff)':'transparent',color:form.prioritet===id?'var(--c-blue)':'var(--c-text3)'}}>{lab}</button>
         ))}
       </div>
@@ -712,35 +721,87 @@ function ServiceorderDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjek
 }
 
 // ── MontageRiskFormular (separat riskbedömning – besök 1) ────────────────────
-function MontageRiskFormular({ order, namn, onSpara, onBack }) {
+function MontageRiskFormular({ order, namn, onSpara, onBack, riskpunkter = RISKPUNKTER }) {
   const [risk,setRisk]=useState({}); const [riskN,setRiskN]=useState({})
   const [sparar,setSparar]=useState(false)
-  const spara=async()=>{ setSparar(true); await onSpara({riskKontroll:risk,riskNoteringar:riskN}); setSparar(false) }
+  const [sparad,setSparad]=useState(false)
+
+  const spara=async()=>{
+    setSparar(true)
+    await onSpara({riskKontroll:risk,riskNoteringar:riskN})
+    setSparar(false)
+    setSparad(true)
+  }
+
+  const skrivUtRisk = async () => {
+    const logo64 = await hämtaLogoBase64()
+    const html = pdfMontageProt({
+      portTyp: order.porttyp || order.portTyp || 'Vikport',
+      kund: order.kund, adress: order.adress || order.montageplats || '',
+      datum: idag(), tekniker: namn,
+      riskKontroll: risk, riskNoteringar: riskN,
+      egenRisker: [], egenkontroll: {}, egenNoteringar: {},
+      ordernummer: order.nr || order.ordernummer || null,
+    }, logo64, {}, riskpunkter)
+    const win = window.open('', '_blank', 'width=860,height=1100')
+    win.document.write(html); win.document.close()
+    setTimeout(() => win.print(), 400)
+  }
+
   return(
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
         <button className="btn" onClick={onBack} style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:5}}><ChevronLeft size={16}/> Avbryt</button>
         <div style={{flex:1}}>
-          <div style={{fontSize:14,fontWeight:600}}>Riskbedömning</div>
-          <div style={{fontSize:12,color:'var(--c-text2)'}}>{order.kund} · Före arbete</div>
+          <div style={{fontSize:14,fontWeight:600}}>Riskbedömning – Besök 1</div>
+          <div style={{fontSize:12,color:'var(--c-text2)'}}>{order.kund} · Fyll i innan arbetet påbörjas</div>
         </div>
       </div>
       <div style={{background:'var(--c-amber-bg,#fffbeb)',border:'1px solid var(--c-amber)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',gap:8,alignItems:'center'}}>
         <span style={{fontSize:16}}>⚠️</span>
         <span style={{fontSize:13,color:'var(--c-amber-text,#92400e)',fontWeight:500}}>Utför riskbedömningen innan arbetet påbörjas. Sparas och kan sedan återupptas.</span>
       </div>
-      {RISKPUNKTER.map((p,i)=>{ const s=risk[i]; return(<div key={i} className="card" style={{marginBottom:8,padding:'12px 14px'}}>
-        <div style={{fontSize:13,marginBottom:10,lineHeight:1.5}}><span style={{color:'var(--c-text3)',marginRight:6}}>{i+1}.</span>{p}</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
-          {RISK_STATUS.map(({id,label,bg,txt,border})=>(
-            <button key={id} onClick={()=>setRisk(prev=>({...prev,[i]:s===id?undefined:id}))} style={{padding:'11px 4px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',border:`2px solid ${s===id?border:'var(--c-border)'}`,background:s===id?bg:'transparent',color:s===id?txt:'var(--c-text3)'}}>{label}</button>
-          ))}
+      {riskpunkter.map((p,i)=>{
+        if(p.startsWith('## ')) return(
+          <div key={i} style={{margin:'10px 0 4px',padding:'6px 10px',background:'var(--c-bg)',borderRadius:6,borderLeft:'3px solid var(--c-amber)'}}>
+            <span style={{fontSize:11,fontWeight:700,color:'var(--c-amber-text)',textTransform:'uppercase',letterSpacing:'0.06em'}}>{p.slice(3)}</span>
+          </div>
+        )
+        const s=risk[i]; return(
+        <div key={i} className="card" style={{marginBottom:8,padding:'12px 14px'}}>
+          <div style={{fontSize:13,marginBottom:10,lineHeight:1.5}}><span style={{color:'var(--c-text3)',marginRight:6}}>{i+1}.</span>{p}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+            {RISK_STATUS.map(({id,label,bg,txt,border})=>(
+              <button key={id} onClick={()=>setRisk(prev=>({...prev,[i]:s===id?undefined:id}))} style={{padding:'11px 4px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',border:`2px solid ${s===id?border:'var(--c-border)'}`,background:s===id?bg:'transparent',color:s===id?txt:'var(--c-text3)'}}>{label}</button>
+            ))}
+          </div>
+          {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
         </div>
-        {s==='atgard'&&<input type="text" placeholder="Beskriv åtgärd…" value={riskN[i]||''} onChange={e=>setRiskN(prev=>({...prev,[i]:e.target.value}))} style={{marginTop:8,width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--c-border)',borderRadius:8,background:'var(--c-bg)',color:'var(--c-text)',boxSizing:'border-box'}}/>}
-      </div>)})}
-      <button onClick={spara} disabled={sparar} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:80}}>
-        <CheckCircle size={18}/> {sparar?'Sparar…':'Spara riskbedömning'}
-      </button>
+      )})}
+
+      {sparad ? (
+        <div style={{marginBottom:80}}>
+          <div style={{padding:'12px 16px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10,marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
+            <CheckCircle size={18} color="#16a34a"/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#166534'}}>Riskbedömning sparad!</div>
+              <div style={{fontSize:12,color:'#15803d'}}>Du kan nu fortsätta med egenkontroll vid besök 2.</div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={skrivUtRisk} style={{flex:1,padding:'13px 0',borderRadius:12,background:'var(--c-surface)',color:'var(--c-text)',border:'1.5px solid var(--c-border)',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+              <Printer size={16}/> Skriv ut riskbedömning
+            </button>
+            <button onClick={onBack} style={{flex:1,padding:'13px 0',borderRadius:12,background:'var(--c-blue)',color:'#fff',border:'none',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+              Tillbaka
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={spara} disabled={sparar} style={{width:'100%',padding:16,borderRadius:12,background:'var(--c-teal)',color:'#fff',border:'none',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:80}}>
+          <CheckCircle size={18}/> {sparar?'Sparar…':'Spara riskbedömning'}
+        </button>
+      )}
     </div>
   )
 }
@@ -843,7 +904,7 @@ function MontageFormular({ order, namn, onSlutfor, onBack }) {
 }
 
 // ── MontageDetalj ─────────────────────────────────────────────────────────────
-function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onLaggTillObjekt, onBack }) {
+function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, onLaggTillObjekt, onBack, riskpunkter = RISKPUNKTER }) {
   const [vy,setVy]=useState('info')
   const [visaRiskDetalj,setVisaRiskDetalj]=useState(false)
   const [skapadPort,setSkapadPort]=useState(null)
@@ -885,7 +946,7 @@ function MontageDetalj({ order, objekt, namn, onUppdatera, onUppdateraObjekt, on
     }
     setVy('klar')
   }
-  if(vy==='risk')return(<MontageRiskFormular order={order} namn={namn} onSpara={hanteraRiskSparad} onBack={()=>setVy('info')}/>)
+  if(vy==='risk')return(<MontageRiskFormular order={order} namn={namn} onSpara={hanteraRiskSparad} onBack={()=>setVy('info')} riskpunkter={riskpunkter}/>)
   if(vy==='formular')return(<MontageFormular order={order} namn={namn} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
   if(vy==='klar')return(
     <div style={{textAlign:'center',padding:'48px 20px'}}>
@@ -1282,7 +1343,7 @@ export default function TeknikerVy({
   onTillAdmin,
   riskpunkter,
 }) {
-  const RISKPUNKTER = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER_DEFAULT
+  const riskpunkterAktiva = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER_DEFAULT
   const [flik,             setFlik]             = useState('idag')
   const [valdServiceorder, setValdServiceorder] = useState(null)
   const [valdMontage,      setValdMontage]      = useState(null)
@@ -1380,7 +1441,7 @@ export default function TeknikerVy({
               <button key={id} onClick={()=>setArendeFilter(id)} style={{flex:1,padding:'8px 4px',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${arendeFilter===id?'var(--c-navy, #1C3461)':'var(--c-border)'}`,background:arendeFilter===id?'var(--c-navy, #1C3461)':'transparent',color:arendeFilter===id?'#fff':'var(--c-text2)',whiteSpace:'nowrap'}}>{lab}</button>
             ))}
           </div>
-          {visaNyArende&&<NyArendeForm kunder={kunder} namn={namn} onNyKund={onNyKund} onSpara={async(a)=>{const r=await onLaggTillArende?.(a);if(r)setVisaNyArende(false)}} onAvbryt={()=>setVisaNyArende(false)}/>}
+          {visaNyArende&&<NyArendeForm kunder={kunder} namn={namn} tekniker={tekniker} onNyKund={onNyKund} onSpara={async(a)=>{const r=await onLaggTillArende?.(a);if(r)setVisaNyArende(false)}} onAvbryt={()=>setVisaNyArende(false)}/>}
           {sortedArenden.length===0?(
             <div className="card" style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={40} color="var(--c-teal)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:15,fontWeight:500,color:'var(--c-teal-text)'}}>Inga {arendeFilter==='mina'?'tilldelade':arendeFilter==='otilldelade'?'otilldelade':'öppna'} ärenden!</div></div>
           ):<div style={{display:'flex',flexDirection:'column',gap:10}}>{sortedArenden.map(a=><ArendeKort key={a.id} a={a} namn={namn} onUppdatera={onUppdateraArende}/>)}</div>}
@@ -1465,7 +1526,7 @@ export default function TeknikerVy({
         )
 
       case 'montage':
-        if(valdMontage)return(<MontageDetalj order={valdMontage} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraMontageorder(id,ch);setValdMontage(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onLaggTillObjekt={onLaggTillObjekt} onBack={()=>setValdMontage(null)}/>)
+        if(valdMontage)return(<MontageDetalj order={valdMontage} objekt={objekt} namn={namn} onUppdatera={async(id,ch)=>{await onUppdateraMontageorder(id,ch);setValdMontage(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onLaggTillObjekt={onLaggTillObjekt} onBack={()=>setValdMontage(null)} riskpunkter={riskpunkterAktiva}/>)
         return(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>

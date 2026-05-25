@@ -11,7 +11,7 @@ const FELTYPER = [
   'Annat',
 ]
 
-export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, onLoggaUt, onNyKund, standaloneMode = true, initialPortNamn = '', initialKund = '' }) {
+export default function Felanmalan({ kunder = [], objekt = [], tekniker = [], onSparaArende, onLoggaUt, onNyKund, standaloneMode = true, initialPortNamn = '', initialKund = '' }) {
   const [steg, setSteg]       = useState('form')
   const [sparar, setSparar]   = useState(false)
 
@@ -29,6 +29,7 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
   const [feltyp, setFeltyp]           = useState(FELTYPER[0])
   const [beskrivning, setBeskrivning] = useState('')
   const [prioritet, setPrioritet]     = useState('normal')
+  const [valdTekniker, setValdTekniker] = useState('')
 
   const filtKunder = kunder.filter(k =>
     k.namn.toLowerCase().includes(sokKund.toLowerCase())
@@ -68,7 +69,7 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
       datum:      idag,
       status:     'ny',
       prioritet,
-      tekniker:   null,
+      tekniker:   valdTekniker || null,
       besok:      null,
       objekt_id:  portObj?.id || null,
     })
@@ -268,6 +269,16 @@ export default function Felanmalan({ kunder = [], objekt = [], onSparaArende, on
                     }
                     style={{ ...inp, minHeight: 90, resize: 'vertical' }} />
                 </div>
+
+                {tekniker.length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={lbl}>Tilldelad tekniker</label>
+                    <select value={valdTekniker} onChange={e => setValdTekniker(e.target.value)} style={inp}>
+                      <option value="">Ej utsedd tekniker</option>
+                      {tekniker.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label style={lbl}>Prioritet</label>
