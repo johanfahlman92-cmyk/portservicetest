@@ -143,14 +143,14 @@ function useBredd() {
 }
 
 // ── Servicehistorik tidslinje ──────────────────────────────────────────────────
-function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, portAdress, mob }) {
+function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, portAdress, mob, filter = 'alla' }) {
   // Bygg en kombinerad händelselogg för denna port
-  const händelser = []
+  const alla = []
 
   // Montageorder (installation)
   montageorder.forEach(mo => {
     const datum = mo.protokoll_data?.datum || mo.created_at?.slice(0,10) || ''
-    händelser.push({
+    alla.push({
       typ: 'montering',
       datum,
       rubrik: 'Installation',
@@ -165,7 +165,7 @@ function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, port
   // Serviceorder (genomförda)
   serviceorder.forEach(so => {
     if (!((so.objekt_ids || []).includes(portId) || so.fastighet_namn === portAdress)) return
-    händelser.push({
+    alla.push({
       typ: 'service',
       datum: so.datum || so.protokoll?.datum || '',
       rubrik: 'Service utförd',
@@ -177,13 +177,13 @@ function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, port
     })
   })
 
-  // Ärenden (alla)
+  // Ärenden (felanmälningar)
   arenden.forEach(a => {
     if (a.objekt_id !== portId && a.namn !== portNamn) return
-    händelser.push({
+    alla.push({
       typ: 'arende',
       datum: a.datum || '',
-      rubrik: a.feltyp || a.typ || 'Ärende',
+      rubrik: a.feltyp || a.typ || 'Felanmälan',
       detalj: a.notering || a.beskrivning || '',
       status: a.status,
       color: a.status === 'atgardad' ? 'var(--c-text3)' : 'var(--c-amber)',
@@ -193,11 +193,16 @@ function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, port
   })
 
   // Sortera efter datum (nyast först)
-  händelser.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
+  alla.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
+
+  // Filtrera
+  const händelser = filter === 'alla' ? alla
+    : filter === 'service' ? alla.filter(h => h.typ === 'service' || h.typ === 'montering')
+    : alla.filter(h => h.typ === 'arende')
 
   if (händelser.length === 0) return (
     <div style={{ padding:'16px', textAlign:'center', color:'var(--c-text3)', fontSize:13 }}>
-      Ingen servicehistorik registrerad ännu.
+      {filter === 'alla' ? 'Ingen servicehistorik registrerad ännu.' : 'Inga händelser för valt filter.'}
     </div>
   )
 
@@ -272,6 +277,7 @@ export default function KundPortal({ user, onLoggaUt, darkMode: darkModeProp, on
   const [expanderat,    setExpanderat]    = useState(null)
   const [portDetalj,    setPortDetalj]    = useState(null)
   const [sokText,       setSokText]       = useState('')
+  const [tidslinjeFilter, setTidslinjeFilter] = useState('alla')
 
   // Felanmälan
   const [visaFel,     setVisaFel]     = useState(false)
@@ -646,8 +652,60 @@ export default function KundPortal({ user, onLoggaUt, darkMode: darkModeProp, on
 
           {/* Servicehistorik tidslinje */}
           <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:12, overflow:'hidden' }}>
-            <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--c-border)', fontSize:11, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:6 }}>
-              <Activity size={12} /> Servicehistorik
+            {/* Header med filter + utskrift */}
+            <div style={{ padding:'10px 12px', borderBottom:'1px solid var(--c-border)', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+                <Activity size={12} color="var(--c-text3)" />
+                <span style={{ fontSize:11, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Servicehistorik</span>
+              </div>
+              <div style={{ flex:1 }} />
+              {/* Filterknappar */}
+              <div style={{ display:'flex', gap:4 }}>
+                {[['alla','Alla'],['service','Service'],['arende','Felanmälan']].map(([v,l]) => (
+                  <button key={v} onClick={() => setTidslinjeFilter(v)}
+                    style={{ padding:'4px 10px', borderRadius:16, fontSize:11, fontWeight:600, cursor:'pointer',
+                      border:`1px solid ${tidslinjeFilter===v?'var(--c-teal)':'var(--c-border)'}`,
+                      background: tidslinjeFilter===v ? 'var(--c-teal-bg)' : 'transparent',
+                      color: tidslinjeFilter===v ? 'var(--c-teal-text)' : 'var(--c-text2)' }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {/* Utskriftsknapp */}
+              <button onClick={() => {
+                const alla = []
+                portMO.forEach(mo => {
+                  const datum = mo.protokoll_data?.datum || mo.created_at?.slice(0,10) || ''
+                  alla.push({ typ:'montering', datum, rubrik:'Installation', detalj: mo.protokoll_data?.portTyp||'', tekniker: mo.protokoll_data?.tekniker||'' })
+                })
+                serviceorder.filter(so => (so.objekt_ids||[]).includes(port.id) || so.fastighet_namn===port.plats)
+                  .forEach(so => alla.push({ typ:'service', datum:so.datum||'', rubrik:'Service utförd', detalj:so.notering||'', tekniker:tekStr(so.tekniker) }))
+                arenden.filter(a => a.objekt_id===port.id||a.namn===port.namn)
+                  .forEach(a => alla.push({ typ:'arende', datum:a.datum||'', rubrik:a.feltyp||'Felanmälan', detalj:a.notering||a.beskrivning||'', status:a.status }))
+                alla.sort((a,b) => (b.datum||'').localeCompare(a.datum||''))
+                const filtrerade = tidslinjeFilter==='alla' ? alla
+                  : tidslinjeFilter==='service' ? alla.filter(h=>h.typ==='service'||h.typ==='montering')
+                  : alla.filter(h=>h.typ==='arende')
+                const rows = filtrerade.map(h =>
+                  `<tr><td>${h.datum||'–'}</td><td>${h.rubrik}</td><td>${h.typ==='montering'?'Installation':h.typ==='service'?'Serviceorder':'Felanmälan'}</td><td>${h.tekniker||''}</td><td>${(h.detalj||'').slice(0,100)}</td></tr>`
+                ).join('')
+                const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Servicehistorik – ${port.namn}</title>
+                  <style>body{font-family:sans-serif;padding:24px;color:#222}h1{font-size:18px;margin-bottom:4px}p{color:#666;font-size:13px;margin:0 0 16px}
+                  table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb}th{background:#f9fafb;font-weight:600}
+                  </style></head><body>
+                  <h1>Servicehistorik – ${port.namn}</h1>
+                  <p>${port.typ||''}${port.fabrikat?' · '+port.fabrikat:''} · Utskriven ${new Date().toLocaleDateString('sv-SE')}</p>
+                  <table><thead><tr><th>Datum</th><th>Händelse</th><th>Typ</th><th>Tekniker</th><th>Notering</th></tr></thead><tbody>${rows}</tbody></table>
+                  </body></html>`
+                const win = window.open('about:blank','_blank')
+                if (!win) return
+                win.document.open(); win.document.write(html); win.document.close()
+                setTimeout(() => win.print(), 300)
+              }}
+              style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:16, fontSize:11, fontWeight:600, cursor:'pointer',
+                border:'1px solid var(--c-border)', background:'transparent', color:'var(--c-text2)', flexShrink:0 }}>
+                🖨 Skriv ut
+              </button>
             </div>
             <div style={{ padding:'14px 16px' }}>
               <Tidslinje
@@ -658,6 +716,7 @@ export default function KundPortal({ user, onLoggaUt, darkMode: darkModeProp, on
                 portNamn={port.namn}
                 portAdress={port.plats}
                 mob={mob}
+                filter={tidslinjeFilter}
               />
             </div>
           </div>

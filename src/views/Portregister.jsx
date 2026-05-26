@@ -19,6 +19,8 @@ const CE_CFG = {
   ej_kontrollerad:{ label: 'Ej CE-kontrollerad',color:'var(--c-text3)', bg: 'var(--c-bg)',       Icon: Shield      },
 }
 import DokumentZon from '../components/DokumentZon.jsx'
+import FilUppladdning from '../components/FilUppladdning.jsx'
+import { supabase } from '../lib/supabase.js'
 import { statusConfig, protokollTyper, protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt, EGENKONTROLL_DEFAULT } from '../utils/pdf.js'
 
@@ -588,6 +590,15 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
   const [nastaDatum,       setNastaDatum]       = useState(obj.nasta || '')
   const [spararNasta,      setSpararNasta]      = useState(false)
   const [dokument,         setDokument]         = useState(obj.dokument || [])
+  // Bifogade filer (port_filer)
+  const [portFiler,        setPortFiler]        = useState([])
+
+  useEffect(() => {
+    supabase.from('port_filer').select('*').eq('objekt_id', obj.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setPortFiler(data) })
+  }, [obj.id])
+
   // Garanti & CE – redigering
   const [redigeraGaranti,  setRedigeraGaranti]  = useState(false)
   const [instDatum,        setInstDatum]        = useState(obj.installationsdatum || '')
@@ -888,6 +899,20 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
             </div>
           </div>
         )}
+      </div>
+
+      {/* Bifogade filer */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <Paperclip size={14} color="var(--c-text3)" />
+          <div className="section-title" style={{ margin: 0, flex: 1 }}>Filer &amp; dokument</div>
+          <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>{portFiler.length > 0 ? `${portFiler.length} fil${portFiler.length > 1 ? 'er' : ''}` : 'Inga filer'}</span>
+        </div>
+        <FilUppladdning
+          objektId={obj.id}
+          initialFiler={portFiler}
+          onFilerUppdaterade={setPortFiler}
+        />
       </div>
 
       {/* Ärenden kopplade till porten */}

@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil,
-         ShieldCheck, ShieldAlert, Shield, Moon, Sun } from 'lucide-react'
+         ShieldCheck, ShieldAlert, Shield, Moon, Sun, Paperclip } from 'lucide-react'
+import FilUppladdning from '../components/FilUppladdning.jsx'
+import { supabase } from '../lib/supabase.js'
 
 // ── Garantihjälpare (delad med Portregister) ──────────────────────────────────
 function garantiStatusTek(installationsdatum, garantiAr) {
@@ -896,7 +898,15 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
   const [redigerar,setRedigerar]=useState(false)
   const [editForm,setEditForm]=useState({})
   const [sparar2,setSparar2]=useState(false)
+  const [portFiler,setPortFiler]=useState([])
+  const [visaFiler,setVisaFiler]=useState(false)
   const port=(order.objekt_ids||[]).map(id=>objekt.find(o=>o.id===id)).filter(Boolean)[0]||null
+  useEffect(()=>{
+    if(!port?.id) return
+    supabase.from('port_filer').select('*').eq('objekt_id',port.id)
+      .order('created_at',{ascending:false})
+      .then(({data})=>{ if(data) setPortFiler(data) })
+  },[port?.id])
   const startRedigera=()=>{setEditForm({datum:order.datum||'',tekniker:order.tekniker||'',notering:order.notering||''});setRedigerar(true)}
   const sparaRedigering=async()=>{setSparar2(true);await onUppdatera(order.id,editForm);setSparar2(false);setRedigerar(false)}
   const hanteraSlutfort=async(prot)=>{
@@ -1014,6 +1024,31 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
           <div style={{marginTop:2}}><span style={{color:'var(--c-teal)'}}>✓{h.g||0} </span>{(h.j||0)>0&&<span style={{color:'var(--c-amber)'}}>⚠{h.j} </span>}{(h.a||0)>0&&<span style={{color:'var(--c-red)'}}>✗{h.a}</span>}</div>
         </div>
       ))}
+
+      {/* Filer & dokument */}
+      {port && (
+        <div className="card" style={{marginBottom:12}}>
+          <button onClick={()=>setVisaFiler(v=>!v)}
+            style={{width:'100%',display:'flex',alignItems:'center',gap:8,background:'none',border:'none',cursor:'pointer',padding:0,marginBottom:visaFiler?10:0}}>
+            <Paperclip size={14} color="var(--c-text3)"/>
+            <span style={{fontSize:13,fontWeight:600,flex:1,textAlign:'left',color:'var(--c-text)'}}>
+              Filer &amp; dokument
+            </span>
+            <span style={{fontSize:11,color:'var(--c-text3)'}}>
+              {portFiler.length > 0 ? `${portFiler.length} fil${portFiler.length>1?'er':''}` : 'Inga filer'}
+            </span>
+            <ChevronDown size={14} color="var(--c-text3)" style={{transform:visaFiler?'rotate(180deg)':'none',transition:'transform 0.2s'}}/>
+          </button>
+          {visaFiler && (
+            <FilUppladdning
+              objektId={port.id}
+              initialFiler={portFiler}
+              onFilerUppdaterade={setPortFiler}
+            />
+          )}
+        </div>
+      )}
+
       {order.status!=='avslutad'&&(
         <div style={{marginBottom:80}}>
           {/* Valfri riskbedömning – samma mönster som felanmälan */}
