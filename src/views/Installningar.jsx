@@ -399,81 +399,123 @@ function RiskbedömningEditor({ punkter = [], onSpara }) {
   )
 }
 
-// ── Medarbetare ───────────────────────────────────────────────────────────────
-function TeknikerPanel({ tekniker = [], onLaggTill, onTaBort }) {
-  const [nyNamn,       setNyNamn]       = useState('')
-  const [bekraftaBort, setBekraftaBort] = useState(null)
+// ── Medarbetare – hämtar från brukar_inbjudningar + user_roles ───────────────
+function TeknikerPanel() {
+  const [tekniker, setTekniker] = useState([])
+  const [laddas,   setLaddas]   = useState(true)
 
-  const laggTill = () => {
-    const namn = nyNamn.trim()
-    if (!namn || tekniker.includes(namn)) return
-    onLaggTill?.(namn)
-    setNyNamn('')
-  }
+  useEffect(() => {
+    const hamta = async () => {
+      setLaddas(true)
+      // Hämta från user_roles (inloggade användare med roll tekniker/admin/kontorist)
+      const { data: roller } = await supabase
+        .from('user_roles')
+        .select('namn, roll, email')
+        .in('roll', ['admin', 'tekniker', 'kontorist'])
+        .order('namn')
+
+      // Hämta från väntande inbjudningar (ej loggat in än)
+      const { data: inbjudna } = await supabase
+        .from('brukar_inbjudningar')
+        .select('namn, roll, email')
+        .in('roll', ['admin', 'tekniker', 'kontorist'])
+        .order('namn')
+
+      const aktiva = (roller || []).map(r => ({ ...r, status: 'aktiv' }))
+
+      // Lägg till inbjudna som INTE redan finns i aktiva (matcha på email)
+      const aktivaEmails = new Set(aktiva.map(r => r.email?.toLowerCase()))
+      const väntande = (inbjudna || [])
+        .filter(i => !aktivaEmails.has(i.email?.toLowerCase()))
+        .map(i => ({ ...i, status: 'väntande' }))
+
+      setTekniker([...aktiva, ...väntande])
+      setLaddas(false)
+    }
+    hamta()
+  }, [])
+
+  const ROLL_LABEL = { admin: 'Admin', tekniker: 'Tekniker', kontorist: 'Kontorist' }
+  const ROLL_FÄRG  = { admin: '#f59e0b', tekniker: 'var(--c-blue)', kontorist: '#a78bfa' }
+  const ROLL_BG    = { admin: '#f59e0b22', tekniker: 'var(--c-blue)22', kontorist: '#a78bfa22' }
 
   return (
     <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginTop: 24 }}>
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>Medarbetare</div>
-        <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
-          Tekniker och personal som kan tilldelas bokningar och ärenden
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Medarbetare</div>
+          <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
+            Användare med aktiva konton eller väntande inbjudningar
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>
+          {!laddas && `${tekniker.filter(t => t.status === 'aktiv').length} aktiva · ${tekniker.filter(t => t.status === 'väntande').length} väntande`}
         </div>
       </div>
 
       <div style={{ padding: '14px 20px' }}>
-        {tekniker.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--c-text3)', marginBottom: 14 }}>Inga medarbetare registrerade ännu.</div>
+        {laddas ? (
+          <div style={{ fontSize: 13, color: 'var(--c-text3)' }}>Laddar…</div>
+        ) : tekniker.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--c-text3)' }}>
+            Inga medarbetare ännu. Bjud in användare via knappen ovan.
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-            {tekniker.map(t => (
-              <div key={t} style={{
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {tekniker.map((t, i) => (
+              <div key={i} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 12px', borderRadius: 8,
+                padding: '9px 12px', borderRadius: 8,
                 background: 'var(--c-bg)', border: '1px solid var(--c-border)',
+                opacity: t.status === 'väntande' ? 0.7 : 1,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{
-                    width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-                    background: 'var(--c-blue-bg)',
+                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                    background: ROLL_BG[t.roll] || 'var(--c-blue-bg)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, fontWeight: 700, color: 'var(--c-navy)',
+                    fontSize: 12, fontWeight: 700, color: ROLL_FÄRG[t.roll] || 'var(--c-navy)',
                   }}>
-                    {t.charAt(0).toUpperCase()}
+                    {(t.namn || t.email || '?').charAt(0).toUpperCase()}
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{t}</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {t.namn || '—'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>{t.email}</div>
+                  </div>
                 </div>
-                {bekraftaBort === t ? (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => { onTaBort?.(t); setBekraftaBort(null) }}
-                      style={{ padding: '4px 10px', fontSize: 12, borderRadius: 6, border: '1px solid var(--c-red)', background: 'var(--c-red-bg)', color: 'var(--c-red)', cursor: 'pointer' }}>
-                      Ta bort
-                    </button>
-                    <button onClick={() => setBekraftaBort(null)}
-                      style={{ padding: '4px 10px', fontSize: 12, borderRadius: 6, border: '1px solid var(--c-border)', background: 'transparent', color: 'var(--c-text2)', cursor: 'pointer' }}>
-                      Avbryt
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => setBekraftaBort(t)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text3)', padding: 4, display: 'flex', alignItems: 'center' }}>
-                    <Trash2 size={14} />
-                  </button>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                    background: ROLL_BG[t.roll], color: ROLL_FÄRG[t.roll],
+                  }}>
+                    {ROLL_LABEL[t.roll] || t.roll}
+                  </span>
+                  {t.status === 'väntande' && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
+                      background: '#f59e0b22', color: '#f59e0b',
+                    }}>
+                      Ej inloggad
+                    </span>
+                  )}
+                  {t.status === 'aktiv' && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
+                      background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)',
+                    }}>
+                      ✓ Aktiv
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="text" placeholder="Förnamn Efternamn"
-            value={nyNamn}
-            onChange={e => setNyNamn(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && laggTill()}
-            style={{ ...FÄLT, flex: 1 }}
-          />
-          <button onClick={laggTill} style={{ ...BTN_PRI, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-            <Plus size={14} /> Lägg till
-          </button>
+        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--c-text3)', fontStyle: 'italic' }}>
+          Hantera användare och roller via "Bjud in användare" ovan.
+          Tekniker läggs till automatiskt när de loggar in första gången.
         </div>
       </div>
     </div>
@@ -597,7 +639,6 @@ export default function Installningar({
   protokollMallar = {}, onSparaProtokollMallar,
   montagemallar = {}, onSparaMontagemallar,
   riskpunkter = [], onSparaRiskpunkter,
-  tekniker = [], onLaggTillTekniker, onTaBortTekniker,
   foretagConfig = {}, onSparaForetagConfig,
   darkMode = false, onToggleDark,
 }) {
@@ -915,8 +956,8 @@ export default function Installningar({
 
           {/* Säkerhetsnotis borttagen – RLS aktiverat i Supabase */}
 
-          {/* Medarbetare */}
-          <TeknikerPanel tekniker={tekniker} onLaggTill={onLaggTillTekniker} onTaBort={onTaBortTekniker} />
+          {/* Medarbetare – hämtar direkt från user_roles och brukar_inbjudningar */}
+          <TeknikerPanel />
 
         </>
       )}
