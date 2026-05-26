@@ -2165,7 +2165,9 @@ export default function TeknikerVy({
       {/* Header – safe-area-inset-top för iPhone-notch / Dynamic Island */}
       <div style={{background:'#1C3461',paddingTop:'calc(12px + env(safe-area-inset-top))',paddingBottom:'12px',paddingLeft:'16px',paddingRight:'16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <img src={logo} alt="logo" style={{height:32}}/>
+          <div style={{background:'rgba(255,255,255,0.96)',borderRadius:8,padding:'4px 10px',display:'flex',alignItems:'center',boxShadow:'0 1px 4px rgba(0,0,0,0.12)'}}>
+            <img src={logo} alt="NMV Portservice" style={{height:22,display:'block',objectFit:'contain'}}/>
+          </div>
           {namn&&<span style={{color:'rgba(255,255,255,0.65)',fontSize:13,borderLeft:'1px solid rgba(255,255,255,0.2)',paddingLeft:12}}>{namn}</span>}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
