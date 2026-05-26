@@ -2163,28 +2163,32 @@ export default function TeknikerVy({
   return (
     <div style={{height:'100dvh',background:'var(--c-bg)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       {/* Header – safe-area-inset-top för iPhone-notch / Dynamic Island */}
-      <div style={{background:'#1C3461',paddingTop:'calc(12px + env(safe-area-inset-top))',paddingBottom:'12px',paddingLeft:'16px',paddingRight:'16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <div style={{background:'rgba(255,255,255,0.96)',borderRadius:8,padding:'4px 10px',display:'flex',alignItems:'center',boxShadow:'0 1px 4px rgba(0,0,0,0.12)'}}>
-            <img src={logo} alt="NMV Portservice" style={{height:22,display:'block',objectFit:'contain'}}/>
-          </div>
-          {namn&&<span style={{color:'rgba(255,255,255,0.65)',fontSize:13,borderLeft:'1px solid rgba(255,255,255,0.2)',paddingLeft:12}}>{namn}</span>}
+      <div style={{background:'#1C3461',paddingTop:'env(safe-area-inset-top)',display:'flex',alignItems:'stretch',flexShrink:0}}>
+        {/* Logo – vit panel, full headerhöjd */}
+        <div style={{background:'#fff',display:'flex',alignItems:'center',padding:'10px 16px',borderRight:'2px solid #edf0f7',flexShrink:0}}>
+          <img src={logo} alt="NMV Portservice" style={{height:28,display:'block',objectFit:'contain'}}/>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          {onTillAdmin && (
-            <button onClick={onTillAdmin} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-              ← Admin
+        {/* Höger sida */}
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',gap:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            {namn&&<span style={{color:'rgba(255,255,255,0.70)',fontSize:13}}>{namn}</span>}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {onTillAdmin && (
+              <button onClick={onTillAdmin} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                ← Admin
+              </button>
+            )}
+            {onToggleDark && (
+              <button onClick={onToggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'}
+                style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.8)',borderRadius:7,padding:'6px 8px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center'}}>
+                {darkMode ? <Sun size={14}/> : <Moon size={14}/>}
+              </button>
+            )}
+            <button onClick={onLoggaUt} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              <LogOut size={14}/> Logga ut
             </button>
-          )}
-          {onToggleDark && (
-            <button onClick={onToggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'}
-              style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.8)',borderRadius:7,padding:'6px 8px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center'}}>
-              {darkMode ? <Sun size={14}/> : <Moon size={14}/>}
-            </button>
-          )}
-          <button onClick={onLoggaUt} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-            <LogOut size={14}/> Logga ut
-          </button>
+          </div>
         </div>
       </div>
 

@@ -414,27 +414,30 @@ export default function KundPortal({ user, onLoggaUt, darkMode: darkModeProp, on
 
   // ── Header ───────────────────────────────────────────────────────────────────
   const header = (
-    <header style={{ background:'#1C3461', padding:'0 16px', height:56, display:'flex', alignItems:'center', gap:10, flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-      <div style={{ background:'rgba(255,255,255,0.96)', borderRadius:8, padding:'4px 10px', display:'flex', alignItems:'center', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.12)' }}>
-        <img src={logo} alt="NMV Portservice" style={{ height:22, display:'block', objectFit:'contain' }} />
+    <header style={{ background:'#1C3461', display:'flex', alignItems:'stretch', flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+      {/* Logo – vit panel, full headerhöjd */}
+      <div style={{ background:'#fff', display:'flex', alignItems:'center', padding:'0 16px', borderRight:'2px solid #edf0f7', flexShrink:0, minHeight:56 }}>
+        <img src={logo} alt="NMV Portservice" style={{ height:28, display:'block', objectFit:'contain' }} />
       </div>
-      {harFlerFastig && !portDetalj && (
-        <select value={valdFastighet} onChange={e => setValdFastighet(e.target.value)}
-          style={{ fontSize:12, padding:'5px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', outline:'none', maxWidth:180 }}>
-          <option value="alla">Alla fastigheter</option>
-          {fastigheter.map(f => <option key={f.id} value={f.id}>{f.namn}</option>)}
-        </select>
-      )}
-      <div style={{ flex:1 }} />
-      {/* Mörkt läge-toggle */}
-      <button onClick={toggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'}
-        style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:7, padding:'5px 8px', fontSize:15, cursor:'pointer', color:'#fff', flexShrink:0, lineHeight:1, display:'flex', alignItems:'center' }}>
-        {darkMode ? <Sun size={14} /> : <Moon size={14} />}
-      </button>
-      {!mob && <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)', maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</span>}
-      <button onClick={onLoggaUt} style={{ display:'flex', alignItems:'center', gap:5, background:'none', border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, color:'rgba(255,255,255,0.7)', fontSize:12, padding:'5px 10px', cursor:'pointer', flexShrink:0 }}>
-        <LogOut size={12} />{!mob && ' Logga ut'}
-      </button>
+      {/* Höger sida */}
+      <div style={{ flex:1, display:'flex', alignItems:'center', gap:10, padding:'0 14px' }}>
+        {harFlerFastig && !portDetalj && (
+          <select value={valdFastighet} onChange={e => setValdFastighet(e.target.value)}
+            style={{ fontSize:12, padding:'5px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', outline:'none', maxWidth:180 }}>
+            <option value="alla">Alla fastigheter</option>
+            {fastigheter.map(f => <option key={f.id} value={f.id}>{f.namn}</option>)}
+          </select>
+        )}
+        <div style={{ flex:1 }} />
+        <button onClick={toggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'}
+          style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:7, padding:'5px 8px', fontSize:15, cursor:'pointer', color:'#fff', flexShrink:0, lineHeight:1, display:'flex', alignItems:'center' }}>
+          {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
+        {!mob && <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)', maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</span>}
+        <button onClick={onLoggaUt} style={{ display:'flex', alignItems:'center', gap:5, background:'none', border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, color:'rgba(255,255,255,0.7)', fontSize:12, padding:'5px 10px', cursor:'pointer', flexShrink:0 }}>
+          <LogOut size={12} />{!mob && ' Logga ut'}
+        </button>
+      </div>
     </header>
   )
 
