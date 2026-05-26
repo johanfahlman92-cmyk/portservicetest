@@ -5,6 +5,7 @@ import { Check, ChevronRight, ChevronLeft, Printer, CheckSquare,
 import { protokollPunkter as defaultMallar } from '../data/store.js'
 import { hämtaLogoBase64, pdfHeader, pdfMetaGrid, pdfDoc, pdfRiskBedömning, öppnaPrintFönster } from '../utils/pdf.js'
 import KundVäljare from '../components/KundVäljare.jsx'
+import ServiceorderFoto from '../components/ServiceorderFoto.jsx'
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 const PORTTYPER = ['Vikport', 'Takskjutport', 'Lastbrygga', 'Grind']
@@ -785,6 +786,14 @@ export default function Serviceorder({ serviceorder = [], fastigheter = [], obje
             {totalNOT > 0 && <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: '#fffbeb', color: '#d97706', fontWeight: 600 }}>{totalNOT} Att notera</span>}
             {totalKA > 0  && <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: '#fef2f2', color: '#dc2626', fontWeight: 600 }}>{totalKA} Kräver åtgärd</span>}
           </div>
+        </div>
+
+        {/* Foton */}
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            📷 Foton
+          </div>
+          <ServiceorderFoto orderId={valdOrder.id} skapadAv={valdOrder.tekniker || ''} />
         </div>
 
         <div className="card" style={{ marginBottom: 12 }}>

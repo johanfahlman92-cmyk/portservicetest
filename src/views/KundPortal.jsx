@@ -142,6 +142,46 @@ function useBredd() {
   return w
 }
 
+// ── Inline fotogalleri (read-only, KundPortal) ────────────────────────────────
+function FotoRad({ orderId }) {
+  const [foton, setFoton] = useState([])
+  const [lightbox, setLightbox] = useState(null)
+
+  useEffect(() => {
+    if (!orderId) return
+    supabase.from('serviceorder_foton').select('id,url').eq('order_id', orderId).order('created_at')
+      .then(({ data }) => { if (data?.length) setFoton(data) })
+  }, [orderId])
+
+  if (!foton.length) return null
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {foton.map((f, i) => (
+          <img key={f.id} src={f.url} alt={`Foto ${i+1}`} loading="lazy"
+            onClick={() => setLightbox(f)}
+            style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 7,
+              cursor: 'pointer', border: '1.5px solid var(--c-border)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }} />
+        ))}
+      </div>
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', zIndex:1000,
+            display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <img src={lightbox.url} alt="Foto" onClick={e => e.stopPropagation()}
+            style={{ maxWidth:'94vw', maxHeight:'88vh', borderRadius:10, objectFit:'contain' }} />
+          <button onClick={() => setLightbox(null)}
+            style={{ position:'absolute', top:14, right:14, background:'rgba(255,255,255,0.15)',
+              border:'none', borderRadius:'50%', width:36, height:36, display:'flex',
+              alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff', fontSize:20 }}>✕</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Servicehistorik tidslinje ──────────────────────────────────────────────────
 function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, portAdress, mob, filter = 'alla' }) {
   // Bygg en kombinerad händelselogg för denna port
@@ -174,6 +214,7 @@ function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, port
       color: 'var(--c-blue)',
       bg: 'var(--c-blue-bg)',
       Icon: Wrench,
+      orderId: so.id,
     })
   })
 
@@ -228,6 +269,7 @@ function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, port
             </div>
             {h.tekniker && <div className="tl-sub">👤 {h.tekniker}</div>}
             {h.detalj && <div className="tl-sub" style={{ marginTop:2 }}>{h.detalj.slice(0,120)}{h.detalj.length>120?'…':''}</div>}
+            {h.orderId && <FotoRad orderId={h.orderId} />}
             <div className="tl-time">{h.datum || '–'}</div>
           </div>
         </div>

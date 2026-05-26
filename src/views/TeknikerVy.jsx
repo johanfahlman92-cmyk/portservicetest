@@ -4,6 +4,7 @@ import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil,
          ShieldCheck, ShieldAlert, Shield, Moon, Sun, Paperclip } from 'lucide-react'
 import FilUppladdning from '../components/FilUppladdning.jsx'
+import ServiceorderFoto from '../components/ServiceorderFoto.jsx'
 import { supabase } from '../lib/supabase.js'
 
 // ── Garantihjälpare (delad med Portregister) ──────────────────────────────────
@@ -1024,6 +1025,14 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
           <div style={{marginTop:2}}><span style={{color:'var(--c-teal)'}}>✓{h.g||0} </span>{(h.j||0)>0&&<span style={{color:'var(--c-amber)'}}>⚠{h.j} </span>}{(h.a||0)>0&&<span style={{color:'var(--c-red)'}}>✗{h.a}</span>}</div>
         </div>
       ))}
+
+      {/* Foton */}
+      <div className="card" style={{marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+          📷 Foton
+        </div>
+        <ServiceorderFoto orderId={order.id} skapadAv={namn} />
+      </div>
 
       {/* Filer & dokument */}
       {port && (
