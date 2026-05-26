@@ -833,38 +833,38 @@ export default function App() {
             background: '#1C3461',
             flexShrink: 0,
           }}>
-            <div style={{
-              height: 52, display: 'flex', alignItems: 'center',
-              padding: '0 12px', gap: 10,
-            }}>
+            <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 52 }}>
+              {/* Hamburger – marinblå */}
               <button onClick={() => setSidomenyÖppen(true)} style={{
                 background: 'none', border: 'none', color: '#fff', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', padding: 6,
+                display: 'flex', alignItems: 'center', padding: '0 14px',
               }}>
                 <Menu size={22} />
               </button>
-              <div style={{ flex:1, display:'flex', alignItems:'center' }}>
-                <div style={{ background:'rgba(255,255,255,0.96)', borderRadius:7, padding:'3px 9px', display:'inline-flex', alignItems:'center', boxShadow:'0 1px 4px rgba(0,0,0,0.12)' }}>
-                  <img src={logo} alt="NMV Portservice" style={{ height:20, display:'block', objectFit:'contain' }} />
-                </div>
+              {/* Logo – vit panel, full höjd */}
+              <div style={{ background: '#fff', display: 'flex', alignItems: 'center', padding: '0 14px', borderLeft: '1px solid rgba(255,255,255,0.12)', borderRight: '2px solid #edf0f7', flexShrink: 0 }}>
+                <img src={logo} alt="NMV Portservice" style={{ height: 26, display: 'block', objectFit: 'contain' }} />
               </div>
-              {oppnaArenden > 0 && (
-                <span style={{ background: '#A32D2D', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
-                  {oppnaArenden}
-                </span>
-              )}
-              {roll === 'admin' && (
-                <button onClick={aktiverFältläge} style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  color: '#fff', borderRadius: 8,
-                  padding: '6px 12px', fontSize: 12, fontWeight: 700,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                  whiteSpace: 'nowrap',
-                }}>
-                  📱 Teknikervy
-                </button>
-              )}
+              {/* Höger sida – marinblå */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 12px', gap: 8 }}>
+                {oppnaArenden > 0 && (
+                  <span style={{ background: '#A32D2D', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
+                    {oppnaArenden}
+                  </span>
+                )}
+                {roll === 'admin' && (
+                  <button onClick={aktiverFältläge} style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                    color: '#fff', borderRadius: 8,
+                    padding: '6px 12px', fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    📱 Teknikervy
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

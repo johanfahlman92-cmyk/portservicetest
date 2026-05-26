@@ -325,11 +325,17 @@ export default function Felanmalan({ kunder = [], objekt = [], tekniker = [], on
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--c-bg)', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ background: '#1C3461', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <img src={logo} alt="NMV Portservice" style={{ height: 38 }} />
-        <button onClick={onLoggaUt} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', borderRadius: 7, padding: '6px 12px', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <LogOut size={14} /> Logga ut
-        </button>
+      <div style={{ background: '#1C3461', display: 'flex', alignItems: 'stretch', flexShrink: 0 }}>
+        {/* Logo – vit panel, full headerhöjd */}
+        <div style={{ background: '#fff', display: 'flex', alignItems: 'center', padding: '0 18px', borderRight: '2px solid #edf0f7', flexShrink: 0, minHeight: 58 }}>
+          <img src={logo} alt="NMV Portservice" style={{ height: 28, display: 'block', objectFit: 'contain' }} />
+        </div>
+        {/* Höger sida */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 16px' }}>
+          <button onClick={onLoggaUt} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', borderRadius: 7, padding: '6px 12px', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <LogOut size={14} /> Logga ut
+          </button>
+        </div>
       </div>
       <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px' }}>
         {innehall}
