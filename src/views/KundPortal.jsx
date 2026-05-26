@@ -33,6 +33,11 @@ const tekStr = v => Array.isArray(v) ? v.join(', ') : (v || '–')
 
 // ── PDF: serviceprotokoll ──────────────────────────────────────────────────────
 async function öppnaServicePDF(so, portNamn) {
+  // Öppna fönster DIREKT (user gesture-kontext) – annars blockeras av iOS Safari
+  const win = window.open('about:blank', '_blank')
+  if (!win) { alert('Tillåt popup-fönster i din webbläsare för att visa PDF.'); return }
+  win.document.write('<div style="padding:40px;font-family:sans-serif;color:#555;text-align:center">Laddar protokoll…</div>')
+
   const logoB64 = await hämtaLogoBase64()
   const prot    = so.protokoll || {}
   // Nytt format: statuses-objekt; gammalt format: direkta kv-par
@@ -81,9 +86,7 @@ async function öppnaServicePDF(so, portNamn) {
     <table><thead><tr><th>#</th><th>Status</th><th>Notering</th></tr></thead><tbody>${rows}</tbody></table>
     ${notHtml}${sigHtml}
   `
-  const win = window.open('', '_blank', 'width=860,height=1100')
-  if (!win) return
-  win.document.title = 'Serviceprotokoll'
+  win.document.open()
   win.document.write(pdfDoc('Serviceprotokoll', body))
   win.document.close()
   setTimeout(() => win.print(), 400)
@@ -92,11 +95,17 @@ async function öppnaServicePDF(so, portNamn) {
 // ── PDF: montageprotokoll ──────────────────────────────────────────────────────
 async function öppnaMontagePDF(order) {
   if (!order.protokoll_data) return
+  // Öppna fönster DIREKT (user gesture-kontext) – annars blockeras av iOS Safari
+  const win = window.open('about:blank', '_blank')
+  if (!win) { alert('Tillåt popup-fönster i din webbläsare för att visa PDF.'); return }
+  win.document.write('<div style="padding:40px;font-family:sans-serif;color:#555;text-align:center">Laddar protokoll…</div>')
+
   const logo64 = await hämtaLogoBase64()
-  öppnaPrintFönster(
-    pdfMontageProt(order.protokoll_data, logo64, {}, null),
-    `Montageprotokoll ${order.nr || ''}`
-  )
+  const html = pdfMontageProt(order.protokoll_data, logo64, {}, null)
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+  setTimeout(() => win.print(), 400)
 }
 
 // ── Responsiv hook ─────────────────────────────────────────────────────────────
@@ -142,6 +151,9 @@ export default function KundPortal({ user, onLoggaUt }) {
 
   const kundId   = user.user_metadata?.kund_id
   const kundNamn = user.user_metadata?.kund_namn || ''
+
+  // Scrolla till toppen när portdetalj öppnas/stängs
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }) }, [portDetalj])
 
   // ── Ladda data ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -597,7 +609,7 @@ export default function KundPortal({ user, onLoggaUt }) {
         {flik === 'arenden' && (
           <>
             <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
-              {[['oppna','Öppna'],['atgardade','Åtgärdade'],['alla','Alla']].map(([v,l]) => (
+              {[['oppna','Pågående'],['atgardade','Avslutade'],['alla','Alla']].map(([v,l]) => (
                 <button key={v} onClick={() => setArendeFilter(v)} style={{ padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer', border:`1px solid ${arendeFilter===v?'var(--c-teal)':'var(--c-border)'}`, background:arendeFilter===v?'var(--c-teal-bg)':'transparent', color:arendeFilter===v?'var(--c-teal-text)':'var(--c-text2)' }}>
                   {l}{v==='oppna'&&öppnaArenden.length>0?` (${öppnaArenden.length})`:v==='alla'?` (${filtArenden.length})`:''}
                 </button>
