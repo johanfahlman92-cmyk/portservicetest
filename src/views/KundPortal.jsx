@@ -99,8 +99,21 @@ async function öppnaMontagePDF(order) {
   )
 }
 
+// ── Responsiv hook ─────────────────────────────────────────────────────────────
+function useBredd() {
+  const [w, setW] = useState(() => typeof window !== 'undefined' ? window.innerWidth : 800)
+  useEffect(() => {
+    const upd = () => setW(window.innerWidth)
+    window.addEventListener('resize', upd)
+    return () => window.removeEventListener('resize', upd)
+  }, [])
+  return w
+}
+
 // ── Huvud ──────────────────────────────────────────────────────────────────────
 export default function KundPortal({ user, onLoggaUt }) {
+  const bredd = useBredd()
+  const mob   = bredd < 480
   const [kund,         setKund]         = useState(null)
   const [fastigheter,  setFastigheter]  = useState([])
   const [portar,       setPortar]       = useState([])
@@ -242,9 +255,9 @@ export default function KundPortal({ user, onLoggaUt }) {
         </select>
       )}
       <div style={{ flex:1 }} />
-      <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</span>
+      {!mob && <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</span>}
       <button onClick={onLoggaUt} style={{ display:'flex', alignItems:'center', gap:5, background:'none', border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, color:'rgba(255,255,255,0.7)', fontSize:12, padding:'5px 10px', cursor:'pointer', flexShrink:0 }}>
-        <LogOut size={12} /> Logga ut
+        <LogOut size={12} />{!mob && ' Logga ut'}
       </button>
     </header>
   )
@@ -268,19 +281,19 @@ export default function KundPortal({ user, onLoggaUt }) {
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
+              <div style={{ display:'flex', flexDirection: mob ? 'column' : 'row', gap:12 }}>
+                <div style={{ flex:1 }}>
                   <label style={{ fontSize:12, color:'var(--c-text2)', display:'block', marginBottom:5 }}>Port *</label>
-                  <select value={valdFelPort} onChange={e => setValdFelPort(e.target.value)} style={FÄLT}>
+                  <select value={valdFelPort} onChange={e => setValdFelPort(e.target.value)} style={{...FÄLT, minHeight:44}}>
                     <option value="">Välj port…</option>
                     {(harFlerFastig && valdFastighet !== 'alla' ? filterPortar(portar) : portar).map(p =>
                       <option key={p.id} value={p.id}>{p.namn}{p.plats ? ` (${p.plats})` : ''}</option>
                     )}
                   </select>
                 </div>
-                <div>
+                <div style={{ flex:1 }}>
                   <label style={{ fontSize:12, color:'var(--c-text2)', display:'block', marginBottom:5 }}>Feltyp *</label>
-                  <select value={feltyp} onChange={e => setFeltyp(e.target.value)} style={FÄLT}>
+                  <select value={feltyp} onChange={e => setFeltyp(e.target.value)} style={{...FÄLT, minHeight:44}}>
                     <option value="">Välj feltyp…</option>
                     {['Öppnar inte','Stänger inte','Ovanligt ljud','Fjärrkontroll fungerar inte','Mekaniskt fel','Elfel','Övrigt'].map(f =>
                       <option key={f} value={f}>{f}</option>
@@ -322,9 +335,9 @@ export default function KundPortal({ user, onLoggaUt }) {
     const harDok   = portSO.length > 0 || portMO.length > 0
 
     return (
-      <div style={{ minHeight:'100vh', background:'var(--c-bg)', display:'flex', flexDirection:'column' }}>
+      <div style={{ minHeight:'100dvh', background:'var(--c-bg)', display:'flex', flexDirection:'column' }}>
         {header}
-        <main style={{ flex:1, padding:'20px', maxWidth:800, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
+        <main style={{ flex:1, padding:mob?'14px 14px':'20px 20px', paddingBottom:'max(24px, env(safe-area-inset-bottom, 24px))', maxWidth:800, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
           <button onClick={() => setPortDetalj(null)} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', color:'var(--c-text2)', fontSize:13, cursor:'pointer', padding:'0 0 16px 0', fontWeight:500 }}>
             <ChevronLeft size={16} /> Tillbaka till översikt
           </button>
@@ -410,8 +423,8 @@ export default function KundPortal({ user, onLoggaUt }) {
                       </div>
                     </div>
                     {mo.protokoll_data && (
-                      <button onClick={() => öppnaMontagePDF(mo)} style={{ ...BTN_SEC, padding:'6px 14px', fontSize:12, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-                        <FileText size={12} /> Öppna PDF
+                      <button onClick={() => öppnaMontagePDF(mo)} style={{ ...BTN_SEC, padding:'10px 14px', fontSize:12, minHeight:44, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+                        <FileText size={14} /> {mob ? 'PDF' : 'Öppna PDF'}
                       </button>
                     )}
                   </div>
@@ -428,8 +441,8 @@ export default function KundPortal({ user, onLoggaUt }) {
                         {(so.protokoll?.signatur || so.signatur_tekniker) ? ' · ✓ Signerat' : ''}
                       </div>
                     </div>
-                    <button onClick={() => öppnaServicePDF(so, port.namn)} style={{ ...BTN_SEC, padding:'6px 14px', fontSize:12, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-                      <FileText size={12} /> Öppna PDF
+                    <button onClick={() => öppnaServicePDF(so, port.namn)} style={{ ...BTN_SEC, padding:'10px 14px', fontSize:12, minHeight:44, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+                      <FileText size={14} /> {mob ? 'PDF' : 'Öppna PDF'}
                     </button>
                   </div>
                 ))}
@@ -444,21 +457,21 @@ export default function KundPortal({ user, onLoggaUt }) {
 
   // ── HUVUDVY ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:'100vh', background:'var(--c-bg)', display:'flex', flexDirection:'column' }}>
+    <div style={{ minHeight:'100dvh', background:'var(--c-bg)', display:'flex', flexDirection:'column' }}>
       {header}
 
       {/* Flikar */}
-      <div style={{ background:'var(--c-surface)', borderBottom:'1px solid var(--c-border)', display:'flex', padding:'0 20px', gap:0, flexShrink:0 }}>
+      <div style={{ background:'var(--c-surface)', borderBottom:'1px solid var(--c-border)', display:'flex', padding:mob?'0 4px':'0 12px', gap:0, flexShrink:0 }}>
         {[
           { id:'oversikt',  label:'Översikt' },
-          { id:'arenden',   label:`Ärenden${öppnaArenden.length ? ` (${öppnaArenden.length})` : ''}` },
-          { id:'protokoll', label:`Protokoll${totalDok ? ` (${totalDok})` : ''}` },
+          { id:'arenden',   label:öppnaArenden.length ? `Ärenden (${öppnaArenden.length})` : 'Ärenden' },
+          { id:'protokoll', label:totalDok ? `Protokoll (${totalDok})` : 'Protokoll' },
         ].map(t => (
-          <button key={t.id} onClick={() => setFlik(t.id)} style={{ padding:'13px 18px', fontSize:13, fontWeight:flik===t.id?700:400, background:'none', border:'none', cursor:'pointer', color:flik===t.id?'var(--c-teal-text)':'var(--c-text2)', borderBottom:flik===t.id?'2px solid var(--c-teal)':'2px solid transparent', transition:'all 0.15s' }}>{t.label}</button>
+          <button key={t.id} onClick={() => setFlik(t.id)} style={{ flex:1, padding:mob?'13px 6px':'13px 18px', fontSize:mob?11:13, fontWeight:flik===t.id?700:400, background:'none', border:'none', cursor:'pointer', color:flik===t.id?'var(--c-teal-text)':'var(--c-text2)', borderBottom:flik===t.id?'2px solid var(--c-teal)':'2px solid transparent', transition:'all 0.15s', whiteSpace:'nowrap', textAlign:'center' }}>{t.label}</button>
         ))}
       </div>
 
-      <main style={{ flex:1, padding:'24px 20px', maxWidth:800, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
+      <main style={{ flex:1, padding:mob?'16px 14px':'24px 20px', paddingBottom:'max(24px, env(safe-area-inset-bottom, 24px))', maxWidth:800, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
 
         {/* ── ÖVERSIKT ── */}
         {flik === 'oversikt' && (
@@ -629,8 +642,8 @@ export default function KundPortal({ user, onLoggaUt }) {
                             </div>
                           </div>
                           {mo.protokoll_data && (
-                            <button onClick={() => öppnaMontagePDF(mo)} style={{ ...BTN_SEC, padding:'6px 14px', fontSize:12, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-                              <FileText size={12} /> Öppna PDF
+                            <button onClick={() => öppnaMontagePDF(mo)} style={{ ...BTN_SEC, padding:'10px 14px', fontSize:12, minHeight:44, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+                              <FileText size={14} /> {mob ? 'PDF' : 'Öppna PDF'}
                             </button>
                           )}
                         </div>
@@ -664,8 +677,8 @@ export default function KundPortal({ user, onLoggaUt }) {
                                   {(so.protokoll?.signatur || so.signatur_tekniker) ? ' · ✓' : ''}
                                 </div>
                               </div>
-                              <button onClick={() => öppnaServicePDF(so, port.namn)} style={{ ...BTN_SEC, padding:'6px 14px', fontSize:12, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-                                <FileText size={12} /> Öppna PDF
+                              <button onClick={() => öppnaServicePDF(so, port.namn)} style={{ ...BTN_SEC, padding:'10px 14px', fontSize:12, minHeight:44, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+                                <FileText size={14} /> {mob ? 'PDF' : 'Öppna PDF'}
                               </button>
                             </div>
                           ))}
