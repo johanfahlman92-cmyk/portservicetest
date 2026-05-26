@@ -415,7 +415,9 @@ export default function KundPortal({ user, onLoggaUt, darkMode: darkModeProp, on
   // ── Header ───────────────────────────────────────────────────────────────────
   const header = (
     <header style={{ background:'#1C3461', padding:'0 16px', height:56, display:'flex', alignItems:'center', gap:10, flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-      <img src={logo} alt="NMV Portservice" style={{ height:28, display:'block', objectFit:'contain', filter:'brightness(0) invert(1)', flexShrink:0 }} />
+      <div style={{ background:'rgba(255,255,255,0.96)', borderRadius:8, padding:'4px 10px', display:'flex', alignItems:'center', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.12)' }}>
+        <img src={logo} alt="NMV Portservice" style={{ height:22, display:'block', objectFit:'contain' }} />
+      </div>
       {harFlerFastig && !portDetalj && (
         <select value={valdFastighet} onChange={e => setValdFastighet(e.target.value)}
           style={{ fontSize:12, padding:'5px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', outline:'none', maxWidth:180 }}>

@@ -1,14 +1,14 @@
 import { Home, Database, AlertCircle, Users, Wrench, Building2, ChevronLeft, ChevronRight, LogOut, BarChart2, Settings, LayoutGrid, ClipboardList, Smartphone } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 
-const NAV_BG      = '#1C3461'
-const ACTIVE_BG   = 'rgba(255,255,255,0.14)'
-const HOVER_BG    = 'rgba(255,255,255,0.07)'
+const NAV_BG      = '#1b3260'
+const ACTIVE_BG   = 'rgba(255,255,255,0.16)'
+const HOVER_BG    = 'rgba(255,255,255,0.08)'
 const DIVIDER     = 'rgba(255,255,255,0.10)'
 const TEXT_ON     = '#ffffff'
-const TEXT_DIM    = 'rgba(255,255,255,0.55)'
+const TEXT_DIM    = 'rgba(255,255,255,0.58)'
 const TEXT_FAINT  = 'rgba(255,255,255,0.35)'
-const ACCENT_LINE = 'rgba(255,255,255,0.65)'
+const ACCENT_LINE = '#4a9eff'  /* blå glödprick på aktiv rad */
 
 const navItems = [
   { id: 'dashboard',        label: 'Översikt',       icon: Home       },
@@ -50,21 +50,26 @@ export default function Sidebar({ active, onNav, oppnaArenden = 0, oppnaServiceo
 
       {/* Logo / Topprad */}
       <div style={{
-        padding: öppen ? '14px 16px' : '14px 0',
+        padding: öppen ? '14px 16px' : '12px 0',
         background: '#fff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: öppen ? 'space-between' : 'center',
         flexShrink: 0,
-        boxShadow: '0 1px 0 rgba(0,0,0,0.08)',
+        boxShadow: '0 1px 0 rgba(28,52,97,0.10)',
+        minHeight: 56,
       }}>
-        {öppen && <img src={logo} alt="NMV Portservice" style={{ width: 120, display: 'block' }} />}
+        {öppen && (
+          <img src={logo} alt="NMV Portservice"
+            style={{ width: 126, display: 'block', objectFit: 'contain' }} />
+        )}
         {!öppen && (
           <div style={{
-            width: 30, height: 30, background: NAV_BG, borderRadius: 7,
+            width: 32, height: 32, background: NAV_BG, borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(28,52,97,0.30)',
           }}>
-            <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '-0.5px' }}>N</span>
+            <span style={{ color: '#fff', fontSize: 14, fontWeight: 800, letterSpacing: '-0.5px' }}>N</span>
           </div>
         )}
 

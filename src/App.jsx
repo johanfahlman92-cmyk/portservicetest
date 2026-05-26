@@ -18,6 +18,7 @@ import Installningar from './views/Installningar.jsx'
 import KundPortal from './views/KundPortal.jsx'
 import Serviceorder from './views/Serviceorder.jsx'
 import { Menu, Search } from 'lucide-react'
+import logo from './image-1779305303942.png'
 import { protokollPunkter as defaultProtokollMallar, monteringPunkter as defaultMontagemallar, RISKPUNKTER as defaultRiskpunkter } from './data/store.js'
 import { setCompanyConfig } from './utils/pdf.js'
 import InstallPrompt from './components/InstallPrompt.jsx'
@@ -842,7 +843,11 @@ export default function App() {
               }}>
                 <Menu size={22} />
               </button>
-              <span style={{ color: '#fff', fontSize: 14, fontWeight: 600, flex: 1 }}>NMV Portservice</span>
+              <div style={{ flex:1, display:'flex', alignItems:'center' }}>
+                <div style={{ background:'rgba(255,255,255,0.96)', borderRadius:7, padding:'3px 9px', display:'inline-flex', alignItems:'center', boxShadow:'0 1px 4px rgba(0,0,0,0.12)' }}>
+                  <img src={logo} alt="NMV Portservice" style={{ height:20, display:'block', objectFit:'contain' }} />
+                </div>
+              </div>
               {oppnaArenden > 0 && (
                 <span style={{ background: '#A32D2D', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
                   {oppnaArenden}
