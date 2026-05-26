@@ -182,6 +182,15 @@ function useErMobil() {
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const erMobil = useErMobil()
+
+  // ── Mörkt läge ────────────────────────────────────────────────────────────
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : '')
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
+  const toggleDark = () => setDarkMode(v => !v)
+
   // Hash-navigation: läs startsida från URL:en (t.ex. #arenden → 'arenden')
   const getHashPage = () => window.location.hash.slice(1) || 'dashboard'
   const [page, setPage]               = useState(getHashPage)
@@ -731,13 +740,15 @@ export default function App() {
   )
 
   if (roll === 'kund') return (
-    <KundPortal user={user} onLoggaUt={loggaUt} />
+    <KundPortal user={user} onLoggaUt={loggaUt} darkMode={darkMode} onToggleDark={toggleDark} />
   )
 
   if (roll === 'tekniker' || visaFältvy) return (
     <>
       <TeknikerVy
         namn={user.user_metadata?.namn || user.email || ''}
+        darkMode={darkMode}
+        onToggleDark={toggleDark}
         arenden={arenden}
         bokningar={bokningar}
         objekt={objektMedStatus}
@@ -785,7 +796,7 @@ export default function App() {
     planeringstavla:  () => <Planeringstavla montageorder={montageorder} arenden={arenden} bokningar={bokningar} serviceorder={serviceorderArr} tekniker={tekniker} kunder={kunder} objekt={objektMedStatus} onNavigeraArende={navigeraArende} onNavigeraMontering={navigeraMontering} onNavigeraServiceorder={() => navigera('serviceorder')} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigeraObjekt={navigeraObjekt} />,
     statistik:     () => <Statistik kunder={kunder} objekt={objektMedStatus} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
     serviceorder:  () => <Serviceorder serviceorder={serviceorderArr} fastigheter={fastigheter} objekt={objektMedStatus} tekniker={tekniker} kunder={kunder} protokollMallar={protokollMallar} onLaggTill={laggTillServiceorder} onUppdatera={uppdateraServiceorder} onTaBort={taBortServiceorder} onUppdateraObjekt={uppdateraObjekt} onNyKund={snabbLaggTillKund} onLaggTillObjekt={laggTillObjekt} />,
-    installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} riskpunkter={riskpunkter} onSparaRiskpunkter={sparaRiskpunkter} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} foretagConfig={foretagConfig} onSparaForetagConfig={sparaForetagConfig} /> : null,
+    installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} riskpunkter={riskpunkter} onSparaRiskpunkter={sparaRiskpunkter} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} foretagConfig={foretagConfig} onSparaForetagConfig={sparaForetagConfig} darkMode={darkMode} onToggleDark={toggleDark} /> : null,
   }
 
   return (
@@ -856,7 +867,7 @@ export default function App() {
         {/* Sökrad */}
         <div style={{
           padding: erMobil ? '8px 16px' : '10px 32px',
-          background: erMobil ? '#1a1917' : 'var(--c-surface)',
+          background: 'var(--c-surface)',
           borderBottom: '1px solid var(--c-border)',
           flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12,
         }}>
@@ -867,6 +878,9 @@ export default function App() {
             arenden={arenden}
             onNavigera={navigera}
           />
+          <button onClick={toggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'} style={{ background:'none', border:'1px solid var(--c-border)', borderRadius:8, padding:'5px 9px', fontSize:16, cursor:'pointer', color:'var(--c-text2)', flexShrink:0, lineHeight:1 }}>
+            {darkMode ? '☀️' : '🌙'}
+          </button>
         </div>
 
         <main style={{

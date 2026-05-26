@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-         ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil } from 'lucide-react'
+         ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil,
+         ShieldCheck, ShieldAlert, Shield, Moon, Sun } from 'lucide-react'
+
+// ── Garantihjälpare (delad med Portregister) ──────────────────────────────────
+function garantiStatusTek(installationsdatum, garantiAr) {
+  if (!installationsdatum || !garantiAr) return null
+  const inst   = new Date(installationsdatum + 'T00:00:00')
+  const utgång = new Date(inst)
+  utgång.setFullYear(utgång.getFullYear() + parseInt(garantiAr || 2))
+  const dagar  = Math.round((utgång - new Date().setHours(0,0,0,0)) / 86400000)
+  return { utgångsdatum: utgång.toISOString().slice(0,10), dagar, giltig: dagar > 0 }
+}
 import logo from '../logo.png'
 import { protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64, pdfMontageProt, pdfRiskBedömning, pdfArende, pdfServiceProt, öppnaPrintFönster } from '../utils/pdf.js'
@@ -913,6 +924,34 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
             <span style={{color:'var(--c-text2)'}}>{l}</span><span style={{fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{v}</span>
           </div>
         ))}
+        {/* Garanti & CE */}
+        {port && (() => {
+          const garanti = garantiStatusTek(port.installationsdatum, port.garanti_ar)
+          const ce = port.ce_status
+          return (
+            <>
+              {garanti && (
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',borderBottom:'1px solid var(--c-border)',fontSize:12}}>
+                  <span style={{color:'var(--c-text2)',flex:1}}>Garanti</span>
+                  <span style={{fontWeight:600, color: garanti.giltig ? 'var(--c-teal)' : 'var(--c-red)', display:'flex',alignItems:'center',gap:4}}>
+                    {garanti.giltig ? <ShieldCheck size={12}/> : <ShieldAlert size={12}/>}
+                    {garanti.giltig ? `Giltig (${garanti.dagar}d kvar)` : `Utgången (${Math.abs(garanti.dagar)}d sedan)`}
+                  </span>
+                </div>
+              )}
+              {ce && ce !== 'ej_kontrollerad' && (
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',borderBottom:'1px solid var(--c-border)',fontSize:12}}>
+                  <span style={{color:'var(--c-text2)',flex:1}}>CE-status</span>
+                  <span style={{fontWeight:600, color: ce === 'godkand' ? 'var(--c-teal)' : 'var(--c-red)', display:'flex',alignItems:'center',gap:4}}>
+                    {ce === 'godkand' ? <ShieldCheck size={12}/> : <ShieldAlert size={12}/>}
+                    {ce === 'godkand' ? 'CE-godkänd' : 'CE-avvikelse'}
+                    {port.ce_notering ? ` · ${port.ce_notering}` : ''}
+                  </span>
+                </div>
+              )}
+            </>
+          )
+        })()}
         {order.status!=='avslutad'&&!redigerar&&(
           <button onClick={startRedigera} style={{display:'flex',alignItems:'center',gap:5,marginTop:10,padding:'6px 12px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',border:'1.5px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
             <Pencil size={12}/> Redigera
@@ -1736,6 +1775,8 @@ export default function TeknikerVy({
   onLoggaUt,
   onTillAdmin,
   riskpunkter,
+  darkMode,
+  onToggleDark,
 }) {
   const riskpunkterAktiva = (riskpunkter && riskpunkter.length > 0) ? riskpunkter : RISKPUNKTER_DEFAULT
   const [flik,             setFlik]             = useState('idag')
@@ -2096,6 +2137,12 @@ export default function TeknikerVy({
           {onTillAdmin && (
             <button onClick={onTillAdmin} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
               ← Admin
+            </button>
+          )}
+          {onToggleDark && (
+            <button onClick={onToggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'}
+              style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.8)',borderRadius:7,padding:'6px 8px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center'}}>
+              {darkMode ? <Sun size={14}/> : <Moon size={14}/>}
             </button>
           )}
           <button onClick={onLoggaUt} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.65)',borderRadius:7,padding:'6px 12px',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>

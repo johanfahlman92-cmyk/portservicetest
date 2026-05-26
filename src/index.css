@@ -63,6 +63,47 @@ button, a, [role=button] { touch-action: manipulation; }
   --shadow-md: 0 4px 16px rgba(28,52,97,0.10);
 }
 
+/* ── Mörkt läge ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  --c-bg:        #0f1117;
+  --c-surface:   #1a1d27;
+  --c-border:    #272b3a;
+  --c-border2:   #363a4e;
+
+  --c-text:      #e2e8f4;
+  --c-text2:     #8a90a8;
+  --c-text3:     #525870;
+
+  --c-navy:      #2a4882;
+  --c-blue:      #4a72c4;
+  --c-blue-bg:   #18213a;
+  --c-blue-text: #8ab4e8;
+
+  --c-teal:      #2ab888;
+  --c-teal-bg:   #0d2a1e;
+  --c-teal-text: #6dd9b0;
+
+  --c-amber:     #d4880a;
+  --c-amber-bg:  #261c08;
+  --c-amber-text:#f0bb60;
+
+  --c-red:       #c44040;
+  --c-red-bg:    #261010;
+  --c-red-text:  #f08080;
+
+  --c-coral:     #c05030;
+  --c-coral-bg:  #261208;
+  --c-coral-text:#f09070;
+
+  --c-purple:    #7060d8;
+  --c-purple-bg: #1c1840;
+  --c-purple-text:#b0a8f8;
+
+  --c-green:     #4a8820;
+  --c-green-bg:  #182e0a;
+  --c-green-text:#8acc50;
+}
+
 html, body, #root {
   height: 100%;
   font-family: var(--font-sans);

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { UserPlus, Trash2, Shield, User, RefreshCw, Copy,
          ChevronDown, ChevronUp, Plus, GripVertical, Check, ClipboardList,
-         Building2, Users as UsersIcon, AlertTriangle } from 'lucide-react'
+         Building2, Users as UsersIcon, AlertTriangle, Moon, Sun } from 'lucide-react'
 
 const ROLL_LABEL  = { admin: 'Admin', tekniker: 'Tekniker', kontorist: 'Kontorist', kund: 'Kundportal' }
 const ROLL_FÄRG   = { admin: '#f59e0b', tekniker: 'var(--c-blue)', kontorist: '#a78bfa', kund: 'var(--c-teal)' }
@@ -599,6 +599,7 @@ export default function Installningar({
   riskpunkter = [], onSparaRiskpunkter,
   tekniker = [], onLaggTillTekniker, onTaBortTekniker,
   foretagConfig = {}, onSparaForetagConfig,
+  darkMode = false, onToggleDark,
 }) {
   const [aktivTab, setAktivTab]         = useState('anvandare')
   const [rollerVis, setRollerVis]       = useState(false)
@@ -701,6 +702,7 @@ export default function Installningar({
         <TabBtn id="anvandare" icon={<UsersIcon size={14} />} label="Användare" />
         <TabBtn id="mallar"    icon={<ClipboardList size={14} />} label="Mallar" />
         <TabBtn id="foretag"   icon={<Building2 size={14} />} label="Företag" />
+        <TabBtn id="utseende"  icon={darkMode ? <Moon size={14} /> : <Sun size={14} />} label="Utseende" />
       </div>
 
       {/* ── TAB: ANVÄNDARE ─────────────────────────────────────────────────────── */}
@@ -954,6 +956,41 @@ export default function Installningar({
           </div>
           <FöretagsPanel config={foretagConfig} onSpara={onSparaForetagConfig} />
         </>
+      )}
+
+      {/* ── TAB: UTSEENDE ──────────────────────────────────────────────────────── */}
+      {aktivTab === 'utseende' && (
+        <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12 }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+              {darkMode ? <Moon size={15} color="var(--c-blue)" /> : <Sun size={15} color="var(--c-amber)" />} Tema
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
+              Välj ljust eller mörkt utseende för hela applikationen
+            </div>
+          </div>
+          <div style={{ padding: '20px', display: 'flex', gap: 12 }}>
+            {[
+              { id: false, label: 'Ljust', icon: <Sun size={22} color="#f59e0b" />, desc: 'Ljus bakgrund, standard' },
+              { id: true,  label: 'Mörkt', icon: <Moon size={22} color="var(--c-blue)" />, desc: 'Mörk bakgrund, skonsam för ögonen' },
+            ].map(({ id, label, icon, desc }) => (
+              <button key={String(id)} onClick={() => onToggleDark && darkMode !== id && onToggleDark()} style={{
+                flex: 1, padding: '18px 16px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
+                border: `2px solid ${darkMode === id ? 'var(--c-blue)' : 'var(--c-border)'}`,
+                background: darkMode === id ? 'var(--c-blue-bg)' : 'var(--c-bg)',
+                color: darkMode === id ? 'var(--c-blue-text)' : 'var(--c-text2)',
+                transition: 'all 0.15s',
+              }}>
+                <div style={{ marginBottom: 8 }}>{icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.75 }}>{desc}</div>
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: '0 20px 16px', fontSize: 12, color: 'var(--c-text3)' }}>
+            Temat sparas i webbläsaren och gäller för alla vyer.
+          </div>
+        </div>
       )}
 
     </div>

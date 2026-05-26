@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle, Check, Wrench, Minus, Save } from 'lucide-react'
+import { DoorOpen, Plus, ChevronRight, X, Printer, Trash2, ArrowLeft, Archive, ArchiveRestore, Search, CalendarPlus, CheckCircle, Copy, Paperclip, AlertCircle, Check, Wrench, Minus, Save, ShieldCheck, ShieldAlert, Shield } from 'lucide-react'
+
+// ── Garantihjälpare ──────────────────────────────────────────────────────────
+function garantiStatus(installationsdatum, garantiAr) {
+  if (!installationsdatum || !garantiAr) return null
+  const inst  = new Date(installationsdatum + 'T00:00:00')
+  const utgång = new Date(inst)
+  utgång.setFullYear(utgång.getFullYear() + parseInt(garantiAr || 2))
+  const idag = new Date(); idag.setHours(0,0,0,0)
+  const dagar = Math.round((utgång - idag) / 86400000)
+  return { utgångsdatum: utgång.toISOString().slice(0,10), dagar, giltig: dagar > 0 }
+}
+
+const CE_CFG = {
+  godkand:        { label: 'CE-godkänd',      color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  Icon: ShieldCheck },
+  avvikelse:      { label: 'CE-avvikelse',     color: 'var(--c-red)',   bg: 'var(--c-red-bg)',   Icon: ShieldAlert },
+  ej_kontrollerad:{ label: 'Ej CE-kontrollerad',color:'var(--c-text3)', bg: 'var(--c-bg)',       Icon: Shield      },
+}
 import DokumentZon from '../components/DokumentZon.jsx'
 import { statusConfig, protokollTyper, protokollPunkter, RISKPUNKTER as RISKPUNKTER_DEFAULT } from '../data/store.js'
 import { hämtaLogoBase64 as hämtaLogo, pdfHeader, pdfMetaGrid, pdfDoc, pdfMontageProt, EGENKONTROLL_DEFAULT } from '../utils/pdf.js'
@@ -571,6 +588,28 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
   const [nastaDatum,       setNastaDatum]       = useState(obj.nasta || '')
   const [spararNasta,      setSpararNasta]      = useState(false)
   const [dokument,         setDokument]         = useState(obj.dokument || [])
+  // Garanti & CE – redigering
+  const [redigeraGaranti,  setRedigeraGaranti]  = useState(false)
+  const [instDatum,        setInstDatum]        = useState(obj.installationsdatum || '')
+  const [garantiAr,        setGarantiAr]        = useState(String(obj.garanti_ar || '2'))
+  const [ceStatus,         setCeStatus]         = useState(obj.ce_status || 'ej_kontrollerad')
+  const [ceNotering,       setCeNotering]       = useState(obj.ce_notering || '')
+  const [spararGaranti,    setSpararGaranti]    = useState(false)
+
+  const sparaGaranti = async () => {
+    setSpararGaranti(true)
+    await onUppdateraObjekt(obj.id, {
+      installationsdatum: instDatum || null,
+      garanti_ar: parseInt(garantiAr) || null,
+      ce_status: ceStatus,
+      ce_notering: ceNotering.trim(),
+    })
+    setSpararGaranti(false)
+    setRedigeraGaranti(false)
+  }
+
+  const garanti = garantiStatus(instDatum || obj.installationsdatum, garantiAr || obj.garanti_ar)
+  const ceCfg = CE_CFG[ceStatus] || CE_CFG.ej_kontrollerad
 
   const sparaNasta = async () => {
     setSpararNasta(true)
@@ -767,6 +806,87 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
                 : `${obj.intervallProcent}% av intervallet förbrukat`}
             </div>
           </>
+        )}
+      </div>
+
+      {/* Garanti & CE */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div className="section-title" style={{ margin: 0 }}>Garanti & CE-dokumentation</div>
+          {!redigeraGaranti && (
+            <button onClick={() => setRedigeraGaranti(true)} className="btn"
+              style={{ fontSize: 11, padding: '3px 9px', display: 'flex', alignItems: 'center', gap: 4 }}>
+              ✏ Redigera
+            </button>
+          )}
+        </div>
+
+        {redigeraGaranti ? (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Installationsdatum</div>
+                <input type="date" value={instDatum} onChange={e => setInstDatum(e.target.value)}
+                  style={{ width: '100%', padding: '6px 9px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)', colorScheme: 'light' }} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>Garantitid (år)</div>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  {['1','2','5','10'].map(v => (
+                    <button key={v} onClick={() => setGarantiAr(v)} style={{ flex: 1, padding: '6px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: `1px solid ${garantiAr === v ? 'var(--c-teal)' : 'var(--c-border)'}`, background: garantiAr === v ? 'var(--c-teal-bg)' : 'transparent', color: garantiAr === v ? 'var(--c-teal-text)' : 'var(--c-text2)' }}>{v} år</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>CE-status</div>
+                <select value={ceStatus} onChange={e => setCeStatus(e.target.value)}
+                  style={{ width: '100%', padding: '6px 9px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)' }}>
+                  <option value="ej_kontrollerad">Ej kontrollerad</option>
+                  <option value="godkand">CE-godkänd</option>
+                  <option value="avvikelse">CE-avvikelse</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--c-text2)', marginBottom: 4 }}>CE-notering</div>
+                <input type="text" value={ceNotering} onChange={e => setCeNotering(e.target.value)} placeholder="T.ex. CE-märkning saknas…"
+                  style={{ width: '100%', padding: '6px 9px', fontSize: 13, border: '1px solid var(--c-border)', borderRadius: 6, background: 'var(--c-bg)', color: 'var(--c-text)' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-teal" onClick={sparaGaranti} disabled={spararGaranti}
+                style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Save size={12} /> {spararGaranti ? 'Sparar…' : 'Spara'}
+              </button>
+              <button className="btn" onClick={() => setRedigeraGaranti(false)} style={{ fontSize: 12 }}>Avbryt</button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            {/* Garanti-badge */}
+            {garanti ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, marginBottom: 8, background: garanti.giltig ? 'var(--c-teal-bg)' : 'var(--c-red-bg)', border: `1px solid ${garanti.giltig ? 'var(--c-teal)' : 'var(--c-red)'}` }}>
+                {garanti.giltig ? <ShieldCheck size={14} color="var(--c-teal)" /> : <ShieldAlert size={14} color="var(--c-red)" />}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: garanti.giltig ? 'var(--c-teal-text)' : 'var(--c-red-text)' }}>
+                    {garanti.giltig ? `Garanti giltig · ${garanti.dagar} dagar kvar` : `Garanti utgången · ${Math.abs(garanti.dagar)} dagar sedan`}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>Installerad: {instDatum || obj.installationsdatum} · Garantitid: {garantiAr || obj.garanti_ar} år · Utgår: {garanti.utgångsdatum}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--c-text3)', marginBottom: 8 }}>
+                Installationsdatum och garantitid ej registrerade. Klicka ✏ Redigera för att lägga till.
+              </div>
+            )}
+            {/* CE-badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: ceCfg.bg, border: `1px solid ${ceCfg.color}` }}>
+              <ceCfg.Icon size={13} color={ceCfg.color} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: ceCfg.color }}>{ceCfg.label}</div>
+                {(ceNotering || obj.ce_notering) && <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>{ceNotering || obj.ce_notering}</div>}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -997,15 +1117,18 @@ function NyttObjektForm({ kunder, fastigheter, objekt = [], onSpara, onAvbryt, f
   )
   const [serviceIntervall, setServiceIntervall] = useState('12')
   const [form, setForm] = useState({
-    typ:         forval?.typ         || portTyper[0],
-    namn:        forval ? `Kopia av ${forval.namn}` : '',
-    kund:        forval?.kund        || kunder[0]?.namn || '',
-    fabrikat:    forval?.fabrikat && FASTA_FABRIKAT.includes(forval.fabrikat) ? forval.fabrikat : (forval?.fabrikat ? 'Annat' : ''),
-    ar:          forval?.ar          || new Date().getFullYear(),
-    adress:      forval?.adress      || '',
-    ordernummer: forval?.ordernummer || '',
-    serienummer: '',
-    position:    forval?.position    || '',
+    typ:               forval?.typ               || portTyper[0],
+    namn:              forval ? `Kopia av ${forval.namn}` : '',
+    kund:              forval?.kund              || kunder[0]?.namn || '',
+    fabrikat:          forval?.fabrikat && FASTA_FABRIKAT.includes(forval.fabrikat) ? forval.fabrikat : (forval?.fabrikat ? 'Annat' : ''),
+    ar:                forval?.ar                || new Date().getFullYear(),
+    adress:            forval?.adress            || '',
+    ordernummer:       forval?.ordernummer       || '',
+    serienummer:       '',
+    position:          forval?.position          || '',
+    installationsdatum: '',
+    garanti_ar:        '',
+    ce_status:         'ej_kontrollerad',
   })
   const [fel, setFel] = useState(false)
   const [dubblettVarning, setDubblettVarning] = useState(null)
@@ -1030,19 +1153,22 @@ function NyttObjektForm({ kunder, fastigheter, objekt = [], onSpara, onAvbryt, f
     }
     onSpara({
       id: 'p' + Date.now(),
-      plats:       valdFastighet?.namn || '',
-      fastighetId: valdFastighetId || null,
-      typ:         form.typ,
-      namn:        form.namn.trim(),
-      kund:        form.kund,
-      kundTyp:     'foretag',
-      fabrikat:    effektivtFabrikat.trim(),
-      ar:          parseInt(form.ar) || new Date().getFullYear(),
-      adress:      form.adress.trim(),
-      ordernummer: form.ordernummer.trim(),
-      serienummer: form.serienummer.trim(),
-      position:    form.position.trim(),
-      serviceIntervall: parseInt(serviceIntervall) || 0,
+      plats:              valdFastighet?.namn || '',
+      fastighetId:        valdFastighetId || null,
+      typ:                form.typ,
+      namn:               form.namn.trim(),
+      kund:               form.kund,
+      kundTyp:            'foretag',
+      fabrikat:           effektivtFabrikat.trim(),
+      ar:                 parseInt(form.ar) || new Date().getFullYear(),
+      adress:             form.adress.trim(),
+      ordernummer:        form.ordernummer.trim(),
+      serienummer:        form.serienummer.trim(),
+      position:           form.position.trim(),
+      installationsdatum: form.installationsdatum || null,
+      garanti_ar:         parseInt(form.garanti_ar) || null,
+      ce_status:          form.ce_status || 'ej_kontrollerad',
+      serviceIntervall:   parseInt(serviceIntervall) || 0,
       senaste: '',
       nasta,
       intervallProcent: 0,
@@ -1143,6 +1269,24 @@ function NyttObjektForm({ kunder, fastigheter, objekt = [], onSpara, onAvbryt, f
           <label style={lbl}>Adress</label>
           <input type="text" placeholder="Industrivägen 12, Luleå" value={form.adress}
             onChange={e => set('adress', e.target.value)} style={inp} />
+        </div>
+
+        {/* Installationsdatum + Garantitid */}
+        <div style={fld}><label style={lbl}>Installationsdatum</label>
+          <input type="date" value={form.installationsdatum || ''} onChange={e => set('installationsdatum', e.target.value)}
+            style={{ ...inp, colorScheme: 'light' }} /></div>
+        <div style={fld}><label style={lbl}>Garantitid (år)</label>
+          <input type="number" min="0" max="20" value={form.garanti_ar || ''} onChange={e => set('garanti_ar', e.target.value)}
+            placeholder="t.ex. 2" style={inp} /></div>
+
+        {/* CE-status */}
+        <div style={{ ...fld, gridColumn: '1/-1' }}>
+          <label style={lbl}>CE-status</label>
+          <select value={form.ce_status || 'ej_kontrollerad'} onChange={e => set('ce_status', e.target.value)} style={inp}>
+            <option value="ej_kontrollerad">Ej kontrollerad</option>
+            <option value="godkand">CE-godkänd</option>
+            <option value="avvikelse">CE-avvikelse</option>
+          </select>
         </div>
       </div>
 

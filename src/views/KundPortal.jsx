@@ -4,6 +4,8 @@ import {
   LogOut, AlertCircle, CheckCircle, Clock, Building2,
   ChevronDown, ChevronUp, DoorOpen, FileText,
   ChevronRight, ChevronLeft, X, Search, MapPin,
+  Phone, Mail, CalendarPlus, Shield, ShieldCheck, ShieldAlert,
+  Wrench, Package, Activity, Paperclip, Sun, Moon,
 } from 'lucide-react'
 import logo from '../image-1779305303942.png'
 import { hämtaLogoBase64, pdfHeader, pdfDoc, pdfMontageProt, öppnaPrintFönster } from '../utils/pdf.js'
@@ -13,6 +15,12 @@ const PRIO_LABEL = { normal: 'Normal', hog: 'Hög', akut: 'Akut' }
 const PRIO_COLOR = { normal: 'var(--c-teal)', hog: '#f59e0b', akut: 'var(--c-red)' }
 const STATUS_LABEL = { ny: 'Ny', pagaende: 'Pågår', atgardad: 'Åtgärdad' }
 const STATUS_COLOR = { ny: '#f59e0b', pagaende: 'var(--c-blue)', atgardad: 'var(--c-teal)' }
+
+const CE_CFG = {
+  godkand:        { label: 'CE-godkänd',        color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  Icon: ShieldCheck  },
+  avvikelse:      { label: 'CE-avvikelse',       color: 'var(--c-red)',   bg: 'var(--c-red-bg)',   Icon: ShieldAlert  },
+  ej_kontrollerad:{ label: 'Ej kontrollerad',    color: 'var(--c-text3)', bg: 'var(--c-bg)',       Icon: Shield       },
+}
 
 const FÄLT = {
   fontSize: 13, padding: '8px 12px', borderRadius: 8,
@@ -31,16 +39,32 @@ const BTN_SEC = {
 // ── Hjälpfunktioner ────────────────────────────────────────────────────────────
 const tekStr = v => Array.isArray(v) ? v.join(', ') : (v || '–')
 
+// Räkna dagar mellan idag och ett datum
+function dagarTill(datum) {
+  if (!datum) return null
+  const idag = new Date(); idag.setHours(0,0,0,0)
+  const d    = new Date(datum + 'T00:00:00')
+  return Math.round((d - idag) / 86400000)
+}
+
+// Beräkna garantistatus
+function garantiStatus(installationsdatum, garantiAr) {
+  if (!installationsdatum || !garantiAr) return null
+  const inst  = new Date(installationsdatum + 'T00:00:00')
+  const utgång = new Date(inst)
+  utgång.setFullYear(utgång.getFullYear() + parseInt(garantiAr || 2))
+  const dagar = dagarTill(utgång.toISOString().slice(0,10))
+  return { utgångsdatum: utgång.toISOString().slice(0,10), dagar, giltig: dagar > 0 }
+}
+
 // ── PDF: serviceprotokoll ──────────────────────────────────────────────────────
 async function öppnaServicePDF(so, portNamn) {
-  // Öppna fönster DIREKT (user gesture-kontext) – annars blockeras av iOS Safari
   const win = window.open('about:blank', '_blank')
   if (!win) { alert('Tillåt popup-fönster i din webbläsare för att visa PDF.'); return }
   win.document.write('<div style="padding:40px;font-family:sans-serif;color:#555;text-align:center">Laddar protokoll…</div>')
 
   const logoB64 = await hämtaLogoBase64()
   const prot    = so.protokoll || {}
-  // Nytt format: statuses-objekt; gammalt format: direkta kv-par
   const statuses   = prot.statuses || {}
   const noteringar = prot.noteringar || {}
   const hasNew     = Object.keys(statuses).length > 0
@@ -95,7 +119,6 @@ async function öppnaServicePDF(so, portNamn) {
 // ── PDF: montageprotokoll ──────────────────────────────────────────────────────
 async function öppnaMontagePDF(order) {
   if (!order.protokoll_data) return
-  // Öppna fönster DIREKT (user gesture-kontext) – annars blockeras av iOS Safari
   const win = window.open('about:blank', '_blank')
   if (!win) { alert('Tillåt popup-fönster i din webbläsare för att visa PDF.'); return }
   win.document.write('<div style="padding:40px;font-family:sans-serif;color:#555;text-align:center">Laddar protokoll…</div>')
@@ -119,16 +142,127 @@ function useBredd() {
   return w
 }
 
+// ── Servicehistorik tidslinje ──────────────────────────────────────────────────
+function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, portAdress, mob }) {
+  // Bygg en kombinerad händelselogg för denna port
+  const händelser = []
+
+  // Montageorder (installation)
+  montageorder.forEach(mo => {
+    const datum = mo.protokoll_data?.datum || mo.created_at?.slice(0,10) || ''
+    händelser.push({
+      typ: 'montering',
+      datum,
+      rubrik: 'Installation',
+      detalj: mo.protokoll_data?.portTyp ? `${mo.protokoll_data.portTyp}` : '',
+      tekniker: mo.protokoll_data?.tekniker || tekStr(mo.tekniker),
+      color: 'var(--c-teal)',
+      bg: 'var(--c-teal-bg)',
+      Icon: Package,
+    })
+  })
+
+  // Serviceorder (genomförda)
+  serviceorder.forEach(so => {
+    if (!((so.objekt_ids || []).includes(portId) || so.fastighet_namn === portAdress)) return
+    händelser.push({
+      typ: 'service',
+      datum: so.datum || so.protokoll?.datum || '',
+      rubrik: 'Service utförd',
+      detalj: so.notering || so.protokoll?.notering || '',
+      tekniker: tekStr(so.tekniker || so.protokoll?.tekniker),
+      color: 'var(--c-blue)',
+      bg: 'var(--c-blue-bg)',
+      Icon: Wrench,
+    })
+  })
+
+  // Ärenden (alla)
+  arenden.forEach(a => {
+    if (a.objekt_id !== portId && a.namn !== portNamn) return
+    händelser.push({
+      typ: 'arende',
+      datum: a.datum || '',
+      rubrik: a.feltyp || a.typ || 'Ärende',
+      detalj: a.notering || a.beskrivning || '',
+      status: a.status,
+      color: a.status === 'atgardad' ? 'var(--c-text3)' : 'var(--c-amber)',
+      bg: a.status === 'atgardad' ? 'var(--c-bg)' : 'var(--c-amber-bg)',
+      Icon: AlertCircle,
+    })
+  })
+
+  // Sortera efter datum (nyast först)
+  händelser.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
+
+  if (händelser.length === 0) return (
+    <div style={{ padding:'16px', textAlign:'center', color:'var(--c-text3)', fontSize:13 }}>
+      Ingen servicehistorik registrerad ännu.
+    </div>
+  )
+
+  return (
+    <div className="timeline" style={{ padding:'4px 0' }}>
+      {händelser.map((h, i) => (
+        <div key={i} className="tl-row">
+          <div className="tl-left">
+            <div className="tl-dot" style={{ background: h.color }} />
+            <div className="tl-line" />
+          </div>
+          <div style={{ flex:1, paddingBottom:2 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+              <div style={{ width:22, height:22, borderRadius:6, background:h.bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <h.Icon size={12} color={h.color} />
+              </div>
+              <span className="tl-title" style={{ color:'var(--c-text)' }}>{h.rubrik}</span>
+              {h.status && (
+                <span style={{ fontSize:10, padding:'1px 6px', borderRadius:4, background:(STATUS_COLOR[h.status]||'#888')+'22', color:STATUS_COLOR[h.status]||'#888', fontWeight:600 }}>
+                  {STATUS_LABEL[h.status]||h.status}
+                </span>
+              )}
+            </div>
+            {h.tekniker && <div className="tl-sub">👤 {h.tekniker}</div>}
+            {h.detalj && <div className="tl-sub" style={{ marginTop:2 }}>{h.detalj.slice(0,120)}{h.detalj.length>120?'…':''}</div>}
+            <div className="tl-time">{h.datum || '–'}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Huvud ──────────────────────────────────────────────────────────────────────
-export default function KundPortal({ user, onLoggaUt }) {
+export default function KundPortal({ user, onLoggaUt, darkMode: darkModeProp, onToggleDark }) {
   const bredd = useBredd()
   const mob   = bredd < 480
+
+  // Läs mörkt läge från document (globalt tillstånd)
+  const [darkMode, setDarkMode] = useState(() =>
+    document.documentElement.getAttribute('data-theme') === 'dark'
+  )
+  const toggleDark = () => {
+    if (onToggleDark) {
+      onToggleDark()
+    } else {
+      const next = !darkMode
+      document.documentElement.setAttribute('data-theme', next ? 'dark' : '')
+      localStorage.setItem('theme', next ? 'dark' : 'light')
+      setDarkMode(next)
+    }
+  }
+  // Synka om parent ändrar
+  useEffect(() => {
+    if (darkModeProp !== undefined) setDarkMode(darkModeProp)
+  }, [darkModeProp])
+
   const [kund,         setKund]         = useState(null)
   const [fastigheter,  setFastigheter]  = useState([])
   const [portar,       setPortar]       = useState([])
   const [arenden,      setArenden]      = useState([])
   const [serviceorder, setServiceorder] = useState([])
   const [montageorder, setMontageorder] = useState([])
+  const [foretagInfo,  setForetagInfo]  = useState({})
+  const [portFiler,    setPortFiler]    = useState([])
   const [laddas,       setLaddas]       = useState(true)
 
   // Navigation
@@ -136,7 +270,7 @@ export default function KundPortal({ user, onLoggaUt }) {
   const [valdFastighet, setValdFastighet] = useState('alla')
   const [arendeFilter,  setArendeFilter]  = useState('oppna')
   const [expanderat,    setExpanderat]    = useState(null)
-  const [portDetalj,    setPortDetalj]    = useState(null)   // port-objekt → detaljvy
+  const [portDetalj,    setPortDetalj]    = useState(null)
   const [sokText,       setSokText]       = useState('')
 
   // Felanmälan
@@ -164,22 +298,32 @@ export default function KundPortal({ user, onLoggaUt }) {
         const { data: k } = await supabase.from('kunder').select('*').eq('id', kundId).maybeSingle()
         if (k) { setKund(k); namn = k.namn || kundNamn }
       }
-      const [fRes, oRes, aRes, soRes, moRes] = await Promise.all([
+      const [fRes, oRes, aRes, soRes, moRes, cfgRes] = await Promise.all([
         supabase.from('fastigheter').select('*').eq('kund', namn).order('namn'),
         supabase.from('objekt').select('*').eq('kund', namn).order('namn'),
         supabase.from('arenden').select('*').eq('kund', namn).order('created_at', { ascending: false }),
         supabase.from('serviceorder').select('*').eq('kund', namn).eq('status', 'avslutad').order('datum', { ascending: false }),
         supabase.from('montageorder').select('*').eq('kund', namn).eq('status', 'utford').order('created_at', { ascending: false }),
+        supabase.from('app_config').select('data').eq('id', 'foretag').maybeSingle(),
       ])
       if (fRes.data)  setFastigheter(fRes.data.filter(f => !f.arkiverad))
       if (oRes.data)  setPortar(oRes.data.filter(o => !o.arkiverad))
       if (aRes.data)  setArenden(aRes.data)
       if (soRes.data) setServiceorder(soRes.data)
       if (moRes.data) setMontageorder(moRes.data)
+      if (cfgRes.data?.data) setForetagInfo(cfgRes.data.data)
       setLaddas(false)
     }
     ladda()
   }, [kundId, kundNamn])
+
+  // ── Ladda filer för en port ──────────────────────────────────────────────────
+  const laddaPortFiler = async (portId) => {
+    try {
+      const { data } = await supabase.from('port_filer').select('*').eq('objekt_id', portId).order('created_at', { ascending: false })
+      if (data) setPortFiler(data)
+    } catch { setPortFiler([]) }
+  }
 
   // ── Felanmälan ───────────────────────────────────────────────────────────────
   const öppnaFelanmälan = (portId = '') => { setValdFelPort(portId); setVisaFel(true) }
@@ -233,6 +377,13 @@ export default function KundPortal({ user, onLoggaUt }) {
   const harFlerFastig = fastigheter.length > 1
   const totalDok     = filtSO.length + montageorder.length
 
+  // Servicestatistik
+  const idag = new Date().toISOString().slice(0,10)
+  const ärÅr = new Date().getFullYear().toString()
+  const serviceÅr   = filtSO.filter(so => (so.datum||'').startsWith(ärÅr)).length
+  const totalService = filtSO.length + montageorder.length
+  const senasteService = filtPortar.flatMap(p => p.senaste ? [p.senaste] : []).sort().reverse()[0]
+
   const visadeArenden = arendeFilter === 'oppna'
     ? filtArenden.filter(a => a.status !== 'atgardad')
     : arendeFilter === 'atgardade'
@@ -255,23 +406,50 @@ export default function KundPortal({ user, onLoggaUt }) {
     return { port, soLista }
   }).filter(x => x.soLista.length > 0)
 
-  // ── Header (återanvänds) ─────────────────────────────────────────────────────
+  // ── Header ───────────────────────────────────────────────────────────────────
   const header = (
-    <header style={{ background:'#1C3461', padding:'0 20px', height:56, display:'flex', alignItems:'center', gap:12, flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-      <img src={logo} alt="NMV Portservice" style={{ height:30, display:'block', objectFit:'contain', filter:'brightness(0) invert(1)', flexShrink:0 }} />
+    <header style={{ background:'#1C3461', padding:'0 16px', height:56, display:'flex', alignItems:'center', gap:10, flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+      <img src={logo} alt="NMV Portservice" style={{ height:28, display:'block', objectFit:'contain', filter:'brightness(0) invert(1)', flexShrink:0 }} />
       {harFlerFastig && !portDetalj && (
         <select value={valdFastighet} onChange={e => setValdFastighet(e.target.value)}
-          style={{ fontSize:12, padding:'5px 10px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', outline:'none', maxWidth:200 }}>
+          style={{ fontSize:12, padding:'5px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', outline:'none', maxWidth:180 }}>
           <option value="alla">Alla fastigheter</option>
           {fastigheter.map(f => <option key={f.id} value={f.id}>{f.namn}</option>)}
         </select>
       )}
       <div style={{ flex:1 }} />
-      {!mob && <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</span>}
+      {/* Mörkt läge-toggle */}
+      <button onClick={toggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'}
+        style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:7, padding:'5px 8px', fontSize:15, cursor:'pointer', color:'#fff', flexShrink:0, lineHeight:1, display:'flex', alignItems:'center' }}>
+        {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+      </button>
+      {!mob && <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)', maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</span>}
       <button onClick={onLoggaUt} style={{ display:'flex', alignItems:'center', gap:5, background:'none', border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, color:'rgba(255,255,255,0.7)', fontSize:12, padding:'5px 10px', cursor:'pointer', flexShrink:0 }}>
         <LogOut size={12} />{!mob && ' Logga ut'}
       </button>
     </header>
+  )
+
+  // ── Kontaktbanner ────────────────────────────────────────────────────────────
+  const harKontakt = foretagInfo.telefon || foretagInfo.epost
+  const kontaktBanner = harKontakt && (
+    <div style={{ background:'var(--c-blue-bg)', borderBottom:'1px solid var(--c-border)', padding:'9px 20px', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', flexShrink:0 }}>
+      {foretagInfo.namn && <span style={{ fontSize:12, fontWeight:600, color:'var(--c-blue-text)' }}>{foretagInfo.namn}</span>}
+      {foretagInfo.telefon && (
+        <a href={`tel:${foretagInfo.telefon}`} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--c-blue-text)', textDecoration:'none', fontWeight:500 }}>
+          <Phone size={12} /> {foretagInfo.telefon}
+        </a>
+      )}
+      {foretagInfo.epost && (
+        <a href={`mailto:${foretagInfo.epost}`} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--c-blue-text)', textDecoration:'none', fontWeight:500 }}>
+          <Mail size={12} /> {foretagInfo.epost}
+        </a>
+      )}
+      <div style={{ flex:1 }} />
+      <button onClick={() => öppnaFelanmälan()} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:7, fontSize:12, fontWeight:600, background:'var(--c-red)', color:'#fff', border:'none', cursor:'pointer' }}>
+        <AlertCircle size={12} /> Anmäl fel
+      </button>
+    </div>
   )
 
   // ── Felanmälan-modal ─────────────────────────────────────────────────────────
@@ -288,7 +466,7 @@ export default function KundPortal({ user, onLoggaUt }) {
         </div>
         <div style={{ padding:'20px' }}>
           {sparad ? (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px', background:'#12302b', border:'1px solid var(--c-teal)', borderRadius:10, color:'#6ee7b7', fontSize:13, fontWeight:500 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px', background:'var(--c-teal-bg)', border:'1px solid var(--c-teal)', borderRadius:10, color:'var(--c-teal-text)', fontSize:13, fontWeight:500 }}>
               <CheckCircle size={16} /> Felanmälan skickad! Vi återkommer inom kort.
             </div>
           ) : (
@@ -341,23 +519,38 @@ export default function KundPortal({ user, onLoggaUt }) {
   if (portDetalj) {
     const port     = portDetalj
     const portSO   = serviceorder.filter(so => (so.objekt_ids || []).includes(port.id) || so.fastighet_namn === port.plats)
-    const portMO   = montageorder.filter(mo => mo.adress && port.adress && mo.adress === port.adress)
+    const portMO   = montageorder.filter(mo => {
+      if (mo.objekt_id === port.id) return true
+      if (mo.protokoll_data?.portNamn === port.namn) return true
+      if (mo.adress && port.adress && mo.adress === port.adress) return true
+      return false
+    })
     const portÄr   = arenden.filter(a => a.objekt_id === port.id || a.namn === port.namn)
     const aktÄr    = portÄr.filter(a => a.status !== 'atgardad')
     const harDok   = portSO.length > 0 || portMO.length > 0
 
+    // Garantiinfo
+    const garanti = garantiStatus(port.installationsdatum, port.garanti_ar)
+
+    // Nästa service-påminnelse
+    const dTill = dagarTill(port.nasta)
+
+    // CE-konfig
+    const ceCfg = CE_CFG[port.ce_status || 'ej_kontrollerad']
+
     return (
       <div style={{ minHeight:'100dvh', background:'var(--c-bg)', display:'flex', flexDirection:'column' }}>
         {header}
+        {kontaktBanner}
         <main style={{ flex:1, padding:mob?'14px 14px':'20px 20px', paddingBottom:'max(24px, env(safe-area-inset-bottom, 24px))', maxWidth:800, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
-          <button onClick={() => setPortDetalj(null)} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', color:'var(--c-text2)', fontSize:13, cursor:'pointer', padding:'0 0 16px 0', fontWeight:500 }}>
+          <button onClick={() => { setPortDetalj(null); setPortFiler([]) }} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', color:'var(--c-text2)', fontSize:13, cursor:'pointer', padding:'0 0 16px 0', fontWeight:500 }}>
             <ChevronLeft size={16} /> Tillbaka till översikt
           </button>
 
           {/* Portinfo */}
-          <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, padding:'16px 20px', marginBottom:14 }}>
+          <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, padding:'16px 20px', marginBottom:12 }}>
             <div style={{ display:'flex', alignItems:'flex-start', gap:14, marginBottom:14 }}>
-              <div style={{ width:44, height:44, background:'var(--c-blue-bg,#eff6ff)', borderRadius:11, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <div style={{ width:44, height:44, background:'var(--c-blue-bg)', borderRadius:11, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 <DoorOpen size={22} color="var(--c-blue)" />
               </div>
               <div style={{ flex:1 }}>
@@ -370,7 +563,7 @@ export default function KundPortal({ user, onLoggaUt }) {
                 </span>
               )}
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <div style={{ display:'grid', gridTemplateColumns: mob ? '1fr' : '1fr 1fr', gap:8 }}>
               {[
                 ['Porttyp',       port.typ],
                 ['Fabrikat',      port.fabrikat],
@@ -380,26 +573,64 @@ export default function KundPortal({ user, onLoggaUt }) {
                 ['Ordernummer',   port.ordernummer],
                 ['Senaste service', port.senaste],
                 ['Nästa service', port.nasta],
-              ].filter(([, v]) => v).map(([l, v]) => (
+                port.installationsdatum && ['Installationsdatum', port.installationsdatum],
+              ].filter(Boolean).filter(([, v]) => v).map(([l, v]) => (
                 <div key={l} style={{ background:'var(--c-bg)', borderRadius:8, padding:'8px 10px' }}>
                   <div style={{ fontSize:10, fontWeight:600, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:2 }}>{l}</div>
-                  <div style={{ fontSize:13, fontWeight:500, color: l === 'Nästa service' && port.nasta < new Date().toISOString().slice(0,10) ? 'var(--c-red)' : 'var(--c-text)' }}>{v}</div>
+                  <div style={{ fontSize:13, fontWeight:500, color: l === 'Nästa service' && port.nasta < idag ? 'var(--c-red)' : 'var(--c-text)' }}>{v}</div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Nästa service-påminnelse */}
+          {dTill !== null && (
+            <div style={{ background: dTill < 0 ? 'var(--c-red-bg)' : dTill <= 30 ? 'var(--c-amber-bg)' : 'var(--c-teal-bg)', border:`1px solid ${dTill < 0 ? 'var(--c-red)' : dTill <= 30 ? 'var(--c-amber)' : 'var(--c-teal)'}`, borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', alignItems:'center', gap:10 }}>
+              <Clock size={16} color={dTill < 0 ? 'var(--c-red)' : dTill <= 30 ? 'var(--c-amber)' : 'var(--c-teal)'} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:12, fontWeight:700, color: dTill < 0 ? 'var(--c-red-text)' : dTill <= 30 ? 'var(--c-amber-text)' : 'var(--c-teal-text)' }}>
+                  {dTill < 0 ? `Service försenad med ${Math.abs(dTill)} dagar` : dTill === 0 ? 'Service förfaller idag!' : `Nästa service om ${dTill} dagar`}
+                </div>
+                <div style={{ fontSize:11, color:'var(--c-text3)', marginTop:2 }}>Nästa schemalagda service: {port.nasta}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Garantistatus */}
+          {garanti && (
+            <div style={{ background: garanti.giltig ? 'var(--c-teal-bg)' : 'var(--c-red-bg)', border:`1px solid ${garanti.giltig?'var(--c-teal)':'var(--c-red)'}`, borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', alignItems:'center', gap:10 }}>
+              {garanti.giltig ? <ShieldCheck size={16} color="var(--c-teal)" /> : <ShieldAlert size={16} color="var(--c-red)" />}
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color: garanti.giltig ? 'var(--c-teal-text)' : 'var(--c-red-text)' }}>
+                  {garanti.giltig ? `Garanti giltig (${garanti.dagar} dagar kvar)` : `Garanti utgången (${Math.abs(garanti.dagar)} dagar sedan)`}
+                </div>
+                <div style={{ fontSize:11, color:'var(--c-text3)', marginTop:2 }}>Garantitidens slut: {garanti.utgångsdatum}</div>
+              </div>
+            </div>
+          )}
+
+          {/* CE-dokumentation */}
+          {port.ce_status && port.ce_status !== 'ej_kontrollerad' && (
+            <div style={{ background: ceCfg.bg, border:`1px solid ${ceCfg.color}`, borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', alignItems:'center', gap:10 }}>
+              <ceCfg.Icon size={16} color={ceCfg.color} />
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color: ceCfg.color }}>{ceCfg.label}</div>
+                {port.ce_notering && <div style={{ fontSize:11, color:'var(--c-text3)', marginTop:2 }}>{port.ce_notering}</div>}
+              </div>
+            </div>
+          )}
+
           {/* Anmäl fel */}
-          <button onClick={() => öppnaFelanmälan(port.id)} style={{ width:'100%', padding:'12px', borderRadius:10, marginBottom:14, background:'var(--c-red)', color:'#fff', border:'none', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          <button onClick={() => öppnaFelanmälan(port.id)} style={{ width:'100%', padding:'12px', borderRadius:10, marginBottom:12, background:'var(--c-red)', color:'#fff', border:'none', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
             <AlertCircle size={14} /> Anmäl fel på denna port
           </button>
 
           {/* Aktiva ärenden */}
           {portÄr.length > 0 && (
-            <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:14, overflow:'hidden' }}>
-              <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--c-border)', fontSize:11, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Ärenden</div>
-              {portÄr.map((a, i) => (
-                <div key={a.id} style={{ padding:'10px 16px', borderBottom: i < portÄr.length - 1 ? '1px solid var(--c-border)' : 'none', display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:12, overflow:'hidden' }}>
+              <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--c-border)', fontSize:11, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Ärenden ({portÄr.length})</div>
+              {portÄr.slice(0,5).map((a, i) => (
+                <div key={a.id} style={{ padding:'10px 16px', borderBottom: i < Math.min(portÄr.length,5) - 1 ? '1px solid var(--c-border)' : 'none', display:'flex', alignItems:'center', gap:10 }}>
                   <div style={{ width:7, height:7, borderRadius:'50%', background:PRIO_COLOR[a.prioritet]||'var(--c-text3)', flexShrink:0 }} />
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:13 }}>{a.feltyp || a.namn}</div>
@@ -413,10 +644,28 @@ export default function KundPortal({ user, onLoggaUt }) {
             </div>
           )}
 
+          {/* Servicehistorik tidslinje */}
+          <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:12, overflow:'hidden' }}>
+            <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--c-border)', fontSize:11, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:6 }}>
+              <Activity size={12} /> Servicehistorik
+            </div>
+            <div style={{ padding:'14px 16px' }}>
+              <Tidslinje
+                arenden={arenden}
+                serviceorder={serviceorder}
+                montageorder={portMO}
+                portId={port.id}
+                portNamn={port.namn}
+                portAdress={port.plats}
+                mob={mob}
+              />
+            </div>
+          </div>
+
           {/* Dokumentation */}
-          <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, overflow:'hidden' }}>
+          <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:12, overflow:'hidden' }}>
             <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--c-border)', fontSize:11, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>
-              Dokumentation {harDok ? `(${portSO.length + portMO.length})` : ''}
+              Protokoll {harDok ? `(${portSO.length + portMO.length})` : ''}
             </div>
             {!harDok ? (
               <div style={{ padding:'24px', textAlign:'center', color:'var(--c-text3)', fontSize:13 }}>Inga protokoll registrerade ännu.</div>
@@ -424,7 +673,7 @@ export default function KundPortal({ user, onLoggaUt }) {
               <>
                 {portMO.map((mo, i) => (
                   <div key={mo.id} style={{ padding:'12px 16px', borderBottom:'1px solid var(--c-border)', display:'flex', alignItems:'center', gap:12 }}>
-                    <div style={{ width:36, height:36, borderRadius:9, background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <div style={{ width:36, height:36, borderRadius:9, background:'var(--c-teal-bg)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <FileText size={16} color="var(--c-teal)" />
                     </div>
                     <div style={{ flex:1 }}>
@@ -443,7 +692,7 @@ export default function KundPortal({ user, onLoggaUt }) {
                 ))}
                 {portSO.map((so, i) => (
                   <div key={so.id} style={{ padding:'12px 16px', borderBottom: i < portSO.length - 1 ? '1px solid var(--c-border)' : 'none', display:'flex', alignItems:'center', gap:12 }}>
-                    <div style={{ width:36, height:36, borderRadius:9, background:'var(--c-blue-bg,#eff6ff)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <div style={{ width:36, height:36, borderRadius:9, background:'var(--c-blue-bg)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <FileText size={16} color="var(--c-blue)" />
                     </div>
                     <div style={{ flex:1 }}>
@@ -461,6 +710,26 @@ export default function KundPortal({ user, onLoggaUt }) {
               </>
             )}
           </div>
+
+          {/* Bifogade filer */}
+          {portFiler.length > 0 && (
+            <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, overflow:'hidden' }}>
+              <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--c-border)', fontSize:11, fontWeight:700, color:'var(--c-text3)', textTransform:'uppercase', letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:6 }}>
+                <Paperclip size={12} /> Filer ({portFiler.length})
+              </div>
+              {portFiler.map((f, i) => (
+                <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
+                  style={{ padding:'11px 16px', borderBottom: i < portFiler.length - 1 ? '1px solid var(--c-border)' : 'none', display:'flex', alignItems:'center', gap:10, textDecoration:'none', color:'var(--c-text)' }}>
+                  <Paperclip size={14} color="var(--c-text3)" />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.namn}</div>
+                    {f.typ && f.typ !== 'annat' && <div style={{ fontSize:11, color:'var(--c-text3)' }}>{f.typ}</div>}
+                  </div>
+                  <ChevronRight size={14} color="var(--c-text3)" />
+                </a>
+              ))}
+            </div>
+          )}
         </main>
         {felanmalanModal}
       </div>
@@ -471,6 +740,7 @@ export default function KundPortal({ user, onLoggaUt }) {
   return (
     <div style={{ minHeight:'100dvh', background:'var(--c-bg)', display:'flex', flexDirection:'column' }}>
       {header}
+      {kontaktBanner}
 
       {/* Flikar */}
       <div style={{ background:'var(--c-surface)', borderBottom:'1px solid var(--c-border)', display:'flex', padding:mob?'0 4px':'0 12px', gap:0, flexShrink:0 }}>
@@ -488,17 +758,17 @@ export default function KundPortal({ user, onLoggaUt }) {
         {/* ── ÖVERSIKT ── */}
         {flik === 'oversikt' && (
           <>
-            <div style={{ marginBottom:20 }}>
+            <div style={{ marginBottom:16 }}>
               <h1 style={{ fontSize:20, fontWeight:700, margin:0 }}>{displayNamn}</h1>
               <p style={{ fontSize:13, color:'var(--c-text2)', margin:'3px 0 0' }}>Din portserviceöversikt</p>
             </div>
 
-            {/* KPI-kort – klickbara */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10, marginBottom:20 }}>
+            {/* Servicestatistik */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10, marginBottom:16 }}>
               {[
                 { label:'Portar',         value:filtPortar.length,   icon:DoorOpen,    color:'var(--c-blue)',   action:() => { setSokText(''); setFlik('oversikt') } },
                 { label:'Aktiva ärenden', value:öppnaArenden.length, icon:AlertCircle, color:öppnaArenden.length>0?'var(--c-red)':'var(--c-teal)', action:() => { setArendeFilter('oppna'); setFlik('arenden') } },
-                { label:'Protokoll',      value:totalDok,            icon:FileText,    color:'var(--c-purple,#7c3aed)', action:() => setFlik('protokoll') },
+                { label:'Service i år',   value:serviceÅr,           icon:Wrench,      color:'var(--c-purple,#7c3aed)', action:() => setFlik('protokoll') },
                 { label:'Nästa service',  value:nästaService||'–',   icon:Clock,       color:'#a78bfa', small:!!nästaService, action: nästaService ? () => setFlik('oversikt') : null },
               ].map(({ label, value, icon:Icon, color, small, action }) => (
                 <div key={label} onClick={action||undefined} style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, padding:'14px 16px', cursor:action?'pointer':'default', transition:'box-shadow 0.15s', userSelect:'none' }}
@@ -515,13 +785,22 @@ export default function KundPortal({ user, onLoggaUt }) {
               ))}
             </div>
 
-            {/* Anmäl fel */}
-            <button onClick={() => öppnaFelanmälan()} style={{ width:'100%', padding:'14px', borderRadius:10, marginBottom:20, background:'var(--c-red)', color:'#fff', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-              <AlertCircle size={16} /> Anmäl fel
-            </button>
+            {/* Nästa service-påminnelse (global) */}
+            {nästaService && (() => {
+              const d = dagarTill(nästaService)
+              if (d === null || d > 60) return null
+              return (
+                <div style={{ background: d < 0 ? 'var(--c-red-bg)' : 'var(--c-amber-bg)', border:`1px solid ${d<0?'var(--c-red)':'var(--c-amber)'}`, borderRadius:10, padding:'10px 14px', marginBottom:16, display:'flex', alignItems:'center', gap:10 }}>
+                  <Clock size={15} color={d < 0 ? 'var(--c-red)' : 'var(--c-amber)'} />
+                  <span style={{ fontSize:12, fontWeight:600, color: d < 0 ? 'var(--c-red-text)' : 'var(--c-amber-text)' }}>
+                    {d < 0 ? `En eller flera portar har försenad service (${Math.abs(d)}+ dagar)` : `Nästa service om ${d} dagar – ${nästaService}`}
+                  </span>
+                </div>
+              )
+            })()}
 
             {/* Aktiva ärenden – kompakt */}
-            <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:20, overflow:'hidden' }}>
+            <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, marginBottom:16, overflow:'hidden' }}>
               <div style={{ padding:'12px 18px', borderBottom:'1px solid var(--c-border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <span style={{ fontSize:13, fontWeight:600 }}>Aktiva ärenden</span>
                 {öppnaArenden.length > 0 && (
@@ -557,7 +836,6 @@ export default function KundPortal({ user, onLoggaUt }) {
                 <DoorOpen size={14} color="var(--c-blue)" />
                 <span style={{ fontSize:13, fontWeight:600, flex:1 }}>Portar ({sokPortar.length}{sokPortar.length !== filtPortar.length ? ` av ${filtPortar.length}` : ''})</span>
               </div>
-              {/* Sökruta */}
               <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--c-border)', position:'relative' }}>
                 <Search size={13} style={{ position:'absolute', left:28, top:'50%', transform:'translateY(-50%)', color:'var(--c-text3)' }} />
                 <input value={sokText} onChange={e => setSokText(e.target.value)} placeholder="Sök port…"
@@ -578,7 +856,8 @@ export default function KundPortal({ user, onLoggaUt }) {
                         </div>
                       )}
                       {fps.map((p, i) => (
-                        <PortRad key={p.id} port={p} sista={i===fps.length-1} öppnaArenden={arenden.filter(a => (a.objekt_id===p.id||a.namn===p.namn) && a.status!=='atgardad').length} onClick={() => setPortDetalj(p)} />
+                        <PortRad key={p.id} port={p} sista={i===fps.length-1} öppnaArenden={arenden.filter(a => (a.objekt_id===p.id||a.namn===p.namn) && a.status!=='atgardad').length}
+                          onClick={() => { setPortDetalj(p); laddaPortFiler(p.id) }} />
                       ))}
                     </div>
                   )
@@ -596,7 +875,8 @@ export default function KundPortal({ user, onLoggaUt }) {
                       </div>
                     )}
                     {lösa.map((p, i) => (
-                      <PortRad key={p.id} port={p} sista={i===lösa.length-1} öppnaArenden={arenden.filter(a => (a.objekt_id===p.id||a.namn===p.namn) && a.status!=='atgardad').length} onClick={() => setPortDetalj(p)} />
+                      <PortRad key={p.id} port={p} sista={i===lösa.length-1} öppnaArenden={arenden.filter(a => (a.objekt_id===p.id||a.namn===p.namn) && a.status!=='atgardad').length}
+                        onClick={() => { setPortDetalj(p); laddaPortFiler(p.id) }} />
                     ))}
                   </div>
                 ) : null
@@ -630,6 +910,20 @@ export default function KundPortal({ user, onLoggaUt }) {
         {/* ── PROTOKOLL ── */}
         {flik === 'protokoll' && (
           <>
+            {/* Servicestatistik */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
+              {[
+                { label:'Totalt utförda', value: totalService },
+                { label:`Service ${ärÅr}`, value: serviceÅr },
+                { label:'Senaste service', value: senasteService || '–', small: !!senasteService },
+              ].map(({ label, value, small }) => (
+                <div key={label} className="metric-card">
+                  <div className="metric-label">{label}</div>
+                  <div className="metric-value" style={{ fontSize: small ? 14 : 22 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
             {totalDok === 0 ? (
               <div style={{ padding:'40px 20px', textAlign:'center', color:'var(--c-text3)', fontSize:13 }}>Inga protokoll tillgängliga ännu.</div>
             ) : (
@@ -642,7 +936,7 @@ export default function KundPortal({ user, onLoggaUt }) {
                     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                       {montageorder.map(mo => (
                         <div key={mo.id} style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, padding:'12px 18px', display:'flex', alignItems:'center', gap:12 }}>
-                          <div style={{ width:36, height:36, borderRadius:9, background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <div style={{ width:36, height:36, borderRadius:9, background:'var(--c-teal-bg)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                             <FileText size={16} color="var(--c-teal)" />
                           </div>
                           <div style={{ flex:1, minWidth:0 }}>
@@ -671,7 +965,7 @@ export default function KundPortal({ user, onLoggaUt }) {
                     <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                       {protokollPerPort.map(({ port, soLista }) => (
                         <div key={port.id} style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:12, overflow:'hidden' }}>
-                          <button onClick={() => setPortDetalj(port)} style={{ width:'100%', padding:'12px 18px', background:'var(--c-bg)', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid var(--c-border)', border:'none', cursor:'pointer', textAlign:'left' }}>
+                          <button onClick={() => { setPortDetalj(port); laddaPortFiler(port.id) }} style={{ width:'100%', padding:'12px 18px', background:'var(--c-bg)', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid var(--c-border)', border:'none', cursor:'pointer', textAlign:'left' }}>
                             <DoorOpen size={13} color="var(--c-blue)" />
                             <span style={{ fontSize:13, fontWeight:600 }}>{port.namn}</span>
                             <span style={{ fontSize:11, color:'var(--c-text3)' }}>{port.typ}{port.fabrikat?` · ${port.fabrikat}`:''}</span>
@@ -679,7 +973,7 @@ export default function KundPortal({ user, onLoggaUt }) {
                           </button>
                           {soLista.map((so, i) => (
                             <div key={so.id} style={{ padding:'12px 18px', display:'flex', alignItems:'center', gap:12, borderBottom: i<soLista.length-1?'1px solid var(--c-border)':'none' }}>
-                              <div style={{ width:34, height:34, borderRadius:8, background:'var(--c-blue-bg,#eff6ff)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                              <div style={{ width:34, height:34, borderRadius:8, background:'var(--c-blue-bg)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                                 <FileText size={15} color="var(--c-blue)" />
                               </div>
                               <div style={{ flex:1, minWidth:0 }}>
@@ -735,7 +1029,7 @@ function ArendeKort({ arende: a, expanderat, onToggle }) {
           )}
           {a.notering && (
             <div style={{ marginTop:12, padding:'10px 12px', background:'var(--c-teal-bg)', borderRadius:8, border:'1px solid var(--c-teal)' }}>
-              <div style={{ fontSize:11, fontWeight:600, color:'var(--c-teal-text)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em' }}>Åtgärd</div>
+              <div style={{ fontSize:11, fontWeight:600, color:'var(--c-teal-text)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em' }}>Åtgärd / Teknikernotering</div>
               <div style={{ fontSize:13, color:'var(--c-teal-text)', lineHeight:1.6 }}>{a.notering}</div>
             </div>
           )}
@@ -757,8 +1051,10 @@ function ArendeKort({ arende: a, expanderat, onToggle }) {
 
 // ── PortRad ────────────────────────────────────────────────────────────────────
 function PortRad({ port, sista, öppnaArenden = 0, onClick }) {
+  const idag = new Date().toISOString().slice(0,10)
   const statusFärg = { ok:'var(--c-teal)', varning:'#f59e0b', försenad:'var(--c-red)', okänd:'var(--c-text3)' }
   const färg = statusFärg[port.status] || statusFärg.okänd
+  const dTill = dagarTill(port.nasta)
   return (
     <button onClick={onClick} style={{ width:'100%', padding:'10px 18px', borderBottom:sista?'none':'1px solid var(--c-border)', display:'flex', alignItems:'center', gap:10, background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
       <div style={{ width:7, height:7, borderRadius:'50%', background:färg, flexShrink:0 }} />
@@ -775,7 +1071,9 @@ function PortRad({ port, sista, öppnaArenden = 0, onClick }) {
       {port.nasta && (
         <div style={{ textAlign:'right', flexShrink:0, marginRight:4 }}>
           <div style={{ fontSize:10, color:'var(--c-text3)' }}>Nästa service</div>
-          <div style={{ fontSize:12, fontWeight:600, color: port.nasta < new Date().toISOString().slice(0,10) ? 'var(--c-red)' : 'var(--c-text2)' }}>{port.nasta}</div>
+          <div style={{ fontSize:12, fontWeight:600, color: dTill !== null && dTill < 0 ? 'var(--c-red)' : dTill !== null && dTill <= 30 ? 'var(--c-amber)' : 'var(--c-text2)' }}>
+            {dTill !== null && dTill < 0 ? `${Math.abs(dTill)}d försenad` : dTill !== null && dTill <= 30 ? `${dTill}d kvar` : port.nasta}
+          </div>
         </div>
       )}
       <ChevronRight size={14} color="var(--c-text3)" style={{ flexShrink:0 }} />
