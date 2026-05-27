@@ -307,6 +307,17 @@ export default function App() {
     kollaInbjudan()
   }, [user?.id, rollForsok])  // Kör vid ny inloggning eller manuellt försök
 
+  // Auto-synka inloggad användare till user_roles (visas i Medarbetare-listan)
+  useEffect(() => {
+    if (!user) return
+    const roll = user.user_metadata?.roll
+    if (!roll || roll === 'kund') return  // Kunder hanteras separat
+    supabase.from('user_roles').upsert(
+      { user_id: user.id, roll, email: user.email, namn: user.user_metadata?.namn || '' },
+      { onConflict: 'user_id' }
+    )
+  }, [user?.id])
+
   // Auto-synka tekniker med namn till tekniker-tabellen vid varje inloggning
   useEffect(() => {
     if (!user) return
