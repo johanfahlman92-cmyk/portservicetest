@@ -196,8 +196,9 @@ export default function App() {
   const getHashPage = () => window.location.hash.slice(1) || 'dashboard'
   const [page, setPage]               = useState(getHashPage)
   const [user, setUser]               = useState(null)
-  const [authLaddas, setAuthLaddas]       = useState(true)
+  const [authLaddas, setAuthLaddas]             = useState(true)
   const [rollKontrollKlar, setRollKontrollKlar] = useState(false)
+  const [rollForsok,       setRollForsok]       = useState(0)
   const [sidomenyÖppen, setSidomenyÖppen] = useState(() => window.innerWidth >= 768)
   const [fältläge,      setFältläge]      = useState(false)
 
@@ -304,7 +305,7 @@ export default function App() {
       }
     }
     kollaInbjudan()
-  }, [user?.id])  // Kör bara när user.id förändras (ny inloggning)
+  }, [user?.id, rollForsok])  // Kör vid ny inloggning eller manuellt försök
 
   // Auto-synka tekniker med namn till tekniker-tabellen vid varje inloggning
   useEffect(() => {
@@ -750,14 +751,27 @@ export default function App() {
       <div style={{ background: 'white', padding: '40px 32px', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', textAlign: 'center', maxWidth: 420, width: '100%' }}>
         <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fff3cd', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>🔒</div>
         <h2 style={{ color: '#1C3461', margin: '0 0 10px', fontSize: 22 }}>Ingen behörighet</h2>
-        <p style={{ color: '#555', margin: '0 0 8px', lineHeight: 1.6 }}>Ditt konto saknar tilldelad roll. Kontakta en administratör för att få tillgång till systemet.</p>
-        <p style={{ color: '#999', fontSize: 13, margin: '0 0 28px', wordBreak: 'break-all' }}>{user.email}</p>
-        <button
-          onClick={loggaUt}
-          style={{ background: '#1C3461', color: 'white', border: 'none', padding: '11px 28px', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 500 }}
-        >
-          Logga ut
-        </button>
+        <p style={{ color: '#555', margin: '0 0 8px', lineHeight: 1.6 }}>
+          Ditt konto saknar tilldelad roll. Be administratören bjuda in dig via Inställningar.
+        </p>
+        <p style={{ color: '#999', fontSize: 13, margin: '0 0 24px', wordBreak: 'break-all' }}>{user.email}</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => { setRollKontrollKlar(false); setRollForsok(n => n + 1) }}
+            style={{ background: '#1D9E75', color: 'white', border: 'none', padding: '11px 24px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+          >
+            🔄 Försök igen
+          </button>
+          <button
+            onClick={loggaUt}
+            style={{ background: 'transparent', color: '#1C3461', border: '1px solid #1C3461', padding: '11px 24px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}
+          >
+            Logga ut
+          </button>
+        </div>
+        <p style={{ color: '#bbb', fontSize: 11, marginTop: 16, marginBottom: 0 }}>
+          Klicka "Försök igen" efter att administratören skapat inbjudan
+        </p>
       </div>
     </div>
   )
