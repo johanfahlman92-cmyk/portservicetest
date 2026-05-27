@@ -221,7 +221,9 @@ export default function Felanmalan({ kunder = [], objekt = [], tekniker = [], on
                       <select value={valdObjekt} onChange={e => setValdObjekt(e.target.value)} style={inp}>
                         <option value="">Ej specificerad</option>
                         {kundObjekt.map(o => (
-                          <option key={o.id} value={o.namn}>{o.namn}</option>
+                          <option key={o.id} value={o.namn}>
+                            {o.namn}{o.position ? ` (${o.position})` : ''}
+                          </option>
                         ))}
                       </select>
                     </>
