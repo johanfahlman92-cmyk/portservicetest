@@ -196,7 +196,8 @@ export default function App() {
   const getHashPage = () => window.location.hash.slice(1) || 'dashboard'
   const [page, setPage]               = useState(getHashPage)
   const [user, setUser]               = useState(null)
-  const [authLaddas, setAuthLaddas]   = useState(true)
+  const [authLaddas, setAuthLaddas]       = useState(true)
+  const [rollKontrollKlar, setRollKontrollKlar] = useState(false)
   const [sidomenyÖppen, setSidomenyÖppen] = useState(() => window.innerWidth >= 768)
   const [fältläge,      setFältläge]      = useState(false)
 
@@ -263,33 +264,44 @@ export default function App() {
 
   // Kontrollera om nyinloggad saknar roll → kolla inbjudningstabell
   useEffect(() => {
-    if (!user) return
-    if (user.user_metadata?.roll) return  // Redan har roll, hoppa över
+    if (!user) {
+      setRollKontrollKlar(false)
+      return
+    }
+    if (user.user_metadata?.roll) {
+      setRollKontrollKlar(true)
+      return  // Redan har roll, hoppa över
+    }
+    setRollKontrollKlar(false)
     async function kollaInbjudan() {
-      const { data } = await supabase
-        .from('brukar_inbjudningar')
-        .select('*')
-        .eq('email', user.email)
-        .maybeSingle()
-      if (!data) return
-      // Sätt roll + namn från inbjudan
-      await supabase.auth.updateUser({
-        data: {
-          roll:      data.roll,
-          namn:      data.namn      || '',
-          kund_id:   data.kund_id   || null,
-          kund_namn: data.kund_namn || '',
-        },
-      })
-      // Auto-lägg till i tekniker-listan om tekniker med namn
-      if (data.roll === 'tekniker' && data.namn) {
-        await supabase.from('tekniker').upsert({ namn: data.namn }, { onConflict: 'namn' })
+      try {
+        const { data } = await supabase
+          .from('brukar_inbjudningar')
+          .select('*')
+          .eq('email', user.email)
+          .maybeSingle()
+        if (!data) return
+        // Sätt roll + namn från inbjudan
+        await supabase.auth.updateUser({
+          data: {
+            roll:      data.roll,
+            namn:      data.namn      || '',
+            kund_id:   data.kund_id   || null,
+            kund_namn: data.kund_namn || '',
+          },
+        })
+        // Auto-lägg till i tekniker-listan om tekniker med namn
+        if (data.roll === 'tekniker' && data.namn) {
+          await supabase.from('tekniker').upsert({ namn: data.namn }, { onConflict: 'namn' })
+        }
+        // Radera inbjudan (används bara en gång)
+        await supabase.from('brukar_inbjudningar').delete().eq('id', data.id)
+        // Uppdatera user-objektet med ny metadata
+        const { data: { user: refreshed } } = await supabase.auth.getUser()
+        if (refreshed) setUser(refreshed)
+      } finally {
+        setRollKontrollKlar(true)
       }
-      // Radera inbjudan (används bara en gång)
-      await supabase.from('brukar_inbjudningar').delete().eq('id', data.id)
-      // Uppdatera user-objektet med ny metadata
-      const { data: { user: refreshed } } = await supabase.auth.getUser()
-      if (refreshed) setUser(refreshed)
     }
     kollaInbjudan()
   }, [user?.id])  // Kör bara när user.id förändras (ny inloggning)
@@ -724,6 +736,31 @@ export default function App() {
 
   // Rollbaserad routing
   const roll = user.user_metadata?.roll
+
+  // Väntar på att inbjudningskontroll ska slutföras
+  if (!rollKontrollKlar && !roll) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1917' }}>
+      <div style={{ color: '#9a9890', fontSize: 14 }}>Kontrollerar behörighet…</div>
+    </div>
+  )
+
+  // Inloggad men saknar tilldelad roll
+  if (!roll) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f2f5', padding: 16 }}>
+      <div style={{ background: 'white', padding: '40px 32px', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', textAlign: 'center', maxWidth: 420, width: '100%' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fff3cd', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>🔒</div>
+        <h2 style={{ color: '#1C3461', margin: '0 0 10px', fontSize: 22 }}>Ingen behörighet</h2>
+        <p style={{ color: '#555', margin: '0 0 8px', lineHeight: 1.6 }}>Ditt konto saknar tilldelad roll. Kontakta en administratör för att få tillgång till systemet.</p>
+        <p style={{ color: '#999', fontSize: 13, margin: '0 0 28px', wordBreak: 'break-all' }}>{user.email}</p>
+        <button
+          onClick={loggaUt}
+          style={{ background: '#1C3461', color: 'white', border: 'none', padding: '11px 28px', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 500 }}
+        >
+          Logga ut
+        </button>
+      </div>
+    </div>
+  )
 
   const visaFältvy      = roll === 'admin' && fältläge
   const aktiverFältläge = () => setFältläge(true)
