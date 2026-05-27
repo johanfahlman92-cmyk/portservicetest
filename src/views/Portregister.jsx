@@ -1481,10 +1481,18 @@ export default function Portregister({ objekt = [], kunder = [], fastigheter = [
                 <DoorOpen size={18} color={statusConfig[obj.status]?.color || '#888'} />
               </div>
               <div className="row-main">
-                <div className="row-name">{obj.namn}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <div className="row-name">{obj.namn}</div>
+                  {obj.position && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
+                      background: 'var(--c-blue-bg)', color: 'var(--c-blue)',
+                      border: '1px solid var(--c-blue)', whiteSpace: 'nowrap',
+                    }}>{obj.position}</span>
+                  )}
+                </div>
                 <div className="row-sub">
                   {obj.plats ? `${obj.plats} · ` : ''}{obj.kund} · {obj.fabrikat} · {obj.ar}
-                  {obj.position    ? ` · ${obj.position}` : ''}
                   {obj.ordernummer ? ` · Order: ${obj.ordernummer}` : ''}
                   {obj.serienummer ? ` · S/N: ${obj.serienummer}` : ''}
                 </div>
