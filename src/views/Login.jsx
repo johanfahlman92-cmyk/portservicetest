@@ -27,6 +27,17 @@ export default function Login() {
     if (losenord !== losenord2) { setFel('Lösenorden matchar inte.'); return }
     if (losenord.length < 6)   { setFel('Lösenordet måste vara minst 6 tecken.'); return }
     setLaddar(true)
+    // Kontrollera att inbjudan finns innan konto skapas
+    const { data: inbjudan } = await supabase
+      .from('brukar_inbjudningar')
+      .select('id')
+      .eq('email', epost.trim().toLowerCase())
+      .maybeSingle()
+    if (!inbjudan) {
+      setLaddar(false)
+      setFel('Inget inbjudningsbrev hittades för denna e-post. Kontakta administratören.')
+      return
+    }
     const { error } = await supabase.auth.signUp({ email: epost, password: losenord })
     setLaddar(false)
     if (error) { setFel('Kunde inte skapa konto: ' + error.message); return }
@@ -288,7 +299,7 @@ export default function Login() {
             {fel && <div style={{ fontSize: 12, color: '#c0392b', background: '#fdf0f0', padding: '8px 12px', borderRadius: 8, marginBottom: 14 }}>{fel}</div>}
             <button type="submit" disabled={laddar} style={BTN}>{laddar ? 'Skapar konto…' : 'Skapa konto'}</button>
             <p style={{ fontSize: 12, color: '#999', textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
-              Kontot kopplas automatiskt till rätt roll om du är inbjuden.
+              Du behöver en inbjudan från administratören för att skapa konto.
             </p>
           </form>
         )}
