@@ -60,12 +60,167 @@ export default function Login() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#1a1917', padding: 16,
+      padding: 16,
+      background: 'linear-gradient(145deg, #060f1e 0%, #0d2040 40%, #1C3461 75%, #0a3d3a 100%)',
+      backgroundAttachment: 'fixed',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
+      <style>{`
+        @keyframes glow-pulse {
+          0%, 100% { opacity: 0.55; transform: scale(1); }
+          50%       { opacity: 0.85; transform: scale(1.12); }
+        }
+        @keyframes glow-pulse2 {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50%       { opacity: 0.7; transform: scale(1.08); }
+        }
+        @keyframes door-glow {
+          0%, 100% { filter: drop-shadow(0 0 6px rgba(13,148,136,0.35)); }
+          50%       { filter: drop-shadow(0 0 18px rgba(13,148,136,0.7)); }
+        }
+      `}</style>
+
+      {/* Teal glow – uppe till vänster */}
       <div style={{
-        width: '100%', maxWidth: 380,
-        background: '#ffffff', borderRadius: 16, padding: '32px 28px',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+        position: 'fixed', top: -80, left: -80, width: 500, height: 500,
+        borderRadius: '50%', pointerEvents: 'none', zIndex: 0,
+        background: 'radial-gradient(circle, rgba(13,148,136,0.28) 0%, transparent 65%)',
+        animation: 'glow-pulse 6s ease-in-out infinite',
+      }} />
+      {/* Blå glow – mitten höger */}
+      <div style={{
+        position: 'fixed', top: '30%', right: -60, width: 420, height: 420,
+        borderRadius: '50%', pointerEvents: 'none', zIndex: 0,
+        background: 'radial-gradient(circle, rgba(28,100,180,0.22) 0%, transparent 65%)',
+        animation: 'glow-pulse2 8s ease-in-out infinite',
+      }} />
+      {/* Teal glow – nere mitten */}
+      <div style={{
+        position: 'fixed', bottom: -60, left: '35%', width: 380, height: 380,
+        borderRadius: '50%', pointerEvents: 'none', zIndex: 0,
+        background: 'radial-gradient(circle, rgba(13,148,136,0.18) 0%, transparent 65%)',
+        animation: 'glow-pulse 9s ease-in-out infinite 2s',
+      }} />
+
+      {/* Sektionsport – SVG */}
+      <svg
+        viewBox="0 0 340 300"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{
+          position: 'fixed', bottom: -30, right: -60,
+          width: 700, height: 620,
+          opacity: 0.18, pointerEvents: 'none', zIndex: 0,
+          animation: 'door-glow 6s ease-in-out infinite',
+        }}
+      >
+        {/* Ytterram */}
+        <rect x="8" y="8" width="324" height="284" rx="3"
+          fill="rgba(13,148,136,0.08)" stroke="#0D9488" strokeWidth="4"/>
+
+        {/* Panel 1 – överst, solid */}
+        <rect x="8" y="8" width="324" height="52" fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="1.5"/>
+        {/* Horisontell rib */}
+        <line x1="8" y1="34" x2="332" y2="34" stroke="#0D9488" strokeWidth="0.8" strokeOpacity="0.5"/>
+
+        {/* Panel 2 – fönsterrad */}
+        <rect x="8" y="60" width="324" height="68" fill="rgba(13,148,136,0.14)" stroke="#0D9488" strokeWidth="1.5"/>
+        {/* 5 fönster i rad */}
+        {[0,1,2,3,4].map(i => (
+          <g key={i}>
+            <rect x={18 + i*62} y="70" width="50" height="48" rx="2"
+              fill="rgba(13,148,136,0.25)" stroke="#0D9488" strokeWidth="1.5"/>
+            {/* Fönsterpost i mitten */}
+            <line x1={43 + i*62} y1="70" x2={43 + i*62} y2="118" stroke="#0D9488" strokeWidth="1"/>
+          </g>
+        ))}
+
+        {/* Panel 3 */}
+        <rect x="8" y="128" width="324" height="52" fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="1.5"/>
+        <line x1="8" y1="154" x2="332" y2="154" stroke="#0D9488" strokeWidth="0.8" strokeOpacity="0.5"/>
+
+        {/* Panel 4 */}
+        <rect x="8" y="180" width="324" height="52" fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="1.5"/>
+        <line x1="8" y1="206" x2="332" y2="206" stroke="#0D9488" strokeWidth="0.8" strokeOpacity="0.5"/>
+
+        {/* Panel 5 – underst */}
+        <rect x="8" y="232" width="324" height="60" fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="1.5"/>
+        <line x1="8" y1="258" x2="332" y2="258" stroke="#0D9488" strokeWidth="0.8" strokeOpacity="0.5"/>
+
+        {/* Skenor */}
+        <rect x="0" y="8" width="6" height="284" fill="rgba(13,148,136,0.35)"/>
+        <rect x="334" y="8" width="6" height="284" fill="rgba(13,148,136,0.35)"/>
+      </svg>
+
+      {/* Vikport 4-delad – SVG */}
+      <svg
+        viewBox="0 0 340 300"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{
+          position: 'fixed', bottom: -30, left: -50,
+          width: 660, height: 580,
+          opacity: 0.18, pointerEvents: 'none', zIndex: 0,
+          animation: 'door-glow 6s ease-in-out infinite 1.5s',
+        }}
+      >
+        {/* Övre skena */}
+        <rect x="0" y="0" width="340" height="10" fill="rgba(13,148,136,0.5)"/>
+        {/* Nedre tröskel */}
+        <rect x="0" y="290" width="340" height="10" fill="rgba(13,148,136,0.5)"/>
+
+        {/* 4 vertikala paneler */}
+        {[0,1,2,3].map(i => (
+          <g key={i}>
+            {/* Fylld panel */}
+            <rect x={4 + i*84} y="10" width="80" height="280"
+              fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="2"/>
+
+            {/* Vertikala ribs */}
+            <line x1={24 + i*84} y1="10" x2={24 + i*84} y2="290" stroke="#0D9488" strokeWidth="0.7" strokeOpacity="0.4"/>
+            <line x1={44 + i*84} y1="10" x2={44 + i*84} y2="290" stroke="#0D9488" strokeWidth="0.7" strokeOpacity="0.4"/>
+            <line x1={64 + i*84} y1="10" x2={64 + i*84} y2="290" stroke="#0D9488" strokeWidth="0.7" strokeOpacity="0.4"/>
+
+            {/* Horisontell förstyvare */}
+            <rect x={6 + i*84} y="130" width="76" height="6" rx="1"
+              fill="rgba(13,148,136,0.35)" stroke="#0D9488" strokeWidth="1"/>
+
+            {/* Fönster – portrait, nedre halvan */}
+            <rect x={16 + i*84} y="180" width="48" height="80" rx="2"
+              fill="rgba(13,148,136,0.28)" stroke="#0D9488" strokeWidth="1.5"/>
+            {/* Fönsterpost horisontell */}
+            <line x1={16 + i*84} y1="220" x2={64 + i*84} y2="220" stroke="#0D9488" strokeWidth="1"/>
+            {/* Fönsterpost vertikal */}
+            <line x1={40 + i*84} y1="180" x2={40 + i*84} y2="260" stroke="#0D9488" strokeWidth="1"/>
+          </g>
+        ))}
+
+        {/* Tunga gångjärn / skarvprofiler mellan paneler */}
+        {[84, 168, 252].map(x => (
+          <g key={x}>
+            <rect x={x} y="10" width="8" height="280" fill="rgba(13,148,136,0.5)" stroke="#0D9488" strokeWidth="1"/>
+            {/* Gångjärn */}
+            {[50, 145, 240].map(y => (
+              <rect key={y} x={x - 4} y={y} width="16" height="12" rx="2"
+                fill="rgba(13,148,136,0.7)" stroke="#0D9488" strokeWidth="1"/>
+            ))}
+          </g>
+        ))}
+      </svg>
+
+      {/* Företagsnamn i bakgrunden */}
+      <div style={{
+        position: 'fixed', bottom: 24, left: 0, right: 0,
+        textAlign: 'center', pointerEvents: 'none', zIndex: 0,
+        fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.12)', fontWeight: 600,
+      }}>
+        NMV Portservice · Servicehanteringssystem
+      </div>
+
+      <div style={{
+        width: '100%', maxWidth: 380, position: 'relative', zIndex: 1,
+        background: 'rgba(255,255,255,0.97)', borderRadius: 16, padding: '32px 28px',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(13,148,136,0.15)',
       }}>
 
         {/* Logo */}
@@ -163,3 +318,4 @@ export default function Login() {
     </div>
   )
 }
+
