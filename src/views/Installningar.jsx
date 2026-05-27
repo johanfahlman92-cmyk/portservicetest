@@ -407,19 +407,26 @@ function TeknikerPanel() {
 
   const hamta = async () => {
     setLaddas(true)
-    const [{ data: roller }, { data: inbjudna }] = await Promise.all([
-      supabase.from('user_roles').select('email, namn, roll, kund_namn').order('roll'),
-      supabase.from('brukar_inbjudningar').select('email, namn, roll, kund_namn').order('roll'),
-    ])
-    const aktiva      = (roller   || []).map(r => ({ ...r, status: 'aktiv' }))
-    const aktivaEmails = new Set(aktiva.map(r => r.email?.toLowerCase()))
-    const väntande    = (inbjudna || [])
-      .filter(i => !aktivaEmails.has(i.email?.toLowerCase()))
-      .map(i => ({ ...i, status: 'väntande' }))
-    const alla = [...aktiva, ...väntande]
-    setPersonal(alla.filter(u => u.roll !== 'kund'))
-    setKunder(alla.filter(u => u.roll === 'kund'))
-    setLaddas(false)
+    try {
+      const [res1, res2] = await Promise.all([
+        supabase.from('user_roles').select('*').order('roll'),
+        supabase.from('brukar_inbjudningar').select('*').order('roll'),
+      ])
+      if (res1.error) console.error('user_roles fel:', res1.error)
+      if (res2.error) console.error('brukar_inbjudningar fel:', res2.error)
+      const aktiva      = (res1.data || []).map(r => ({ ...r, status: 'aktiv' }))
+      const aktivaEmails = new Set(aktiva.map(r => r.email?.toLowerCase()))
+      const väntande    = (res2.data || [])
+        .filter(i => !aktivaEmails.has(i.email?.toLowerCase()))
+        .map(i => ({ ...i, status: 'väntande' }))
+      const alla = [...aktiva, ...väntande]
+      setPersonal(alla.filter(u => u.roll !== 'kund'))
+      setKunder(alla.filter(u => u.roll === 'kund'))
+    } catch (err) {
+      console.error('TeknikerPanel fel:', err)
+    } finally {
+      setLaddas(false)
+    }
   }
 
   useEffect(() => { hamta() }, [])
