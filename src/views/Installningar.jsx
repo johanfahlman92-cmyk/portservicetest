@@ -431,14 +431,38 @@ function TeknikerPanel() {
 
   useEffect(() => { hamta() }, [])
 
-  const AnvändarRad = ({ u }) => (
+  const [redigerar, setRedigerar] = useState(null) // user_id
+  const [nyttNamn,  setNyttNamn]  = useState('')
+  const [spararNamn, setSparar]   = useState(false)
+
+  const sparaNamn = async (u) => {
+    if (!nyttNamn.trim() || !u.user_id) return
+    setSparar(true)
+    const gammaltNamn = u.namn || ''
+    await supabase.from('user_roles').update({ namn: nyttNamn.trim() }).eq('user_id', u.user_id)
+    // Uppdatera tekniker-tabellen om rollen är tekniker
+    if (u.roll === 'tekniker' && gammaltNamn) {
+      await supabase.from('tekniker').update({ namn: nyttNamn.trim() }).eq('namn', gammaltNamn)
+    }
+    setSparar(false)
+    setRedigerar(null)
+    // Uppdatera lokalt
+    const uppdatera = lista => lista.map(x => x.user_id === u.user_id ? { ...x, namn: nyttNamn.trim() } : x)
+    setPersonal(prev => uppdatera(prev))
+    setKunder(prev => uppdatera(prev))
+  }
+
+  const AnvändarRad = ({ u }) => {
+    const redigeras = redigerar === u.user_id
+    return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '9px 12px', borderRadius: 8,
       background: 'var(--c-bg)', border: '1px solid var(--c-border)',
       opacity: u.status === 'väntande' ? 0.7 : 1,
+      gap: 8,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
           background: ROLL_BG[u.roll] || 'var(--c-blue-bg)',
@@ -447,14 +471,39 @@ function TeknikerPanel() {
         }}>
           {(u.namn || u.email || '?').charAt(0).toUpperCase()}
         </div>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{u.namn || u.email || '—'}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {redigeras ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                autoFocus
+                value={nyttNamn}
+                onChange={e => setNyttNamn(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') sparaNamn(u); if (e.key === 'Escape') setRedigerar(null) }}
+                style={{ ...FÄLT, width: 160, padding: '4px 8px', fontSize: 13 }}
+              />
+              <button onClick={() => sparaNamn(u)} disabled={spararNamn}
+                style={{ ...BTN_PRI, padding: '4px 10px', fontSize: 12 }}>
+                {spararNamn ? '…' : '✓'}
+              </button>
+              <button onClick={() => setRedigerar(null)}
+                style={{ ...BTN_SEC, padding: '4px 8px', fontSize: 12 }}>✕</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{u.namn || u.email || '—'}</div>
+              {u.status === 'aktiv' && (
+                <button onClick={() => { setRedigerar(u.user_id); setNyttNamn(u.namn || '') }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text3)', padding: '0 2px', fontSize: 12, lineHeight: 1 }}
+                  title="Redigera namn">✏️</button>
+              )}
+            </div>
+          )}
           <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>
             {u.email}{u.kund_namn ? ` · ${u.kund_namn}` : ''}
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: ROLL_BG[u.roll], color: ROLL_FÄRG[u.roll] }}>
           {ROLL_LABEL[u.roll] || u.roll}
         </span>
@@ -466,7 +515,7 @@ function TeknikerPanel() {
         </span>
       </div>
     </div>
-  )
+  )}
 
   const Sektion = ({ titel, lista, tom }) => (
     <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginTop: 16 }}>
