@@ -70,6 +70,7 @@ async function skrivUtArende(a) {
 
 function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdatera, onUppdateraObjekt, onLaggTillBokning, onTaBortBokning, bokningar = {}, onBack }) {
   const [visaTilldela,  setVisaTilldela]  = useState(false)
+  const [bekraftaStang, setBekraftaStang] = useState(false)
   const [valdTekniker,  setValdTekniker]  = useState(Array.isArray(a.tekniker) ? [...a.tekniker] : a.tekniker ? [a.tekniker] : [])
   const [sparar,        setSparar]        = useState(false)
   const [dokument,      setDokument]      = useState(a.dokument || [])
@@ -510,36 +511,76 @@ function ArendeDetalj({ a, tekniker, objekt = [], protokollMallar = {}, onUppdat
 
       {/* Knappar – öppna ärenden */}
       {a.status !== 'atgardad' && !a.arkiverad && !redigerar && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {!visaTilldela && (
-            <button className="btn btn-primary" onClick={() => setVisaTilldela(true)}>
-              <UserPlus size={14} /> {(a.tekniker || []).length ? 'Ändra tekniker' : 'Tilldela tekniker'}
-            </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {!visaTilldela && (
+              <button className="btn btn-primary" onClick={() => setVisaTilldela(true)}>
+                <UserPlus size={14} /> {(a.tekniker || []).length ? 'Ändra tekniker' : 'Tilldela tekniker'}
+              </button>
+            )}
+            {!bekraftaStang && (
+              <button className="btn" onClick={() => setBekraftaStang(true)} disabled={sparar}
+                style={{ background: 'var(--c-teal)', color: '#fff', borderColor: 'var(--c-teal)' }}>
+                <CheckCircle size={14} /> Stäng ärende
+              </button>
+            )}
+          </div>
+          {bekraftaStang && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              padding: '10px 14px', borderRadius: 10,
+              background: 'var(--c-teal-bg)', border: '1px solid var(--c-teal)',
+            }}>
+              <span style={{ fontSize: 13, color: 'var(--c-teal-text)', flex: 1 }}>
+                Markera ärendet som åtgärdat?
+              </span>
+              <button onClick={stang} disabled={sparar}
+                style={{ padding: '7px 16px', background: 'var(--c-teal)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Ja, stäng
+              </button>
+              <button onClick={() => setBekraftaStang(false)}
+                style={{ padding: '7px 14px', background: 'transparent', color: 'var(--c-text2)', border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                Avbryt
+              </button>
+            </div>
           )}
-          <button className="btn" onClick={stang} disabled={sparar} style={{ background: 'var(--c-teal)', color: '#fff', borderColor: 'var(--c-teal)' }}>
-            <CheckCircle size={14} /> Stäng ärende
-          </button>
         </div>
       )}
 
-      {/* Arkivera – åtgärdade ej arkiverade */}
+      {/* Återöppna / Arkivera – åtgärdade ej arkiverade */}
       {a.status === 'atgardad' && !a.arkiverad && !redigerar && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            onClick={arkivera}
-            disabled={sparar}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: 'none', border: '1px solid var(--c-border)',
-              color: 'var(--c-text2)', transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--c-text2)'; e.currentTarget.style.color = 'var(--c-text)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--c-border)'; e.currentTarget.style.color = 'var(--c-text2)' }}
-          >
-            <Archive size={14} /> Arkivera ärende
-          </button>
-          <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>Döljer ärendet från aktiva listor</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={ateraktivera}
+              disabled={sparar}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                background: 'var(--c-blue-bg)', border: '1px solid var(--c-blue)',
+                color: 'var(--c-blue-text)', transition: 'all 0.15s',
+              }}
+            >
+              <RotateCcw size={14} /> Återöppna ärende
+            </button>
+            <button
+              onClick={arkivera}
+              disabled={sparar}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                background: 'none', border: '1px solid var(--c-border)',
+                color: 'var(--c-text2)', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--c-text2)'; e.currentTarget.style.color = 'var(--c-text)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--c-border)'; e.currentTarget.style.color = 'var(--c-text2)' }}
+            >
+              <Archive size={14} /> Arkivera ärende
+            </button>
+          </div>
+          <span style={{ fontSize: 11, color: 'var(--c-text3)' }}>
+            Återöppna om felet kvarstår · Arkivera för att dölja från aktiva listor
+          </span>
         </div>
       )}
 

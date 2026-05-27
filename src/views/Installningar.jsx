@@ -696,6 +696,11 @@ export default function Installningar({
       return
     }
 
+    // Tekniker med namn → lägg direkt i tekniker-tabellen så de syns i tilldelning
+    if (roll === 'tekniker' && namn.trim()) {
+      await supabase.from('tekniker').upsert({ namn: namn.trim() }, { onConflict: 'namn' })
+    }
+
     setEmail(''); setNamn(''); setRoll('tekniker'); setValdKund(''); setVisaForm(false)
     laddaInbjudningar()
   }
