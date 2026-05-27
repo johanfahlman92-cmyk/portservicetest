@@ -399,126 +399,100 @@ function RiskbedömningEditor({ punkter = [], onSpara }) {
   )
 }
 
-// ── Medarbetare – hämtar från brukar_inbjudningar + user_roles ───────────────
+// ── Användarlista – personal + kundportal ────────────────────────────────────
 function TeknikerPanel() {
-  const [tekniker, setTekniker] = useState([])
-  const [laddas,   setLaddas]   = useState(true)
+  const [personal,  setPersonal]  = useState([])
+  const [kunder,    setKunder]    = useState([])
+  const [laddas,    setLaddas]    = useState(true)
 
-  useEffect(() => {
-    const hamta = async () => {
-      setLaddas(true)
-      // Hämta från user_roles (inloggade användare med roll tekniker/admin/kontorist)
-      const { data: roller } = await supabase
-        .from('user_roles')
-        .select('namn, roll, email')
-        .in('roll', ['admin', 'tekniker', 'kontorist'])
-        .order('namn')
+  const hamta = async () => {
+    setLaddas(true)
+    const [{ data: roller }, { data: inbjudna }] = await Promise.all([
+      supabase.from('user_roles').select('email, namn, roll, kund_namn').order('roll'),
+      supabase.from('brukar_inbjudningar').select('email, namn, roll, kund_namn').order('roll'),
+    ])
+    const aktiva      = (roller   || []).map(r => ({ ...r, status: 'aktiv' }))
+    const aktivaEmails = new Set(aktiva.map(r => r.email?.toLowerCase()))
+    const väntande    = (inbjudna || [])
+      .filter(i => !aktivaEmails.has(i.email?.toLowerCase()))
+      .map(i => ({ ...i, status: 'väntande' }))
+    const alla = [...aktiva, ...väntande]
+    setPersonal(alla.filter(u => u.roll !== 'kund'))
+    setKunder(alla.filter(u => u.roll === 'kund'))
+    setLaddas(false)
+  }
 
-      // Hämta från väntande inbjudningar (ej loggat in än)
-      const { data: inbjudna } = await supabase
-        .from('brukar_inbjudningar')
-        .select('namn, roll, email')
-        .in('roll', ['admin', 'tekniker', 'kontorist'])
-        .order('namn')
+  useEffect(() => { hamta() }, [])
 
-      const aktiva = (roller || []).map(r => ({ ...r, status: 'aktiv' }))
-
-      // Lägg till inbjudna som INTE redan finns i aktiva (matcha på email)
-      const aktivaEmails = new Set(aktiva.map(r => r.email?.toLowerCase()))
-      const väntande = (inbjudna || [])
-        .filter(i => !aktivaEmails.has(i.email?.toLowerCase()))
-        .map(i => ({ ...i, status: 'väntande' }))
-
-      setTekniker([...aktiva, ...väntande])
-      setLaddas(false)
-    }
-    hamta()
-  }, [])
-
-  const ROLL_LABEL = { admin: 'Admin', tekniker: 'Tekniker', kontorist: 'Kontorist' }
-  const ROLL_FÄRG  = { admin: '#f59e0b', tekniker: 'var(--c-blue)', kontorist: '#a78bfa' }
-  const ROLL_BG    = { admin: '#f59e0b22', tekniker: 'var(--c-blue)22', kontorist: '#a78bfa22' }
-
-  return (
-    <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginTop: 24 }}>
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Medarbetare</div>
-          <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>
-            Användare med aktiva konton eller väntande inbjudningar
-          </div>
+  const AnvändarRad = ({ u }) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '9px 12px', borderRadius: 8,
+      background: 'var(--c-bg)', border: '1px solid var(--c-border)',
+      opacity: u.status === 'väntande' ? 0.7 : 1,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+          background: ROLL_BG[u.roll] || 'var(--c-blue-bg)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 12, fontWeight: 700, color: ROLL_FÄRG[u.roll] || 'var(--c-navy)',
+        }}>
+          {(u.namn || u.email || '?').charAt(0).toUpperCase()}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>
-          {!laddas && `${tekniker.filter(t => t.status === 'aktiv').length} aktiva · ${tekniker.filter(t => t.status === 'väntande').length} väntande`}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{u.namn || u.email || '—'}</div>
+          <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>
+            {u.email}{u.kund_namn ? ` · ${u.kund_namn}` : ''}
+          </div>
         </div>
       </div>
-
-      <div style={{ padding: '14px 20px' }}>
-        {laddas ? (
-          <div style={{ fontSize: 13, color: 'var(--c-text3)' }}>Laddar…</div>
-        ) : tekniker.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--c-text3)' }}>
-            Inga medarbetare ännu. Bjud in användare via knappen ovan.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {tekniker.map((t, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '9px 12px', borderRadius: 8,
-                background: 'var(--c-bg)', border: '1px solid var(--c-border)',
-                opacity: t.status === 'väntande' ? 0.7 : 1,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                    background: ROLL_BG[t.roll] || 'var(--c-blue-bg)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, fontWeight: 700, color: ROLL_FÄRG[t.roll] || 'var(--c-navy)',
-                  }}>
-                    {(t.namn || t.email || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>
-                      {t.namn || '—'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>{t.email}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
-                    background: ROLL_BG[t.roll], color: ROLL_FÄRG[t.roll],
-                  }}>
-                    {ROLL_LABEL[t.roll] || t.roll}
-                  </span>
-                  {t.status === 'väntande' && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
-                      background: '#f59e0b22', color: '#f59e0b',
-                    }}>
-                      Ej inloggad
-                    </span>
-                  )}
-                  {t.status === 'aktiv' && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
-                      background: 'var(--c-teal-bg)', color: 'var(--c-teal-text)',
-                    }}>
-                      ✓ Aktiv
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--c-text3)', fontStyle: 'italic' }}>
-          Hantera användare och roller via "Bjud in användare" ovan.
-          Tekniker läggs till automatiskt när de loggar in första gången.
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: ROLL_BG[u.roll], color: ROLL_FÄRG[u.roll] }}>
+          {ROLL_LABEL[u.roll] || u.roll}
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
+          background: u.status === 'aktiv' ? 'var(--c-teal-bg)' : '#f59e0b22',
+          color:      u.status === 'aktiv' ? 'var(--c-teal-text)' : '#f59e0b',
+        }}>
+          {u.status === 'aktiv' ? '✓ Aktiv' : 'Ej inloggad'}
+        </span>
       </div>
     </div>
+  )
+
+  const Sektion = ({ titel, lista, tom }) => (
+    <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginTop: 16 }}>
+      <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{titel}</div>
+        <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>
+          {lista.filter(u => u.status === 'aktiv').length} aktiva · {lista.filter(u => u.status === 'väntande').length} väntande
+        </div>
+      </div>
+      <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {lista.length === 0
+          ? <div style={{ fontSize: 13, color: 'var(--c-text3)' }}>{tom}</div>
+          : lista.map((u, i) => <AnvändarRad key={i} u={u} />)
+        }
+      </div>
+    </div>
+  )
+
+  if (laddas) return <div style={{ padding: 20, fontSize: 13, color: 'var(--c-text3)' }}>Laddar…</div>
+
+  return (
+    <>
+      <Sektion
+        titel="Personal (Admin / Tekniker / Kontorist)"
+        lista={personal}
+        tom="Inga medarbetare ännu. Bjud in via knappen ovan."
+      />
+      <Sektion
+        titel="Kundportal-användare"
+        lista={kunder}
+        tom="Inga kundportal-användare ännu."
+      />
+    </>
   )
 }
 
