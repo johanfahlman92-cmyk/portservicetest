@@ -123,21 +123,20 @@ export default function Login() {
         {/* Horisontell rib */}
         <line x1="8" y1="34" x2="332" y2="34" stroke="#0D9488" strokeWidth="0.8" strokeOpacity="0.5"/>
 
-        {/* Panel 2 – fönsterrad */}
-        <rect x="8" y="60" width="324" height="68" fill="rgba(13,148,136,0.14)" stroke="#0D9488" strokeWidth="1.5"/>
-        {/* 5 fönster i rad */}
-        {[0,1,2,3,4].map(i => (
+        {/* Panel 2 – solid */}
+        <rect x="8" y="60" width="324" height="68" fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="1.5"/>
+        <line x1="8" y1="94" x2="332" y2="94" stroke="#0D9488" strokeWidth="0.8" strokeOpacity="0.5"/>
+
+        {/* Panel 3 – 4 stora fönster i rad */}
+        <rect x="8" y="128" width="324" height="52" fill="rgba(13,148,136,0.14)" stroke="#0D9488" strokeWidth="1.5"/>
+        {[0,1,2,3].map(i => (
           <g key={i}>
-            <rect x={18 + i*62} y="70" width="50" height="48" rx="2"
-              fill="rgba(13,148,136,0.25)" stroke="#0D9488" strokeWidth="1.5"/>
-            {/* Fönsterpost i mitten */}
-            <line x1={43 + i*62} y1="70" x2={43 + i*62} y2="118" stroke="#0D9488" strokeWidth="1"/>
+            <rect x={19 + i*79} y="135" width="65" height="38" rx="2"
+              fill="rgba(13,148,136,0.28)" stroke="#0D9488" strokeWidth="1.5"/>
+            {/* Fönsterpost vertikal i mitten */}
+            <line x1={51.5 + i*79} y1="135" x2={51.5 + i*79} y2="173" stroke="#0D9488" strokeWidth="1"/>
           </g>
         ))}
-
-        {/* Panel 3 */}
-        <rect x="8" y="128" width="324" height="52" fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="1.5"/>
-        <line x1="8" y1="154" x2="332" y2="154" stroke="#0D9488" strokeWidth="0.8" strokeOpacity="0.5"/>
 
         {/* Panel 4 */}
         <rect x="8" y="180" width="324" height="52" fill="rgba(13,148,136,0.18)" stroke="#0D9488" strokeWidth="1.5"/>
