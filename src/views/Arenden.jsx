@@ -621,6 +621,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
   const [valjLage,  setValjLage]  = useState(false)
   const [valda,     setValda]     = useState(new Set())
   const [bulkSparar, setBulkSparar] = useState(false)
+  const [sparadPrefilladPort, setSparadPrefilladPort] = useState(null)
 
   useEffect(() => {
     if (initialArendeId && arenden.length > 0) {
@@ -635,6 +636,7 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
   // Auto-öppna nytt ärende-formulär med port förifylld
   useEffect(() => {
     if (prefilladPort) {
+      setSparadPrefilladPort(prefilladPort) // spara lokalt innan parent nollställer
       setVisaForm(true)
       setValt(null)
       onPrefilladPortHandled?.()
@@ -738,8 +740,8 @@ export default function Arenden({ arenden = [], tekniker = [], kunder = [], obje
             }}
             onNyKund={onNyKund}
             standaloneMode={false}
-            initialPortNamn={prefilladPort?.namn || ''}
-            initialKund={prefilladPort?.kund || ''}
+            initialPortNamn={sparadPrefilladPort?.namn || ''}
+            initialKund={sparadPrefilladPort?.kund || ''}
           />
         </div>
       )}

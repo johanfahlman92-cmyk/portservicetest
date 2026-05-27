@@ -91,7 +91,7 @@ function ToastContainer({ toasts, onRemove }) {
 }
 
 // ── Global sökning ────────────────────────────────────────────────────────────
-function GlobalSok({ objekt, kunder, fastigheter, arenden, onNavigera }) {
+function GlobalSok({ objekt, kunder, fastigheter, arenden, onNavigera, onNavigeraObjekt, onNavigeraArende }) {
   const [text,   setText]   = useState('')
   const [öppen,  setÖppen]  = useState(false)
   const ref = useRef(null)
@@ -106,19 +106,27 @@ function GlobalSok({ objekt, kunder, fastigheter, arenden, onNavigera }) {
   const resultat = q.length < 2 ? [] : [
     ...objekt.filter(o => !o.arkiverad && (
       o.namn?.toLowerCase().includes(q) || o.kund?.toLowerCase().includes(q) ||
-      o.ordernummer?.toLowerCase().includes(q) || o.serienummer?.toLowerCase().includes(q)
-    )).slice(0, 4).map(o => ({ typ: 'Port', id: o.id + 'p', namn: o.namn, sub: o.kund, page: 'register' })),
+      o.ordernummer?.toLowerCase().includes(q) || o.serienummer?.toLowerCase().includes(q) ||
+      o.position?.toLowerCase().includes(q)
+    )).slice(0, 4).map(o => ({ typ: 'Port', id: o.id + 'p', sourceId: o.id, namn: o.namn, sub: o.kund + (o.position ? ` · ${o.position}` : ''), page: 'register' })),
     ...fastigheter.filter(f => !f.arkiverad && (
       f.namn?.toLowerCase().includes(q) || f.kund?.toLowerCase().includes(q)
-    )).slice(0, 3).map(f => ({ typ: 'Fastighet', id: f.id + 'f', namn: f.namn, sub: f.kund || f.adress, page: 'fastigheter' })),
+    )).slice(0, 3).map(f => ({ typ: 'Fastighet', id: f.id + 'f', sourceId: f.id, namn: f.namn, sub: f.kund || f.adress, page: 'fastigheter' })),
     ...kunder.filter(k => k.namn?.toLowerCase().includes(q)).slice(0, 3)
-      .map(k => ({ typ: 'Kund', id: k.id + 'k', namn: k.namn, sub: k.kontakt || k.ort, page: 'kunder' })),
+      .map(k => ({ typ: 'Kund', id: k.id + 'k', sourceId: k.id, namn: k.namn, sub: k.kontakt || k.ort, page: 'kunder' })),
     ...arenden.filter(a => a.status !== 'atgardad' && (
       a.namn?.toLowerCase().includes(q) || a.kund?.toLowerCase().includes(q)
-    )).slice(0, 3).map(a => ({ typ: 'Ärende', id: a.id + 'a', namn: a.namn, sub: a.kund, page: 'arenden' })),
+    )).slice(0, 3).map(a => ({ typ: 'Ärende', id: a.id + 'a', sourceId: a.id, namn: a.namn, sub: a.kund, page: 'arenden' })),
   ]
 
   const typFärg = { Port: 'var(--c-blue)', Fastighet: '#a78bfa', Kund: 'var(--c-teal)', Ärende: 'var(--c-red)' }
+
+  const hanteraKlick = (r) => {
+    setText(''); setÖppen(false)
+    if (r.typ === 'Port')    { onNavigeraObjekt?.(r.sourceId); return }
+    if (r.typ === 'Ärende')  { onNavigeraArende?.(r.sourceId); return }
+    onNavigera(r.page)
+  }
 
   return (
     <div ref={ref} style={{ position: 'relative', flex: 1, maxWidth: 380 }}>
@@ -144,7 +152,7 @@ function GlobalSok({ objekt, kunder, fastigheter, arenden, onNavigera }) {
           {resultat.map((r, i) => (
             <div
               key={r.id}
-              onClick={() => { onNavigera(r.page); setText(''); setÖppen(false) }}
+              onClick={() => hanteraKlick(r)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', cursor: 'pointer',
                 borderBottom: i < resultat.length - 1 ? '1px solid var(--c-border)' : 'none',
@@ -952,6 +960,8 @@ export default function App() {
             fastigheter={fastigheter}
             arenden={arenden}
             onNavigera={navigera}
+            onNavigeraObjekt={navigeraObjekt}
+            onNavigeraArende={navigeraArende}
           />
           <button onClick={toggleDark} title={darkMode ? 'Ljust läge' : 'Mörkt läge'} style={{ background:'none', border:'1px solid var(--c-border)', borderRadius:8, padding:'5px 9px', fontSize:16, cursor:'pointer', color:'var(--c-text2)', flexShrink:0, lineHeight:1 }}>
             {darkMode ? '☀️' : '🌙'}

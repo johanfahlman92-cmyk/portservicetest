@@ -777,8 +777,8 @@ function NyPortForm({ kunder, fastigheter, onSpara, onAvbryt }) {
 
 // ── Serviceprotokoll-formulär ─────────────────────────────────────────────────
 // ServiceProtokollFormular: 2 eller 3 steg beroende på inkluderaRisk
-function ServiceProtokollFormular({ port, namn, tekniker: tekLista=[], inkluderaRisk=true, onSlutfor, onBack }) {
-  const punkter = protokollPunkter[port?.typ] || []
+function ServiceProtokollFormular({ port, namn, tekniker: tekLista=[], inkluderaRisk=true, onSlutfor, onBack, protokollMallar = {} }) {
+  const punkter = (protokollMallar[port?.typ] ?? protokollPunkter[port?.typ]) || []
   const [steg,    setSteg]  = useState(1)
   const [risk,    setRisk]  = useState({}); const [riskN,setRiskN]=useState({})
   const [ansvariga,setAnsvariga]=useState(namn?[{id:'a0',namn,roll:''}]:[])
@@ -893,7 +893,7 @@ function ServiceProtokollFormular({ port, namn, tekniker: tekLista=[], inkludera
 }
 
 // ── ServiceorderDetalj ────────────────────────────────────────────────────────
-function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUppdatera, onUppdateraObjekt, onBack }) {
+function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUppdatera, onUppdateraObjekt, onBack, protokollMallar = {} }) {
   const [vy,setVy]=useState('info')
   const [inkluderaRisk,setInkluderaRisk]=useState(false)
   const [redigerar,setRedigerar]=useState(false)
@@ -920,7 +920,7 @@ function ServiceorderDetalj({ order, objekt, namn, tekniker: tekLista = [], onUp
     }
     setVy('klar')
   }
-  if(vy==='protokoll')return(<ServiceProtokollFormular port={port} namn={namn} tekniker={tekLista} inkluderaRisk={inkluderaRisk} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')}/>)
+  if(vy==='protokoll')return(<ServiceProtokollFormular port={port} namn={namn} tekniker={tekLista} inkluderaRisk={inkluderaRisk} onSlutfor={hanteraSlutfort} onBack={()=>setVy('info')} protokollMallar={protokollMallar}/>)
   if(vy==='klar')return(<div style={{textAlign:'center',padding:'48px 20px'}}><CheckCircle size={56} color="var(--c-teal)" style={{margin:'0 auto 16px',display:'block'}}/><div style={{fontSize:18,fontWeight:700,color:'var(--c-teal-text)',marginBottom:8}}>Serviceorder klar!</div><div style={{fontSize:14,color:'var(--c-text2)',marginBottom:24}}>{port?.namn} · {idag()}</div><button className="btn btn-primary" onClick={onBack} style={{width:'100%',padding:14,fontSize:15}}>← Tillbaka</button></div>)
   return(
     <div>
@@ -1978,7 +1978,7 @@ export default function TeknikerVy({
       )
 
       case 'service':
-        if(valdServiceorder)return(<ServiceorderDetalj order={valdServiceorder} objekt={objekt} namn={namn} tekniker={tekniker} onUppdatera={async(id,ch)=>{await onUppdateraServiceorder(id,ch);setValdServiceorder(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onBack={()=>setValdServiceorder(null)}/>)
+        if(valdServiceorder)return(<ServiceorderDetalj order={valdServiceorder} objekt={objekt} namn={namn} tekniker={tekniker} onUppdatera={async(id,ch)=>{await onUppdateraServiceorder(id,ch);setValdServiceorder(p=>({...p,...ch}))}} onUppdateraObjekt={onUppdateraObjekt} onBack={()=>setValdServiceorder(null)} protokollMallar={protokollMallar}/>)
         return(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>

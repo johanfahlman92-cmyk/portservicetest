@@ -265,6 +265,34 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
         </p>
       </div>
 
+      {/* ── Välkommen-banner om inga portar ännu ── */}
+      {aktivaPortar === 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, #1C3461 0%, #2a4a8a 100%)',
+          borderRadius: 16, padding: '28px 32px', color: '#fff',
+          display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 48 }}>🚪</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Välkommen till NMV Portservice!</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', marginBottom: 16, lineHeight: 1.6 }}>
+              Kom igång genom att lägga till kunder och registrera era första portar.
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={() => onNavigera?.('kunder')} style={{
+                background: '#fff', color: '#1C3461', border: 'none',
+                padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}>+ Lägg till kund</button>
+              <button onClick={() => onNavigera?.('register')} style={{
+                background: 'rgba(255,255,255,0.15)', color: '#fff',
+                border: '1px solid rgba(255,255,255,0.3)',
+                padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>+ Registrera port</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── KPI-kort ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
         {[
