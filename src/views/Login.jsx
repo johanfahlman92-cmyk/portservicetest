@@ -27,17 +27,6 @@ export default function Login() {
     if (losenord !== losenord2) { setFel('Lösenorden matchar inte.'); return }
     if (losenord.length < 6)   { setFel('Lösenordet måste vara minst 6 tecken.'); return }
     setLaddar(true)
-    // Kontrollera att inbjudan finns innan konto skapas
-    const { data: inbjudan } = await supabase
-      .from('brukar_inbjudningar')
-      .select('id')
-      .eq('email', epost.trim().toLowerCase())
-      .maybeSingle()
-    if (!inbjudan) {
-      setLaddar(false)
-      setFel('Inget inbjudningsbrev hittades för denna e-post. Kontakta administratören.')
-      return
-    }
     const { error } = await supabase.auth.signUp({ email: epost, password: losenord })
     setLaddar(false)
     if (error) { setFel('Kunde inte skapa konto: ' + error.message); return }
