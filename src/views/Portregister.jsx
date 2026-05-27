@@ -772,7 +772,7 @@ function ObjektKort({ obj, onBack, onUppdateraObjekt, onTaBortObjekt, tekniker, 
           ['Placering',         obj.adress],
           ['Senaste service',   obj.senaste || '–'],
           ['Nästa service',     obj.nasta],
-          ['Protokoll',         `${obj.protokoll} (${obj.punkter} punkter)`],
+          obj.protokoll ? ['Protokoll', `${obj.protokoll}${obj.punkter ? ` (${obj.punkter} punkter)` : ''}`] : null,
         ].filter(Boolean).map(([l, v]) => (
           <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
             <span style={{ color: 'var(--c-text2)' }}>{l}</span>

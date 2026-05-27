@@ -13,8 +13,8 @@ import { hämtaLogoBase64, pdfHeader, pdfDoc, pdfMontageProt, öppnaPrintFönste
 // ── Konstanter ─────────────────────────────────────────────────────────────────
 const PRIO_LABEL = { normal: 'Normal', hog: 'Hög', akut: 'Akut' }
 const PRIO_COLOR = { normal: 'var(--c-teal)', hog: '#f59e0b', akut: 'var(--c-red)' }
-const STATUS_LABEL = { ny: 'Ny', pagaende: 'Pågår', atgardad: 'Åtgärdad' }
-const STATUS_COLOR = { ny: '#f59e0b', pagaende: 'var(--c-blue)', atgardad: 'var(--c-teal)' }
+const STATUS_LABEL = { ny: 'Ny', pagaende: 'Pågår', pagAr: 'Pågår', atgardad: 'Åtgärdad' }
+const STATUS_COLOR = { ny: '#f59e0b', pagaende: 'var(--c-blue)', pagAr: 'var(--c-blue)', atgardad: 'var(--c-teal)' }
 
 const CE_CFG = {
   godkand:        { label: 'CE-godkänd',        color: 'var(--c-teal)',  bg: 'var(--c-teal-bg)',  Icon: ShieldCheck  },
@@ -187,8 +187,12 @@ function Tidslinje({ arenden, serviceorder, montageorder, portId, portNamn, port
   // Bygg en kombinerad händelselogg för denna port
   const alla = []
 
-  // Montageorder (installation)
-  montageorder.forEach(mo => {
+  // Montageorder (installation) – filtrera på denna port
+  montageorder.filter(mo =>
+    mo.objekt_id === portId ||
+    mo.protokoll_data?.portNamn === portNamn ||
+    (mo.adress && portAdress && mo.adress === portAdress)
+  ).forEach(mo => {
     const datum = mo.protokoll_data?.datum || mo.created_at?.slice(0,10) || ''
     alla.push({
       typ: 'montering',
@@ -384,7 +388,8 @@ export default function KundPortal({ user, onLoggaUt, darkMode: darkModeProp, on
     const { error } = await supabase.from('arenden').insert({
       namn: port?.namn || 'Okänd port', kund: kundnamn,
       objekt_id: port?.id || null, feltyp, prioritet, beskrivning,
-      status: 'ny', datum: now.toISOString().slice(0, 10), nr: now.getTime(),
+      status: 'ny', datum: now.toISOString().slice(0, 10),
+      nr: now.toISOString().slice(2,10).replace(/-/g,'') + '-' + Math.floor(Math.random()*90+10),
     })
     setSparar(false)
     if (error) { setFeldMsg('Något gick fel: ' + error.message); return }

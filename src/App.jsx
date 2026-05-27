@@ -458,10 +458,11 @@ export default function App() {
   const uppdateraObjekt = async (id, changes) => {
     const dbChanges = {}
     for (const [k, v] of Object.entries(changes)) {
-      if (k === 'kundTyp')          dbChanges['kund_typ'] = v
+      if (k === 'kundTyp')               dbChanges['kund_typ'] = v
       else if (k === 'intervallProcent') dbChanges['intervall_procent'] = v
       else if (k === 'dagerForsenad')    dbChanges['dager_forsenad'] = v
       else if (k === 'fastighetId')      dbChanges['fastighet_id'] = v
+      else if (k === 'serviceIntervall') dbChanges['service_intervall'] = v
       else dbChanges[k] = v
     }
     try {
@@ -563,7 +564,7 @@ export default function App() {
 
   const laggTillTekniker = async (namn) => {
     await supabase.from('tekniker').upsert({ namn }, { onConflict: 'namn' })
-    setTekniker(prev => [...prev, namn])
+    setTekniker(prev => prev.includes(namn) ? prev : [...prev, namn])
   }
 
   const taBortTekniker = async (namn) => {
@@ -589,7 +590,10 @@ export default function App() {
 
   const taBortBokning = async (datum, index) => {
     const b = bokningar[datum]?.[index]
-    if (b?.supabaseId) await supabase.from('bokningar').delete().eq('id', b.supabaseId)
+    if (b?.supabaseId) {
+      const { error } = await supabase.from('bokningar').delete().eq('id', b.supabaseId)
+      if (error) { toast('Kunde inte ta bort bokning: ' + error.message, 'error'); return }
+    }
     setBokningar(prev => ({ ...prev, [datum]: prev[datum].filter((_, i) => i !== index) }))
   }
 
@@ -861,7 +865,7 @@ export default function App() {
     montering:        () => <Montering objekt={objektMedStatus} tekniker={tekniker} kunder={kunder} montagemallar={montagemallar} riskpunkter={riskpunkter} onUppdateraObjekt={uppdateraObjekt} onLaggTillObjekt={laggTillObjekt} onNyKund={snabbLaggTillKund} onLaggTillBokning={laggTillBokning} förifylldMontageorder={förifylldMontageorder} onFörifylldHandled={() => setFörifylldMontageorder(null)} montageorder={montageorder} onUppdateraMontageorder={uppdateraMontageorder} onLaggTillMontageorder={laggTillMontageorder} onTillbaka={() => navigera('montageplanering')} standardIntervall={foretagConfig?.standardIntervall ?? 12} />,
     montageplanering: () => <Montageplanering kunder={kunder} fastigheter={fastigheter} montageorder={montageorder} tekniker={tekniker} objekt={objektMedStatus} riskpunkter={riskpunkter} onLaggTill={laggTillMontageorder} onUppdatera={uppdateraMontageorder} onTaBort={taBortMontageorder} onNyKund={snabbLaggTillKund} onNavigeraMontering={navigeraMontering} onNyttEjPlaneratMontage={() => navigeraMontering(null)} />,
     planeringstavla:  () => <Planeringstavla montageorder={montageorder} arenden={arenden} bokningar={bokningar} serviceorder={serviceorderArr} tekniker={tekniker} kunder={kunder} objekt={objektMedStatus} onNavigeraArende={navigeraArende} onNavigeraMontering={navigeraMontering} onNavigeraServiceorder={() => navigera('serviceorder')} onLaggTillBokning={laggTillBokning} onTaBortBokning={taBortBokning} onNyKund={snabbLaggTillKund} onNavigeraObjekt={navigeraObjekt} />,
-    statistik:     () => <Statistik kunder={kunder} objekt={objektMedStatus} fastigheter={fastigheter} arenden={arenden} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
+    statistik:     () => <Statistik kunder={kunder} objekt={objektMedStatus} fastigheter={fastigheter} arenden={arenden} serviceorderArr={serviceorderArr} montageorder={montageorder} aktivitetslogg={aktivitetslogg} onExportKunder={exportKunderCSV} onExportPortar={exportPortarCSV} onExportArenden={exportArendenCSV} onExportFastigheter={exportFastigheterCSV} />,
     serviceorder:  () => <Serviceorder serviceorder={serviceorderArr} fastigheter={fastigheter} objekt={objektMedStatus} tekniker={tekniker} kunder={kunder} protokollMallar={protokollMallar} onLaggTill={laggTillServiceorder} onUppdatera={uppdateraServiceorder} onTaBort={taBortServiceorder} onUppdateraObjekt={uppdateraObjekt} onNyKund={snabbLaggTillKund} onLaggTillObjekt={laggTillObjekt} />,
     installningar: () => roll === 'admin' ? <Installningar kunder={kunder} protokollMallar={protokollMallar} onSparaProtokollMallar={sparaProtokollMallar} montagemallar={montagemallar} onSparaMontagemallar={sparaMontagemallar} riskpunkter={riskpunkter} onSparaRiskpunkter={sparaRiskpunkter} tekniker={tekniker} onLaggTillTekniker={laggTillTekniker} onTaBortTekniker={taBortTekniker} foretagConfig={foretagConfig} onSparaForetagConfig={sparaForetagConfig} darkMode={darkMode} onToggleDark={toggleDark} /> : null,
   }

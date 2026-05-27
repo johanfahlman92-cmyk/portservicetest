@@ -24,6 +24,7 @@ const ORDER_STATUS = {
   planerad: { label: 'Planerad', color: 'var(--c-text2)',  bg: 'var(--c-surface)'  },
   pagaende: { label: 'Pågående', color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)'  },
   utford:   { label: 'Utförd',   color: 'var(--c-teal)',   bg: 'var(--c-teal-bg)'  },
+  avslutad: { label: 'Avslutad', color: 'var(--c-teal)',   bg: 'var(--c-teal-bg)'  },
 }
 
 const SECTION = { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c-text3)', marginBottom: 8 }

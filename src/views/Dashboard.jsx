@@ -271,7 +271,7 @@ export default function Dashboard({ kunder = [], objekt = [], arenden = [], bokn
           { label: 'Aktiva portar',       value: aktivaPortar,      icon: DoorOpen,     color: 'var(--c-blue)',   bg: 'var(--c-blue-bg)',   nav: 'register' },
           { label: 'Öppna ärenden',       value: öppnaArenden,      icon: AlertCircle,  color: 'var(--c-red)',    bg: 'var(--c-red-bg)',    nav: 'arenden'  },
           { label: 'Service denna månad', value: serviceDennaMånad, icon: CalendarDays, color: 'var(--c-teal)',   bg: 'var(--c-teal-bg)',   nav: 'planeringstavla' },
-          { label: 'Monteringar (mån)',   value: monteringar,       icon: Wrench,       color: 'var(--c-purple)', bg: 'var(--c-purple-bg)', nav: 'montering'},
+          { label: 'Monteringar (mån)',   value: monteringar,       icon: Wrench,       color: 'var(--c-purple)', bg: 'var(--c-purple-bg)', nav: 'montageplanering'},
         ].map(m => (
           <div
             key={m.label}

@@ -99,6 +99,7 @@ function DualBarChart({ data, height = 130 }) {
 // ── Huvudkomponent ────────────────────────────────────────────────────────────
 export default function Statistik({
   kunder = [], objekt = [], fastigheter = [], arenden = [],
+  serviceorderArr = [], montageorder = [],
   aktivitetslogg = [],
   onExportKunder, onExportPortar, onExportArenden, onExportFastigheter,
 }) {
@@ -151,8 +152,11 @@ export default function Statistik({
     for (const o of aktivaPortar)
       for (const h of (o.historik || []))
         if (h.typ !== 'montering' && h.datum && (!periodeStart || h.datum >= periodeStart)) count++
+    // Räkna även avslutade serviceordrar
+    for (const so of serviceorderArr)
+      if (so.datum && (!periodeStart || so.datum >= periodeStart)) count++
     return count
-  }, [aktivaPortar, periodeStart])
+  }, [aktivaPortar, serviceorderArr, periodeStart])
 
   // ── Kombinerat diagram: protokoll + felanmälningar per månad ─────────────
   const kombinertData = useMemo(() => {
@@ -167,12 +171,14 @@ export default function Statistik({
       for (const o of aktivaPortar)
         for (const h of (o.historik || []))
           if (h.typ !== 'montering' && h.datum?.startsWith(key)) protokoll++
+      for (const so of serviceorderArr)
+        if (so.datum?.startsWith(key)) protokoll++
       for (const a of arenden)
         if (a.datum?.startsWith(key)) felanmalan++
       months.push({ label, protokoll, felanmalan })
     }
     return months
-  }, [objekt, arenden, period])
+  }, [objekt, arenden, serviceorderArr, period])
 
   // ── Tekniker-aktivitet ────────────────────────────────────────────────────
   const tekAktivitet = useMemo(() => {
