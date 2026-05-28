@@ -1,6 +1,17 @@
 import logo from '../image-1779305303942.png'
 import { RISKPUNKTER } from '../data/store.js'
 
+/** Escapa HTML-specialtecken för att förhindra XSS i PDF-utskrifter. */
+function esc(str) {
+  if (str == null) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 // ── Företagskonfiguration (sätts från App.jsx vid start) ──────────────────────
 let _companyConfig = {}
 /** Uppdaterar företagskonfigurationen som används i PDF-headers. */
@@ -124,11 +135,11 @@ export function pdfHeader(logoBase64, docType, docRef = '', docRefSub = '') {
       ${logoBase64
         ? `<img src="${logoBase64}" style="height:48px;display:block" alt="Portservice"/>`
         : `<div style="font-size:20px;font-weight:800;color:#1C3461;line-height:1">NMV Portservice</div>`}
-      <div class="doc-type">${docType}</div>
+      <div class="doc-type">${esc(docType)}</div>
     </div>
     <div>
-      ${docRef    ? `<div class="doc-ref">${docRef}</div>`         : ''}
-      ${docRefSub ? `<div class="doc-ref-sub">${docRefSub}</div>` : ''}
+      ${docRef    ? `<div class="doc-ref">${esc(docRef)}</div>`         : ''}
+      ${docRefSub ? `<div class="doc-ref-sub">${esc(docRefSub)}</div>` : ''}
     </div>
   </div>`
 }
@@ -255,8 +266,8 @@ export function pdfArende(a, logoBase64) {
     ${pdfHeader(logoBase64, 'Felanmälan', `#${a.nr || '–'}`, a.kund || '')}
     <div class="slbl">Ärendeinformation</div>
     ${meta}
-    ${a.beskrivning ? `<div class="slbl">Beskrivning</div><div class="desc-box">${a.beskrivning}</div>` : ''}
-    ${a.notering    ? `<div class="slbl">Åtgärd / notering</div><div class="desc-box">${a.notering}</div>` : ''}
+    ${a.beskrivning ? `<div class="slbl">Beskrivning</div><div class="desc-box">${esc(a.beskrivning)}</div>` : ''}
+    ${a.notering    ? `<div class="slbl">Åtgärd / notering</div><div class="desc-box">${esc(a.notering)}</div>` : ''}
   `
   return pdfDoc(`Felanmälan #${a.nr || ''}`, body)
 }
@@ -288,7 +299,7 @@ export function pdfRiskBedömning(p, logoBase64) {
     const etk = r.status === 'ok' ? '✓ OK' : r.status === 'atgard' ? '⚠ Åtgärd krävs' : '– Ej aktuellt'
     return `<tr style="background:#fffbf2">
       <td style="width:32px;color:#aaa;font-size:10px">*</td>
-      <td><strong>${r.label||'–'}</strong>${r.beskrivning ? `<div style="margin-top:4px;font-style:italic;color:#777;font-size:10px">${r.beskrivning}</div>` : ''}${r.åtgärd ? `<div style="margin-top:4px;font-style:italic;color:#666;font-size:10px">↳ ${r.åtgärd}</div>` : ''}</td>
+      <td><strong>${esc(r.label)||'–'}</strong>${r.beskrivning ? `<div style="margin-top:4px;font-style:italic;color:#777;font-size:10px">${esc(r.beskrivning)}</div>` : ''}${r.åtgärd ? `<div style="margin-top:4px;font-style:italic;color:#666;font-size:10px">↳ ${esc(r.åtgärd)}</div>` : ''}</td>
       <td style="text-align:center;white-space:nowrap"><span class="${cls}">${etk}</span></td>
     </tr>`
   }).join('')

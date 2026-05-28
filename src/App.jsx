@@ -207,6 +207,7 @@ export default function App() {
   const [authLaddas, setAuthLaddas]             = useState(true)
   const [rollKontrollKlar, setRollKontrollKlar] = useState(false)
   const [rollForsok,       setRollForsok]       = useState(0)
+  const [dbRoll,           setDbRoll]           = useState(null)
   const [sidomenyÖppen, setSidomenyÖppen] = useState(() => window.innerWidth >= 768)
   const [fältläge,      setFältläge]      = useState(false)
 
@@ -314,6 +315,13 @@ export default function App() {
     }
     kollaInbjudan()
   }, [user?.id, rollForsok])  // Kör vid ny inloggning eller manuellt försök
+
+  // Hämta auktoritativ roll från databasen (säkrare än user_metadata som kan manipuleras)
+  useEffect(() => {
+    if (!user?.id) { setDbRoll(null); return }
+    supabase.from('user_roles').select('roll').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { if (data?.roll) setDbRoll(data.roll) })
+  }, [user?.id, rollKontrollKlar])
 
   // Auto-synka inloggad användare till user_roles (visas i Medarbetare/Kunder-listan)
   useEffect(() => {
@@ -762,8 +770,8 @@ export default function App() {
   // Inloggning
   if (!user) return <Login />
 
-  // Rollbaserad routing
-  const roll = user.user_metadata?.roll
+  // Rollbaserad routing – dbRoll från databasen är auktoritativ, user_metadata som fallback
+  const roll = dbRoll || user.user_metadata?.roll
 
   // Väntar på att inbjudningskontroll ska slutföras
   if (!rollKontrollKlar && !roll) return (
