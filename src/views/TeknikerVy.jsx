@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Calendar, AlertCircle, LogOut, Clock, CheckCircle, Play,
          ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
          ClipboardList, Wrench, Database, Search, FileText, Plus, X, CalendarDays, Printer, Pencil,
-         ShieldCheck, ShieldAlert, Shield, Moon, Sun, Paperclip } from 'lucide-react'
+         ShieldCheck, ShieldAlert, Shield, Moon, Sun, Paperclip, History, Bell, MapPin } from 'lucide-react'
 import FilUppladdning from '../components/FilUppladdning.jsx'
 import ServiceorderFoto from '../components/ServiceorderFoto.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -1870,13 +1870,23 @@ export default function TeknikerVy({
   const avslutadeService = serviceorderArr.filter(o=>o.status==='avslutad').sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,30)
   const avslutadeMontage = montageorder.filter(m=>m.status==='utford').sort((a,b)=>montDatum(b).localeCompare(montDatum(a))).slice(0,30)
 
+  // ── Feature 9: Dagens ordrar (filtrerade på datum = idag) ────────────────────
+  const dagenServiceordrar = serviceorderArr.filter(o=>o.tekniker===namn&&o.datum===todayStr&&o.status!=='avslutad')
+  const dagenMontageordrar = montageorder.filter(m=>m.tekniker===namn&&montDatum(m)===todayStr&&m.status!=='utford')
+
+  // ── Feature 10: Min historik ─────────────────────────────────────────────────
+  const minaKlara           = arenden.filter(a=>!a.arkiverad&&a.status==='atgardad'&&(a.tekniker||[]).includes(namn)).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,50)
+  const minaAvslutadeService = serviceorderArr.filter(o=>o.status==='avslutad'&&o.tekniker===namn).sort((a,b)=>(b.datum||'').localeCompare(a.datum||'')).slice(0,50)
+  const minaAvslutadeMontage = montageorder.filter(m=>m.status==='utford'&&m.tekniker===namn).sort((a,b)=>montDatum(b).localeCompare(montDatum(a))).slice(0,50)
+  const minaTotalt           = minaKlara.length + minaAvslutadeService.length + minaAvslutadeMontage.length
+
   const TABS = [
-    { id:'idag',      icon:Calendar,      label:'Idag',    badge:dagensBokningar.length },
+    { id:'idag',      icon:Calendar,      label:'Idag',    badge: dagensBokningar.length + dagenServiceordrar.length + dagenMontageordrar.length },
     { id:'felanmalan',icon:AlertCircle,   label:'Felanm.', badge:minaArenden.length },
     { id:'service',   icon:ClipboardList, label:'Service', badge:minaServiceordrar.length },
     { id:'montage',   icon:Wrench,        label:'Montage', badge:minaMontageordrar.length },
     { id:'register',  icon:Database,      label:'Register',badge:0 },
-    { id:'kalender',  icon:CalendarDays,  label:'Kalender',badge:0 },
+    { id:'historik',  icon:History,       label:'Historik',badge:0 },
   ]
 
   const renderContent = () => {
@@ -1885,32 +1895,109 @@ export default function TeknikerVy({
       case 'idag': return(
         <div>
           <h1 style={{fontSize:22,fontWeight:700,marginBottom:4,textTransform:'capitalize'}}>{formatDag(todayStr)}</h1>
-          <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:16}}>{dagensBokningar.length===0?'Inga bokningar idag':`${dagensBokningar.length} bokningar schemalagda`}</p>
+          <p style={{color:'var(--c-text2)',fontSize:14,marginBottom:16}}>
+            {[dagensBokningar.length&&`${dagensBokningar.length} bokningar`,dagenServiceordrar.length&&`${dagenServiceordrar.length} serviceordrar`,dagenMontageordrar.length&&`${dagenMontageordrar.length} montage`].filter(Boolean).join(' · ')||'Inga uppgifter idag'}
+          </p>
+
+          {/* Akuta ärenden-varning */}
           {minaArenden.filter(a=>a.prioritet==='akut').length>0&&(
-            <div onClick={()=>setFlik('felanmalan')} style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:10,padding:'10px 14px',marginBottom:16,display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+            <div onClick={()=>setFlik('felanmalan')} style={{background:'var(--c-red-bg)',border:'1px solid var(--c-red)',borderRadius:10,padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
               <AlertCircle size={16} color="var(--c-red)"/>
               <span style={{fontSize:13,fontWeight:600,color:'var(--c-red-text)',flex:1}}>{minaArenden.filter(a=>a.prioritet==='akut').length} akuta ärenden kräver åtgärd</span>
               <ChevronRight size={16} color="var(--c-red)" style={{opacity:0.6}}/>
             </div>
           )}
-          {(minaServiceordrar.length>0||minaMontageordrar.length>0)&&(
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
-              {minaServiceordrar.length>0&&<div onClick={()=>setFlik('service')} className="card" style={{cursor:'pointer',padding:16,textAlign:'center'}}><ClipboardList size={26} color="var(--c-blue)" style={{margin:'0 auto 6px',display:'block'}}/><div style={{fontSize:22,fontWeight:700}}>{minaServiceordrar.length}</div><div style={{fontSize:12,color:'var(--c-text2)'}}>Serviceordrar</div></div>}
-              {minaMontageordrar.length>0&&<div onClick={()=>setFlik('montage')} className="card" style={{cursor:'pointer',padding:16,textAlign:'center'}}><Wrench size={26} color="var(--c-amber)" style={{margin:'0 auto 6px',display:'block'}}/><div style={{fontSize:22,fontWeight:700}}>{minaMontageordrar.length}</div><div style={{fontSize:12,color:'var(--c-text2)'}}>Montageordrar</div></div>}
+
+          {/* Dagens serviceordrar */}
+          {dagenServiceordrar.length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                <ClipboardList size={13}/> Serviceordrar idag
+              </div>
+              {dagenServiceordrar.map(o=>{
+                const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]
+                const adress=o.fastighet_namn||(port?.plats)||o.kund
+                return(
+                  <div key={o.id} className="card" style={{marginBottom:8,borderLeft:'4px solid var(--c-blue)',padding:'12px 14px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,fontWeight:600}}>{o.kund}</div>
+                        {port&&<div style={{fontSize:12,color:'var(--c-text2)',marginTop:2}}>{port.namn} · {port.typ}</div>}
+                        {adress&&(
+                          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adress)}`} target="_blank" rel="noopener noreferrer"
+                            onClick={e=>e.stopPropagation()}
+                            style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:11,color:'var(--c-blue)',marginTop:4,textDecoration:'none',fontWeight:600}}>
+                            <MapPin size={11}/> {adress} – Navigera
+                          </a>
+                        )}
+                      </div>
+                      <button onClick={()=>{setValdServiceorder(o);setFlik('service')}} style={{padding:'6px 12px',borderRadius:7,fontSize:12,fontWeight:600,cursor:'pointer',border:'none',background:'var(--c-blue)',color:'#fff'}}>Öppna</button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
-          {dagensBokningar.length===0?(<div className="card" style={{textAlign:'center',padding:'40px 20px'}}><Clock size={36} color="var(--c-text3)" style={{margin:'0 auto 12px',display:'block'}}/><div style={{fontSize:14,color:'var(--c-text2)'}}>Inga bokningar idag</div></div>
-          ):dagensBokningar.map((b,i)=>{
-            const typFlik = b.typ==='felanmalan'?'felanmalan':b.typ==='montering'||b.typ==='montage'?'montage':'service'
-            const typFarg = b.typ==='felanmalan'?'var(--c-red,#ef4444)':b.typ==='montering'||b.typ==='montage'?'var(--c-green,#22c55e)':'var(--c-blue,#2563eb)'
-            return(
-            <div key={i} className="card" onClick={()=>setFlik(typFlik)} style={{display:'flex',gap:14,alignItems:'center',padding:'14px 16px',marginBottom:8,cursor:'pointer',borderLeft:`4px solid ${typFarg}`}}>
-              <div style={{background:typFarg,color:'#fff',borderRadius:10,padding:'8px 10px',fontSize:14,fontWeight:700,flexShrink:0,minWidth:52,textAlign:'center'}}>{b.tid||'–'}</div>
-              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{b.namn}</div>{b.kund&&<div style={{fontSize:13,color:'var(--c-text2)'}}>{b.kund}</div>}</div>
-              <ChevronRight size={16} color="var(--c-text3)" style={{flexShrink:0}}/>
+
+          {/* Dagens montageordrar */}
+          {dagenMontageordrar.length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                <Wrench size={13}/> Montage idag
+              </div>
+              {dagenMontageordrar.map(m=>(
+                <div key={m.id} className="card" style={{marginBottom:8,borderLeft:'4px solid var(--c-amber)',padding:'12px 14px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:600}}>{m.kund||'–'}</div>
+                      <div style={{fontSize:12,color:'var(--c-text2)',marginTop:2}}>{m.porttyp} · {m.fabrikat}</div>
+                      {m.montageplats&&(
+                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.montageplats)}`} target="_blank" rel="noopener noreferrer"
+                          onClick={e=>e.stopPropagation()}
+                          style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:11,color:'var(--c-amber)',marginTop:4,textDecoration:'none',fontWeight:600}}>
+                          <MapPin size={11}/> {m.montageplats} – Navigera
+                        </a>
+                      )}
+                    </div>
+                    <button onClick={()=>{setValdMontage(m);setFlik('montage')}} style={{padding:'6px 12px',borderRadius:7,fontSize:12,fontWeight:600,cursor:'pointer',border:'none',background:'var(--c-amber)',color:'#fff'}}>Öppna</button>
+                  </div>
+                </div>
+              ))}
             </div>
-            )
-          })}
+          )}
+
+          {/* Övriga öppna ordrar (ej idag) */}
+          {(minaServiceordrar.length>0||minaMontageordrar.length>0)&&(dagenServiceordrar.length>0||dagenMontageordrar.length>0)&&(
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+              {minaServiceordrar.length>0&&<div onClick={()=>setFlik('service')} className="card" style={{cursor:'pointer',padding:14,textAlign:'center'}}><ClipboardList size={22} color="var(--c-blue)" style={{margin:'0 auto 4px',display:'block'}}/><div style={{fontSize:20,fontWeight:700}}>{minaServiceordrar.length}</div><div style={{fontSize:11,color:'var(--c-text2)'}}>Alla serviceordrar</div></div>}
+              {minaMontageordrar.length>0&&<div onClick={()=>setFlik('montage')} className="card" style={{cursor:'pointer',padding:14,textAlign:'center'}}><Wrench size={22} color="var(--c-amber)" style={{margin:'0 auto 4px',display:'block'}}/><div style={{fontSize:20,fontWeight:700}}>{minaMontageordrar.length}</div><div style={{fontSize:11,color:'var(--c-text2)'}}>Alla montageordrar</div></div>}
+            </div>
+          )}
+
+          {/* Bokningar */}
+          {dagensBokningar.length===0&&dagenServiceordrar.length===0&&dagenMontageordrar.length===0?(
+            <div className="card" style={{textAlign:'center',padding:'40px 20px'}}>
+              <Clock size={36} color="var(--c-text3)" style={{margin:'0 auto 12px',display:'block'}}/>
+              <div style={{fontSize:14,color:'var(--c-text2)'}}>Inga uppgifter idag</div>
+            </div>
+          ):dagensBokningar.length>0&&(
+            <>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                <Calendar size={13}/> Bokningar idag
+              </div>
+              {dagensBokningar.map((b,i)=>{
+                const typFlik = b.typ==='felanmalan'?'felanmalan':b.typ==='montering'||b.typ==='montage'?'montage':'service'
+                const typFarg = b.typ==='felanmalan'?'var(--c-red)':b.typ==='montering'||b.typ==='montage'?'var(--c-teal)':'var(--c-blue)'
+                return(
+                  <div key={i} className="card" onClick={()=>setFlik(typFlik)} style={{display:'flex',gap:14,alignItems:'center',padding:'14px 16px',marginBottom:8,cursor:'pointer',borderLeft:`4px solid ${typFarg}`}}>
+                    <div style={{background:typFarg,color:'#fff',borderRadius:10,padding:'8px 10px',fontSize:14,fontWeight:700,flexShrink:0,minWidth:52,textAlign:'center'}}>{b.tid||'–'}</div>
+                    <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{b.namn}</div>{b.kund&&<div style={{fontSize:13,color:'var(--c-text2)'}}>{b.kund}</div>}</div>
+                    <ChevronRight size={16} color="var(--c-text3)" style={{flexShrink:0}}/>
+                  </div>
+                )
+              })}
+            </>
+          )}
         </div>
       )
 
@@ -2141,6 +2228,134 @@ export default function TeknikerVy({
             initialObjektId={initialPortId}
             onInitialObjektHandled={()=>setInitialPortId(null)}
           />
+        )
+
+      case 'historik':
+        return(
+          <div>
+            <div style={{marginBottom:16}}>
+              <h1 style={{fontSize:22,fontWeight:700,margin:'0 0 4px'}}>Min historik</h1>
+              <p style={{color:'var(--c-text2)',fontSize:14,margin:0}}>{minaTotalt} avslutade uppdrag</p>
+            </div>
+
+            {/* Sammanfattningskort */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
+              <div className="card" style={{padding:14,textAlign:'center'}}>
+                <AlertCircle size={20} color="var(--c-blue)" style={{margin:'0 auto 4px',display:'block'}}/>
+                <div style={{fontSize:22,fontWeight:700}}>{minaKlara.length}</div>
+                <div style={{fontSize:11,color:'var(--c-text2)'}}>Felanm.</div>
+              </div>
+              <div className="card" style={{padding:14,textAlign:'center'}}>
+                <ClipboardList size={20} color="var(--c-teal)" style={{margin:'0 auto 4px',display:'block'}}/>
+                <div style={{fontSize:22,fontWeight:700}}>{minaAvslutadeService.length}</div>
+                <div style={{fontSize:11,color:'var(--c-text2)'}}>Service</div>
+              </div>
+              <div className="card" style={{padding:14,textAlign:'center'}}>
+                <Wrench size={20} color="var(--c-amber)" style={{margin:'0 auto 4px',display:'block'}}/>
+                <div style={{fontSize:22,fontWeight:700}}>{minaAvslutadeMontage.length}</div>
+                <div style={{fontSize:11,color:'var(--c-text2)'}}>Montage</div>
+              </div>
+            </div>
+
+            {/* Åtgärdade felanmälningar */}
+            {minaKlara.length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                  <AlertCircle size={13}/> Felanmälningar – åtgärdade
+                </div>
+                {minaKlara.map(a=>{
+                  const port=objekt.find(p=>p.id===a.objekt_id)
+                  return(
+                    <div key={a.id} className="card" style={{marginBottom:8,padding:'12px 14px',opacity:0.9}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,marginBottom:1}}>{a.rubrik||a.typ||'Felanmälan'}</div>
+                          <div style={{fontSize:12,color:'var(--c-text2)'}}>{port?`${port.fabrikat||''} ${port.typ||''}`.trim()||port.plats:'–'}</div>
+                          <div style={{fontSize:12,color:'var(--c-text3)',marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
+                            {a.datum&&<span>📅 {a.datum}</span>}
+                            {a.kund&&<span>🏢 {a.kund}</span>}
+                          </div>
+                        </div>
+                        <span className="badge badge-teal" style={{flexShrink:0}}>Åtgärdad</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Avslutade serviceordrar */}
+            {minaAvslutadeService.length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                  <ClipboardList size={13}/> Serviceordrar – avslutade
+                </div>
+                {minaAvslutadeService.map(o=>{
+                  const port=(o.objekt_ids||[]).map(id=>objekt.find(p=>p.id===id)).filter(Boolean)[0]
+                  return(
+                    <div key={o.id} className="card" style={{marginBottom:8,padding:'12px 14px',opacity:0.9}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,marginBottom:1}}>{o.kund||'–'}</div>
+                          <div style={{fontSize:12,color:'var(--c-text2)'}}>{o.felanmalan||o.beskrivning||'Serviceorder'}</div>
+                          <div style={{fontSize:12,color:'var(--c-text3)',marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
+                            {o.datum&&<span>📅 {o.datum}</span>}
+                            {port&&<span>🚪 {`${port.fabrikat||''} ${port.typ||''}`.trim()||port.plats||'–'}</span>}
+                          </div>
+                        </div>
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
+                          {o.rapport_data?.egenkontroll&&(
+                            <button onClick={async(e)=>{e.stopPropagation();const logo64=await hämtaLogoBase64();öppnaPrintFönster(pdfServiceRapport(o.rapport_data,logo64),`Servicerapport ${o.nr||''}`)}} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,fontSize:11,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+                              <Printer size={11}/> PDF
+                            </button>
+                          )}
+                          <span className="badge badge-teal">Avslutad</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Utförda montageordrar */}
+            {minaAvslutadeMontage.length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--c-text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                  <Wrench size={13}/> Montageordrar – utförda
+                </div>
+                {minaAvslutadeMontage.map(m=>(
+                  <div key={m.id} className="card" style={{marginBottom:8,padding:'12px 14px',opacity:0.9}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,marginBottom:1}}>{m.kund||'–'}</div>
+                        <div style={{fontSize:12,color:'var(--c-text2)'}}>{m.porttyp||m.portTyp||'–'} · {m.montageplats||m.adress||'–'}</div>
+                        <div style={{fontSize:12,color:'var(--c-text3)',marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
+                          {montDatum(m)&&<span>📅 {montDatum(m)}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
+                        {m.protokoll_data?.egenkontroll&&(
+                          <button onClick={async(e)=>{e.stopPropagation();const logo64=await hämtaLogoBase64();öppnaPrintFönster(pdfMontageProt(m.protokoll_data,logo64,{},riskpunkterAktiva),`Montageprotokoll ${m.nr||''}`)}} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,fontSize:11,fontWeight:600,cursor:'pointer',border:'1px solid var(--c-border)',background:'transparent',color:'var(--c-text2)'}}>
+                            <Printer size={11}/> PDF
+                          </button>
+                        )}
+                        <span className="badge badge-teal">Utförd</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {minaTotalt===0&&(
+              <div className="card" style={{textAlign:'center',padding:'40px 20px'}}>
+                <History size={40} color="var(--c-text3)" style={{margin:'0 auto 12px',display:'block'}}/>
+                <div style={{fontSize:15,fontWeight:500,color:'var(--c-text2)'}}>Inga avslutade uppdrag ännu</div>
+                <div style={{fontSize:13,color:'var(--c-text3)',marginTop:6}}>Dina avslutade felanmälningar, serviceordrar och montage visas här</div>
+              </div>
+            )}
+          </div>
         )
 
       case 'kalender':
